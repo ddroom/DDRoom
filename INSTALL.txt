@@ -1,0 +1,85 @@
+=================================================================================================
+
+--== Linux build ==--
+
+To build DDRoom under Linux, install all necessary libraries:
+Qt 5.5.0 or newer; zlib; jpeglib; libpng; libtiff; openjpeg 1.x.x; expat; libexiv2; lensfun.
+Run 'qmake' from the Qt 5.5 installation at folder with sources (where is 'ddroom.pro');
+then build with a command 'make install' - and result would be file 'ddroom'.
+
+=================================================================================================
+
+--== win32 build with MinGW ==--
+
+Mandatory external libraries to build with:
+
+Qt           (5.5.0): http://www.qt.io/download-open-source/
+zlib         (1.2.8): http://zlib.net/
+jpeglib         (9a): http://www.ijg.org/
+libpng      (1.6.17): http://www.libpng.org/pub/png/libpng.html
+libtiff (v4.0.4beta): http://www.remotesensing.org/libtiff/
+openjpeg     (1.5.0): http://www.openjpeg.org/
+expat        (2.1.0): http://sourceforge.net/projects/expat/
+libexiv2    (2-0.24): http://www.exiv2.org/
+lensfun      (0.3.1): http://lensfun.sourceforge.net/
+
+Description of build process with Qt 5.5.0 and MinGW. That looks like the easiest way to build DDRoom for windows
+    considering external libraries dependency;
+
+I Install tools (assuming install into "C:\" directory as default).
+I.1 Install Qt 5.5.0 and MinGW 4.9.2 (select component "MinGW 4.9.2" to install, which is unselected by default) with
+    file "qt-opensource-windows-x86-mingw492-5.5.0.exe" from "http://www.qt.io/download-open-source/";
+I.2 Download "MSYS" for "MinGW-w64" from sourceforge, with file "MSYS-20111123.zip", and link:
+http://sourceforge.net/projects/mingw-w64/files/External%20binary%20packages%20%28Win64%20hosted%29/MSYS%20%2832-bit%29/
+then copy archive content into folder with "MinGW-w64" of installed "Qt" ("C:\Qt\Qt5.5.0\Tools\mingw492_32\" folder) - there would be no conflicts;
+I.3 Install CMake: 
+      extract content of archive
+      "http://www.cmake.org/files/v3.2/cmake-3.2.2-win32-x86.zip" from this site:
+      "http://www.cmake.org/"
+      into this folder "C:\Qt\Qt5.5.0\Tools\mingw492_32\";
+      CMake can be also build from the sources;
+I.4 All further steps should be done from the "MSYS" console, which is accessible with "msys.bat" 
+    (from "C:\Qt\Qt5.5.0\Tools\mingw492_32\msys.bat");
+I.5 Add path for Qt tools to be accessible from mingw in any way:
+I.5.2 Add path "PATH=${PATH}:/c/Qt/Qt5.5.0/5.5/mingw492_32/bin" to windows environment variable "Path";
+I.5.1 Or run in MSYS console "PATH=${PATH}:/c/Qt/Qt5.5.0/5.5/mingw492_32/bin" each time after start of it;
+
+II. Build external libraries (descriptions below presume that you unarchive sources somewhere and all steps are done
+    from folder with library sources).
+II.1 zlib: "zlib128.zip":
+      change in file win32/Makefile.gcc string "SHARED_MODE=0" to "SHARED_MODE=1";
+      run `export INCLUDE_PATH=/local/include; export LIBRATY_PATH=/local/lib; export BINARY_PATH=/local/bin;
+           make -fwin32/Makefile.gcc; make install -fwin32/Makefile.gcc`
+II.2 libjpeg: "jpegsrc.v9a.tar.gz":
+      run `./configure --prefix=/local; make; make install`
+II.3 libpng: "libpng-1.6.17.tar.gz":
+      run `export CFLAGS="-I/local/include"; export CPPFLAGS="-I/local/include";
+           ./configure --prefix=/local; make; make install`
+II.4 libtiff: "tiff-4.0.4beta.tar.gz":
+      run `./configure --prefix=/local --with-zlib-include-dir=/local/include 
+           --with-zlib-lib-dir=/local/lib --with-jpeg-include-dir=/local/include --with-jpeg-lib-dir=/local/lib; 
+           make; make install`
+II.5 libopenjpeg: "openjpeg-1.5.0.tar.gz":
+      run `./configure --prefix=/local; make; make install`
+      below are comments to build newer version of library which is not supported with current version of program:
+#     in "openjpeg" directory:
+#     run `RC="windres" cmake -DCMAKE_INSTALL_PREFIX=/local -G "MSYS Makefiles" .; make; make install`
+II.6 libexpat: "expat-2.1.0.tar.gz":
+      run `./configure --prefix=/local; make; make install`
+II.7 libexiv2: "exiv2-0.24.tar.gz":
+      run `./configure --prefix=/local; make; make install`
+II.8 lensfun: "lensfun-0.3.1.tar.gz":
+      install necessary "glib2.0" prebuilded library into "C:\Qt\Qt5.5.0\Tools\mingw492_32\" folder:
+           http://www.gtk.org/download/win32.php - content of this archive "all-in-one bundle":
+           http://win32builder.gnome.org/gtk+-bundle_3.6.4-20130921_win32.zip
+      run `mkdir cmake_build; cd cmake_build;
+           RC="windres" cmake -DLENSFUN_INSTALL_PREFIX="/local" -D CMAKE_BUILD_TYPE=Release -DBUILD_TESTS=off
+           -DBUILD_STATIC=off -G "MSYS Makefiles" ../;
+           make; make install`
+
+III. Build ddroom (with "MSYS")
+III.1 open folder where 'ddroom.pro' is placed, run 'qmake', then build with command 'make -f Makefile.Release';
+III.2 run deployment script "win32_post.sh",
+    and in folter "./win32" would be all the files necessary to run DDRoom along with the program itself.
+
+=================================================================================================
