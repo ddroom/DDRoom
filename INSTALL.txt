@@ -41,14 +41,14 @@ I.3 Install CMake:
 I.4 All further steps should be done from the "MSYS" console, which is accessible with "msys.bat" 
     (from "C:\Qt\Qt5.5.0\Tools\mingw492_32\msys.bat");
 I.5 Add path for Qt tools to be accessible from mingw in any way:
-I.5.2 Add path "PATH=${PATH}:/c/Qt/Qt5.5.0/5.5/mingw492_32/bin" to windows environment variable "Path";
-I.5.1 Or run in MSYS console "PATH=${PATH}:/c/Qt/Qt5.5.0/5.5/mingw492_32/bin" each time after start of it;
+I.5.1 Add path ";c:\Qt\Qt5.5.0\5.5\mingw492_32\bin" to the end of the windows environment variable "Path";
+I.5.2 Or run in MSYS console "PATH=${PATH}:/c/Qt/Qt5.5.0/5.5/mingw492_32/bin" each time after start of it;
 
 II. Build external libraries (descriptions below presume that you unarchive sources somewhere and all steps are done
     from folder with library sources).
 II.1 zlib: "zlib128.zip":
       change in file win32/Makefile.gcc string "SHARED_MODE=0" to "SHARED_MODE=1";
-      run `export INCLUDE_PATH=/local/include; export LIBRATY_PATH=/local/lib; export BINARY_PATH=/local/bin;
+      run `export INCLUDE_PATH=/local/include; export LIBRARY_PATH=/local/lib; export BINARY_PATH=/local/bin;
            make -fwin32/Makefile.gcc; make install -fwin32/Makefile.gcc`
 II.2 libjpeg: "jpegsrc.v9a.tar.gz":
       run `./configure --prefix=/local; make; make install`
