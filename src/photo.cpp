@@ -57,9 +57,11 @@ string Photo_t::file_name_from_photo_id(string photo_id) {
 	string file_name = photo_id;
 	const char *ptr = photo_id.c_str();
 	int i = photo_id.length();
+	// search for separator ':', but be aware of possible combination like 'C:\...:...' on windows platforms
 	for(; i > 0 && ptr[i] != CHAR_PHOTO_VERSION_SEPARATOR; i--);
-	if(i > 0)
-		file_name.erase(i, photo_id.length());
+	if(i > 0 && i != photo_id.length())
+		if(ptr[i + 1] != '\\' && ptr[i + 1] != '/')
+			file_name.erase(i, photo_id.length());
 	return file_name;
 }
 
