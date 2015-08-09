@@ -1650,10 +1650,15 @@ cerr << "ERROR: receive_tile(): image->thumb_area stil not empty" << endl;
 		edit->update_thumbnail((void *)this, thumbnail);
 	} else {
 //		image->lock.lock();
-		// TODO: put tile at appropriate place here
-		image->tiles_areas[tile->index] = tile->area;
+		bool update = (tile->index >= 0 && tile->index < image->tiles_areas.size());
+		if(update)
+			image->tiles_areas[tile->index] = tile->area;
+		else // apparently request with this tile as result was discarded
+			if(tile->area != NULL)
+				delete tile->area;
 		image->lock.unlock();
-		emit update_image();
+		if(update)
+			emit update_image();
 	}
 }
 
