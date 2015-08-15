@@ -26,8 +26,8 @@ public:
 	Batch(class QWidget *window, class Process *process, class Edit *edit, class Browser *browser);
 	virtual ~Batch();
 	void fill_menu(class QMenu *menu);
-	void process_save_as(std::string file_name);
-	void process_batch(std::list<std::string> _list);
+	void process_save_as(Photo_ID photo_id);
+	void process_batch(std::list<Photo_ID> _list);
 
 	void do_pause(void);
 	void do_continue(void);
@@ -67,12 +67,12 @@ protected:
 	class Browser *browser;
 	class task_t {
 	public:
-		std::string fname_import;
+		Photo_ID photo_id;
 		std::string fname_export;
 		export_parameters_t ep;
 //		QSharedPointer<export_parameters_t> ep;
 	};
-	void process_export(std::list<std::string> _list);
+	void process_export(std::list<Photo_ID> _list);
 
 	std::string destination_dir;
 	void task_add(std::list<Batch::task_t> &tasks, bool ASAP = false);

@@ -112,7 +112,7 @@ Browser::Browser(void) {
 	//----------------------------------
 	// thumbnails list
 	photo_list = new PhotoList(QSize(_thumb_size * 1.5, _thumb_size));
-	connect(photo_list, SIGNAL(item_clicked(std::string, QString, QImage)), this, SLOT(slot_item_clicked(std::string, QString, QImage)));
+	connect(photo_list, SIGNAL(item_clicked(Photo_ID, QString, QImage)), this, SLOT(slot_item_clicked(Photo_ID, QString, QImage)));
 	connect(photo_list, SIGNAL(signal_selection_changed(int)), this, SLOT(slot_selection_changed(int)));
 	connect(photo_list, SIGNAL(signal_export(void)), this, SLOT(slot_export(void)));
 	active_item = NULL;
@@ -238,8 +238,8 @@ void Browser::slot_config_changed(void) {
 
 //------------------------------------------------------------------------------
 // selection
-std::list<std::string> Browser::selected_photos_list(void) {
-	std::list<string> _list = photo_list->get_selection_list();
+std::list<Photo_ID> Browser::selected_photos_list(void) {
+	std::list<Photo_ID> _list = photo_list->get_selection_list();
 	return _list;
 }
 
@@ -347,7 +347,7 @@ std::string Browser::get_current_folder(void) {
 	return _folder;
 }
 
-void Browser::slot_item_clicked(std::string photo_id, QString name, QImage icon) {
+void Browser::slot_item_clicked(Photo_ID photo_id, QString name, QImage icon) {
 //	if(image_is_loading)
 //		return;
 	// TODO: change behavior for item selection - by double-click, not by one click...
@@ -359,7 +359,7 @@ void Browser::slot_selection_clear(void) {
 	photo_list->clear_selection();
 }
 
-void Browser::photo_loaded(std::string photo_id, bool is_loaded) {
+void Browser::photo_loaded(Photo_ID photo_id, bool is_loaded) {
 	if(is_loaded == false)
 		photo_list->photo_close(photo_id, false);	// clear thumbnail cache
 //	image_is_loading = false;
@@ -370,12 +370,12 @@ void Browser::photo_loaded(std::string photo_id, bool is_loaded) {
 #endif
 }
 
-void Browser::slot_update_thumbnail(std::string photo_id, QImage thumbnail) {
+void Browser::slot_update_thumbnail(Photo_ID photo_id, QImage thumbnail) {
 //cerr << "slot_update_thumbnail for " << photo_id << endl;
 	photo_list->update_thumbnail(photo_id, thumbnail);
 }
 
-void Browser::photo_close(std::string photo_id, bool was_changed) {
+void Browser::photo_close(Photo_ID photo_id, bool was_changed) {
 //cerr << "photo_close for " << photo_id << endl;
 	photo_list->photo_close(photo_id, was_changed);
 }

@@ -231,7 +231,7 @@ PhotoList_Item_t *ThumbnailThread::load(thumbnail_record_t &target, const string
 	int rotation = 0;
 	QImage *thumb_image = Import::thumb(item->photo_id, &metadata, rotation, thumb_size.width(), thumb_size.height());
 	// check settings file
-	item->flag_edit = PhotoStorage::ps_stored(folder, item->name.toLocal8Bit().data());
+	item->flag_edit = PhotoStorage::ps_stored(folder, item->name.toLocal8Bit().constData());
 		
 	// tooltip with metadata
 	item->tooltip = metadata.get_tooltip(item->name);

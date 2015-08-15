@@ -139,7 +139,7 @@ bool Import::fill_metadata(std::string file_name, class Metadata *metadata) {
 	return exiv2_ok;
 }
 
-class QImage *Import::thumb(std::string photo_id, class Metadata *metadata, int &thumb_rotation, int thumb_width, int thumb_height) {
+class QImage *Import::thumb(Photo_ID photo_id, class Metadata *metadata, int &thumb_rotation, int thumb_width, int thumb_height) {
 	QImage *thumbnail = NULL;
 	// try to load thumbnail from .ddr
 	PS_Loader ps_loader(photo_id);
@@ -157,9 +157,8 @@ class QImage *Import::thumb(std::string photo_id, class Metadata *metadata, int 
 			thumb_rotation_defined = true;
 		}
 	}
-	string file_name = Photo_t::file_name_from_photo_id(photo_id);
 	// Exiv2 metadata is necessary for thumbnail
-	Import_Performer *performer = import_performer(file_name);
+	Import_Performer *performer = import_performer(photo_id.get_file_name());
 	if(performer != NULL) {
 //cerr << "thumb: " << file_name << endl;
 		QImage qi = performer->thumb(metadata, thumb_width, thumb_height);

@@ -16,8 +16,9 @@
 
 #include <QtWidgets>
 
-#include "window.h"
 #include "debug.h"
+#include "photo.h"
+#include "window.h"
 
 //------------------------------------------------------------------------------
 class FSTreeView : public QTreeView {
@@ -43,8 +44,8 @@ public:
 
 	void set_edit(class Edit *);
 
-	void photo_loaded(std::string, bool);
-	void photo_close(std::string, bool was_changed);
+	void photo_loaded(Photo_ID, bool);
+	void photo_close(Photo_ID, bool was_changed);
 	enum thumbnails_position {thumbnails_top, thumbnails_left, thumbnails_bottom, thumbnails_right};
 	static std::string thumbnails_position_to_string(Browser::thumbnails_position position);
 	static Browser::thumbnails_position thumbnails_position_from_string(std::string str);
@@ -56,9 +57,9 @@ public slots:
 	void folder_current(const QModelIndex &current, const QModelIndex &prev);
 	void folder_collapsed(const QModelIndex &index);
 	void folder_expanded(const QModelIndex &index);
-	void slot_update_thumbnail(std::string, QImage);
+	void slot_update_thumbnail(Photo_ID, QImage);
 
-	void slot_item_clicked(std::string, QString, QImage);
+	void slot_item_clicked(Photo_ID, QString, QImage);
 	void slot_selection_clear(void);
 
 	void slot_br_backward(void);
@@ -67,12 +68,12 @@ public slots:
 	void slot_export(void);
 
 signals:
-	void signal_load_photo(std::string, QString, QImage);
+	void signal_load_photo(Photo_ID, QString, QImage);
 	void signal_export(void);
 
 	// selection
 public:
-	std::list<std::string> selected_photos_list(void);
+	std::list<Photo_ID> selected_photos_list(void);
 signals:
 	void signal_selection_changed(int);	// number of selected (including active) thumbnails
 protected slots:

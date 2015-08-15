@@ -44,8 +44,7 @@ bool PS_Loader::is_empty(void) {
 	return _is_empty;
 }
 
-std::list<int> PS_Loader::versions_list(string base_name) {
-	string file_name = Photo_t::file_name_from_photo_id(base_name);
+std::list<int> PS_Loader::versions_list(std::string file_name) {
 	file_name += PS_SETTINGS_EXT;
 	std::list<int> v_list;
 
@@ -86,21 +85,21 @@ std::list<int> PS_Loader::versions_list(string base_name) {
 	return v_list;
 }
 
-PS_Loader::PS_Loader(string photo_id) {
+PS_Loader::PS_Loader(Photo_ID photo_id) {
 	cw_rotation = 0;
 	_cw_rotation_empty = true;
-	if(photo_id != "")
+	if(!photo_id.is_empty())
 		load(photo_id, true);
 }
 
-void PS_Loader::load(string photo_id, bool use_lock) {
-	string file_name = Photo_t::file_name_from_photo_id(photo_id);
+void PS_Loader::load(Photo_ID photo_id, bool use_lock) {
+	string file_name = photo_id.get_file_name();
 	string lock_name = file_name;
 	if(use_lock)
 		lock(lock_name);
 	//--
 	_is_empty = false;
-	int v_index = Photo_t::version_index_from_photo_id(photo_id);
+	int v_index = photo_id.get_version_index();
 	file_name += PS_SETTINGS_EXT;
 	QFile qifile(file_name.c_str());
 	if(qifile.open(QFile::ReadOnly | QFile::Text)) {
@@ -217,17 +216,17 @@ QMutex PS_Loader::ps_lock;
 QWaitCondition PS_Loader::ps_lock_wait;
 std::set<std::string> PS_Loader::ps_lock_set;
 
-void PS_Loader::lock(string base_name) {
+void PS_Loader::lock(std::string file_name) {
 	ps_lock.lock();
-//cerr << "  lock: " << base_name << endl;
-	while(ps_lock_set.find(base_name) != ps_lock_set.end())
+//cerr << "  lock: " << photo_id.get_export_file_name() << endl;
+	while(ps_lock_set.find(file_name) != ps_lock_set.end())
 		ps_lock_wait.wait(&ps_lock);
-	ps_lock_set.insert(base_name);
+	ps_lock_set.insert(file_name);
 }
 
-void PS_Loader::unlock(string base_name) {
-	ps_lock_set.erase(base_name);
-//cerr << "unlock: " << base_name << endl;
+void PS_Loader::unlock(std::string file_name) {
+	ps_lock_set.erase(file_name);
+//cerr << "unlock: " << photo_id.get_export_file_name << endl;
 //for(set<string>::iterator it = ps_lock_set.begin(); it != ps_lock_set.end(); it++)
 //cerr << "... " << *it << endl;
 	ps_lock.unlock();
@@ -235,25 +234,24 @@ void PS_Loader::unlock(string base_name) {
 //	ps_lock_wait.wakeAll();
 }
 
-void PS_Loader::version_create(string photo_id, PS_Loader *ps_loader) {
+void PS_Loader::version_create(Photo_ID photo_id, PS_Loader *ps_loader) {
 	// if photo is open in edit use current settings for a new version instead of saved ones
 	version_rearrange(photo_id, false, ps_loader);
-//	version_rearrange(photo_id, false);
 }
 
-void PS_Loader::version_remove(string photo_id) {
+void PS_Loader::version_remove(Photo_ID photo_id) {
 	version_rearrange(photo_id, true);
 }
 
-void PS_Loader::version_rearrange(string photo_id, bool remove_not_create, PS_Loader *ps_loader) {
-	string file_name = Photo_t::file_name_from_photo_id(photo_id);
+void PS_Loader::version_rearrange(Photo_ID photo_id, bool remove_not_create, PS_Loader *ps_loader) {
+	string file_name = photo_id.get_file_name();
 	lock(file_name);
-	int v_index = Photo_t::version_index_from_photo_id(photo_id);
+	int v_index = photo_id.get_version_index();
 	if(v_index < 1) v_index = 1;
 	// load all versions
 	map<int, PS_Loader *> _ps_map = versions_load(file_name, -1);
 	if(_ps_map.size() == 0)
-		_ps_map.insert(pair<int, PS_Loader *>(1, new PS_Loader("")));
+		_ps_map.insert(pair<int, PS_Loader *>(1, new PS_Loader()));
 	// copy versions and add 
 	map<int, PS_Loader *> ps_map;
 	PS_Loader *ps_base = _ps_map[v_index];
@@ -285,10 +283,10 @@ void PS_Loader::version_rearrange(string photo_id, bool remove_not_create, PS_Lo
 	unlock(file_name);
 }
 
-void PS_Loader::save(string photo_id) {
-	string file_name = Photo_t::file_name_from_photo_id(photo_id);
+void PS_Loader::save(Photo_ID photo_id) {
+	string file_name = photo_id.get_file_name();
 	lock(file_name);
-	int v_index = Photo_t::version_index_from_photo_id(photo_id);
+	int v_index = photo_id.get_version_index();
 	if(v_index < 1) v_index = 1;
 	// load all versions, if any, but this version
 	map<int, PS_Loader *> ps_map = versions_load(file_name, v_index);
@@ -310,11 +308,12 @@ map<int, PS_Loader *> PS_Loader::versions_load(string file_name, int index_to_sk
 	for(list<int>::iterator it = v_list.begin(); it != v_list.end(); it++) {
 		if(*it == index_to_skip)
 			continue;
-		QString v_index(QString("%1").arg(*it));
-		QString id = QString::fromLocal8Bit(file_name.c_str());
-		id = id + ":" + v_index;
-		PS_Loader *ps_loader = new PS_Loader("");
-		ps_loader->load(id.toLocal8Bit().constData(), false);
+//		QString v_index(QString("%1").arg(*it));
+//		QString id = QString::fromLocal8Bit(file_name.c_str());
+//		id = id + ":" + v_index;
+		PS_Loader *ps_loader = new PS_Loader();
+		ps_loader->load(Photo_ID(file_name, *it), false);
+//		ps_loader->load(id.toLocal8Bit().constData(), false);
 		ps_map[*it] = ps_loader;
 	}
 	return ps_map;

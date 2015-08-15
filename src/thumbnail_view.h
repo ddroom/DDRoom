@@ -18,6 +18,7 @@
 
 #include "window.h"
 #include "browser.h"
+#include "photo.h"
 
 #include "debug.h"
 
@@ -27,7 +28,7 @@ public:
 	PhotoList_Item_t(void);
 	~PhotoList_Item_t();
 
-	std::string photo_id;	// file name and version, like "/home/user/raw/IMG_0000.CR2:0"
+	Photo_ID photo_id;
 	std::string file_name;
 	QString name;	// name at the list
 	QString tooltip;
@@ -144,8 +145,8 @@ public:
 	void _test_activate_index(int);
 
 	void update_item(PhotoList_Item_t *item, int index, std::string folder_id);
-	void update_thumbnail(std::string photo_id, QImage thumbnail);
-	void photo_close(std::string photo_id, bool was_changed);
+	void update_thumbnail(Photo_ID photo_id, QImage thumbnail);
+	void photo_close(Photo_ID photo_id, bool was_changed);
 
 	QMutex items_lock;			// to prevent delete item until icon update, and change items till redraw; access from PhotoList_Delegate
 
@@ -160,7 +161,8 @@ private:
 
 	// used to store thumbnails of photos opened in View, even if it's not exist
 	// as item in thumb_view for now;
-	std::map<std::string, class thumbnail_desc_t> thumbnails_cache;
+//	std::map<std::string, class thumbnail_desc_t> thumbnails_cache;
+	std::map<Photo_ID, class thumbnail_desc_t> thumbnails_cache;
 //	QVector<class PhotoList_Item_t> items;
 	QList<class PhotoList_Item_t> items;
 
@@ -196,9 +198,9 @@ public slots:
 	void slot_item_clicked(const QModelIndex &index);
 
 signals:
-	void item_clicked(std::string, QString, QImage);
+	void item_clicked(Photo_ID, QString, QImage);
 	void signal_export(void);
-	void signal_update_opened_photo_ids(QStringList);
+	void signal_update_opened_photo_ids(QList<Photo_ID>);
 
 	// context menu: versions, 'save as' ...
 public:
@@ -217,7 +219,7 @@ protected slots:
 
 	// selection
 public:
-	std::list<std::string> get_selection_list(void);
+	std::list<Photo_ID> get_selection_list(void);
 	void clear_selection(void);
 signals:
 	void signal_selection_changed(int);

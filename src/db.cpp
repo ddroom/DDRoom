@@ -43,7 +43,7 @@ DB_lens_links::DB_lens_links(void) {
 std::string DB_lens_links::get_file_name(void) {
 	QString file = Config::get_data_location();
 	file += "lens-exiv2_to_lensfun.xml";
-	return file.toLocal8Bit().data();
+	return file.toLocal8Bit().constData();
 }
 
 std::map<std::string, DB_lens_links_record_t> DB_lens_links::db_load(std::string file_name) {
@@ -65,12 +65,12 @@ std::map<std::string, DB_lens_links_record_t> DB_lens_links::db_load(std::string
 				if(reader.name() == "link")
 					break;
 				if(reader.name() != "" && reader.isStartElement()) {
-					m_key = reader.name().toLocal8Bit().data();
+					m_key = reader.name().toLocal8Bit().constData();
 					flag = true;
 					continue;
 				}
 				if(flag) {
-					_map[m_key] = reader.text().toLocal8Bit().data();
+					_map[m_key] = reader.text().toLocal8Bit().constData();
 					flag = false;
 				}
 			}
@@ -242,7 +242,7 @@ Lens_Links_browse_dialog::Lens_Links_browse_dialog(std::map<std::string, DB_lens
 void Lens_Links_browse_dialog::slot_item_clicked(const QModelIndex &_index) {
 	QModelIndex index = _index.child(_index.row(), 0);
 //	QString footprint = tv_model->data(index).toString();
-//	std::string str_footprint = footprint.toLocal8Bit().data();
+//	std::string str_footprint = footprint.toLocal8Bit().constData();
 //	bool OK = DB_lens_links::instance()->UI_edit_lens_link(str_footprint);
 //	DB_lens_links::instance()->UI_edit_lens_link(str_footprint);
 /*
@@ -623,7 +623,7 @@ void Lens_Link_edit_dialog::slot_item_selected(const QModelIndex &index, const Q
 	lf_free(cameras);
 	lf_free(lenses);
 	// update UI
-//cerr << "for lens \"" << lenses_names[lens_index].toLatin1().data() << "\" vignetting: " << feature_vignetting << "; CA: " << feature_CA << "; distortion: " << feature_distortion << endl;
+//cerr << "for lens \"" << lenses_names[lens_index].toLatin1().constData() << "\" vignetting: " << feature_vignetting << "; CA: " << feature_CA << "; distortion: " << feature_distortion << endl;
 	cb_feature_vignetting->setChecked(feature_vignetting);
 	cb_feature_CA->setChecked(feature_CA);
 	cb_feature_distortion->setChecked(feature_distortion);

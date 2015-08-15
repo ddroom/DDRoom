@@ -53,46 +53,61 @@ cerr << "delete cache_process" << endl;
 //cerr << "_____________________________________________________________________________________________________________________________ Photo::~Photo() - destructor for " << (unsigned long)this << endl;
 }
 
-string Photo_t::file_name_from_photo_id(string photo_id) {
-	string file_name = photo_id;
-	const char *ptr = photo_id.c_str();
-	int i = photo_id.length();
-	// search for separator ':', but be aware of possible combination like 'C:\...:...' on windows platforms
-	for(; i > 0 && ptr[i] != CHAR_PHOTO_VERSION_SEPARATOR; i--);
-	if(i > 0 && i != photo_id.length())
-		if(ptr[i + 1] != '\\' && ptr[i + 1] != '/')
-			file_name.erase(i, photo_id.length());
-	return file_name;
-}
-
-int Photo_t::version_index_from_photo_id(string photo_id) {
-	int index = 0;
-	const char *ptr = photo_id.c_str();
-	int i = photo_id.length();
-	for(; i > 0 && ptr[i] != CHAR_PHOTO_VERSION_SEPARATOR; i--);
-	if(i > 0) {
-		QString str(&ptr[i + 1]);
-		index = str.toInt();
-	}
-	if(index < 1)	index = 1;
-	return index;
-}
-
-std::string Photo_t::get_photo_id(std::string file_name, int index) {
-	QString v_index(QString("%1").arg(index));
-	QString photo_id = QString::fromLocal8Bit(file_name.c_str());
-	photo_id = photo_id + CHAR_PHOTO_VERSION_SEPARATOR + v_index;
-	return photo_id.toLocal8Bit().constData();
-}
-
-QString Photo_t::photo_name_with_versions(QString _name, int v_index, int v_count) {
+QString Photo_t::photo_name_with_versions(Photo_ID _photo_id, int v_count) {
+	QString _name = QString::fromLocal8Bit(_photo_id.get_file_name().c_str());
 	if(v_count <= 1)
 		return _name;
+	int v_index = _photo_id.get_version_index();
 	if(v_index <= 0 || v_index > v_count)
 		return _name;
 	QFileInfo fi(_name);
 	QString rez = QString(" (%1/%2)").arg(v_index).arg(v_count);
 	return fi.fileName() + rez;
+}
+
+//------------------------------------------------------------------------------
+Photo_ID::Photo_ID(void) {
+	_version = 0;
+	_file_name = "";
+}
+
+Photo_ID::Photo_ID(std::string file_name, int version) {
+	_version = version;
+	_file_name = file_name;
+}
+
+std::string Photo_ID::get_file_name(void) {
+	return _file_name;
+}
+
+int Photo_ID::get_version_index(void) {
+	return _version;
+}
+
+std::string Photo_ID::get_export_file_name(void) {
+	if(_version == 0)
+		return _file_name;
+	QString fn = QString::fromLocal8Bit(_file_name.c_str());
+	QString t = QString("-ver%1").arg(_version);
+	return (fn + t).toLocal8Bit().constData();
+}
+
+bool Photo_ID::operator == (const Photo_ID &other) const {
+	return (_file_name == other._file_name) && (_version == other._version);
+}
+
+bool Photo_ID::operator != (const Photo_ID &other) const {
+	return (_file_name != other._file_name) || (_version != other._version);
+}
+
+bool Photo_ID::operator < (const Photo_ID &other) const {
+	if(_file_name != other._file_name)
+		return (_file_name < other._file_name);
+	return (_version < other._version);
+}
+
+bool Photo_ID::is_empty(void) {
+	return (_file_name == "");
 }
 
 //------------------------------------------------------------------------------

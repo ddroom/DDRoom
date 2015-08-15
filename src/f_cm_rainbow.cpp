@@ -113,8 +113,8 @@ bool PS_CM_Rainbow::load(DataSet *dataset) {
 	for(int i = 0; i < 12; i++) {
 		QString str_enabled = QString("color_%1_enabled").arg(i);
 		QString str_saturation = QString("color_%1_saturation").arg(i);
-		dataset->get(str_enabled.toLatin1().data(), color_enabled[i]);
-		dataset->get(str_saturation.toLatin1().data(), color_saturation[i]);
+		dataset->get(str_enabled.toLatin1().constData(), color_enabled[i]);
+		dataset->get(str_saturation.toLatin1().constData(), color_saturation[i]);
 	}
 	return true;
 }
@@ -124,8 +124,8 @@ bool PS_CM_Rainbow::save(DataSet *dataset) {
 	for(int i = 0; i < 12; i++) {
 		QString str_enabled = QString("color_%1_enabled").arg(i);
 		QString str_saturation = QString("color_%1_saturation").arg(i);
-		dataset->set(str_enabled.toLatin1().data(), color_enabled[i]);
-		dataset->set(str_saturation.toLatin1().data(), color_saturation[i]);
+		dataset->set(str_enabled.toLatin1().constData(), color_enabled[i]);
+		dataset->set(str_saturation.toLatin1().constData(), color_saturation[i]);
 	}
 	return true;
 }

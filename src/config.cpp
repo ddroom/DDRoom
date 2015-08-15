@@ -99,7 +99,7 @@ string Config::config_file_location(void) {
 //	QString folder_config = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation);
 //	QString file_name = folder_config + QDir::separator() + get_application_name() + ".conf";
 	QString file_name = get_config_location() + QDir::separator() + get_application_name() + ".conf";
-	std::string fname = file_name.toLocal8Bit().data();
+	std::string fname = file_name.toLocal8Bit().constData();
 //	cerr << "config file: \"" << fname.c_str() << "\"" << endl;
 	return fname;
 }

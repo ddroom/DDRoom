@@ -39,7 +39,7 @@ public:
 	// map<...> - processing settings for filters
 //	void process_online(void *ptr, QSharedPointer<class Photo_t>, int request_ID, bool is_inactive, class TilesReceiver *, class std::map<class Filter *, ddr_shared_ptr<PS_Base> >);
 	void process_online(void *ptr, QSharedPointer<class Photo_t>, int request_ID, bool is_inactive, class TilesReceiver *, class std::map<class Filter *, QSharedPointer<PS_Base> >);
-	void process_export(std::string fname, std::string fname_export, class export_parameters_t *ep);
+	void process_export(Photo_ID photo_id, std::string fname_export, class export_parameters_t *ep);
 
 	static void quit(void);
 

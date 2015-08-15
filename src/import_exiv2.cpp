@@ -224,7 +224,7 @@ bool Exiv2_load_metadata_image(Exiv2::Image::AutoPtr &image, class Metadata *met
 		}
 		int pos = QString::fromLatin1(metadata->exiv2_lens_footprint.c_str()).indexOf(maker_low, 0, Qt::CaseInsensitive);
 		if(pos != 0 && pos != 1) {
-			metadata->exiv2_lens_footprint = std::string(maker_low.toLatin1().data()) + ":" + metadata->exiv2_lens_footprint;
+			metadata->exiv2_lens_footprint = std::string(maker_low.toLatin1().constData()) + ":" + metadata->exiv2_lens_footprint;
 		} else {
 			const char *s_ptr = metadata->exiv2_lens_footprint.c_str();
 			if(s_ptr[0] == ' ') {

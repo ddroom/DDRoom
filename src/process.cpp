@@ -388,10 +388,10 @@ void Process::process_online(void *ptr, QSharedPointer<Photo_t> photo, int reque
 	if(photo->process_source == ProcessSource::s_load) {
 		photo->metadata = new Metadata;
 		// TODO: move to the one place
-		photo->area_raw = Import::image(Photo_t::file_name_from_photo_id(photo->photo_id), photo->metadata);
+		photo->area_raw = Import::image(photo->photo_id.get_file_name(), photo->metadata);
 //cerr << "photo->area_raw == " << (unsigned long)photo->area_raw << endl;
 		if(photo->area_raw == NULL) {
-cerr << "decline processing task, failed to import \"" << photo->photo_id << "\"" << endl;
+cerr << "decline processing task, failed to import \"" << photo->photo_id.get_export_file_name() << "\"" << endl;
 			emit signal_process_complete(ptr, photo_processed);
 			return;
 		}
@@ -447,8 +447,8 @@ cerr << "decline processing task, failed to import \"" << photo->photo_id << "\"
 }
 
 //------------------------------------------------------------------------------
-void Process::process_export(string photo_id, string fname_export, export_parameters_t *ep) {
-	if(photo_id == "")
+void Process::process_export(Photo_ID photo_id, string fname_export, export_parameters_t *ep) {
+	if(photo_id.is_empty())
 		return;
 //cerr << "process_export() on " << photo_id << endl;
 	Process::task_run_t task;
@@ -471,7 +471,7 @@ void Process::process_export(string photo_id, string fname_export, export_parame
 	}
 	task.tiles_receiver->set_request_ID(task.request_ID);
 
-Profiler prof(string("Batch for ") + photo_id);
+Profiler prof(string("Batch for ") + photo_id.get_export_file_name());
 prof.mark("load RAW");
 
 	Photo_t *photo_ptr = new Photo_t();
@@ -480,7 +480,7 @@ prof.mark("load RAW");
 	photo->process_source = ProcessSource::s_process_export;
 	photo->metadata = new Metadata;
 	photo->photo_id = photo_id;
-	photo->area_raw = Import::image(Photo_t::file_name_from_photo_id(photo->photo_id), photo->metadata);
+	photo->area_raw = Import::image(photo->photo_id.get_file_name(), photo->metadata);
 	if(photo->area_raw == NULL) {
 		delete task.tiles_receiver;
 		return;

@@ -19,6 +19,7 @@
 #include "ddr_math.h"
 #include "system.h"
 #include "window.h"
+#include "photo.h"
 
 #include <exiv2/xmp.hpp>
 #include <exiv2/error.hpp>
@@ -45,10 +46,11 @@ void init_libraries(void) {
 int main(int argc, char *argv[]) {
 	try {
 		QApplication *application = new QApplication(argc, argv);
-//		qRegisterMetaType<Area>("Area");
 		qRegisterMetaType<std::string>("std::string");
 		qRegisterMetaType<QVector<long> >("QVector<long>");
 		qRegisterMetaType<QVector<double> >("QVector<double>");
+		qRegisterMetaType<Photo_ID>("Photo_ID");
+		qRegisterMetaType<QList<Photo_ID> >("QList<Photo_ID>");
 
 #if defined(Q_OS_MAC) || defined(Q_OS_WIN)
 		{ // patch for plugins

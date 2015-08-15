@@ -21,6 +21,24 @@
 #define CHAR_PHOTO_VERSION_SEPARATOR	':'
 
 //------------------------------------------------------------------------------
+class Photo_ID {
+public:
+	Photo_ID();
+	Photo_ID(std::string file_name, int version);
+	std::string get_file_name(void);
+	int get_version_index(void);
+	std::string get_export_file_name(void);
+	bool operator == (const Photo_ID &other) const;
+	bool operator != (const Photo_ID &other) const;
+	bool operator < (const Photo_ID &other) const;
+	bool is_empty(void);
+
+protected:
+	std::string _file_name;
+	int _version;
+};
+
+//------------------------------------------------------------------------------
 // interface for caches that are stored in photo
 class PhotoCache_t {
 public:
@@ -34,14 +52,11 @@ public:
 	~Photo_t(void);
 
 	QString name;
-	std::string photo_id;	// full file name, ':', version id; like "IMG_1234.CR2:1" etc
+	Photo_ID photo_id;	// full file name, ':', version id; like "IMG_1234.CR2:1" etc
 	std::string ps_state;	// at the 'open' moment
 	QMutex ids_lock;
 
-	static std::string file_name_from_photo_id(std::string photo_id);
-	static int version_index_from_photo_id(std::string photo_id);
-	static std::string get_photo_id(std::string file_name, int index);
-	static QString photo_name_with_versions(QString photo_name, int version_index, int versions_count);
+	static QString photo_name_with_versions(Photo_ID photo_id, int versions_count);
 
 	// TODO: add lock for concurrent access
 	//----

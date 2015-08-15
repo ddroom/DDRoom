@@ -287,7 +287,7 @@ Edit::~Edit() {
 	//--
 	for(int i = 0; i < sessions.size(); i++) {
 		if(!sessions[i]->photo.isNull()) {
-cerr << "close photo " << sessions[i]->photo->photo_id.c_str() << endl;
+cerr << "close photo " << sessions[i]->photo->photo_id.get_export_file_name() << endl;
 			photo_close(i);
 		}
 		delete sessions[i];
@@ -462,7 +462,7 @@ void Edit::slot_process_complete(void *ptr, PhotoProcessed_t *photo_processed) {
 		session->is_loading = false;
 		return;
 	}
-	std::string photo_id = session->photo->photo_id;
+	Photo_ID photo_id = session->photo->photo_id;
 	bool is_loaded = true;
 	if(photo_processed->is_empty == false) {
 		slot_controls_enable(true);
@@ -528,8 +528,8 @@ void Edit::set_session_active(int index) {
 	emit signal_active_photo_changed();
 }
 
-string Edit::active_photo(void) {
-	string photo_id = "";
+Photo_ID Edit::active_photo(void) {
+	Photo_ID photo_id;
 	if(sessions.size() != 0 && session_active >= 0) {
 		QSharedPointer<Photo_t> photo = sessions[session_active]->photo;
 		if(!photo.isNull())
@@ -539,7 +539,7 @@ string Edit::active_photo(void) {
 }
 
 //------------------------------------------------------------------------------
-bool Edit::version_is_open(string photo_id) {
+bool Edit::version_is_open(Photo_ID photo_id) {
 	for(int i = 0; i < sessions.size(); i++) {
 		if(sessions[i] != NULL)
 			if(!sessions[i]->photo.isNull())
@@ -549,7 +549,7 @@ bool Edit::version_is_open(string photo_id) {
 	return false;
 }
 
-PS_Loader *Edit::version_get_current_ps_loader(string photo_id) {
+PS_Loader *Edit::version_get_current_ps_loader(Photo_ID photo_id) {
 	QSharedPointer<Photo_t> photo = sessions[session_active]->photo;
 	if(photo.isNull())
 		return NULL;
@@ -661,22 +661,20 @@ void Edit::filters_control_clear(void) {
 }
 
 //------------------------------------------------------------------------------
-void Edit::slot_update_opened_photo_ids(QStringList string_list) {
-	int c = string_list.size() / 2;
+void Edit::slot_update_opened_photo_ids(QList<Photo_ID> ids_list) {
+	int c = ids_list.size() / 2;
 	for(int i = 0; i < c; i++) {
-		std::string s_before = string_list.at(i * 2 + 0).toLocal8Bit().constData();
-		std::string s_after = string_list.at(i * 2 + 1).toLocal8Bit().constData();
-cerr << "s_before == " << s_before << endl;
-cerr << " s_after == " << s_after << endl;
+		Photo_ID id_before = ids_list.at(i * 2 + 0);
+		Photo_ID id_after = ids_list.at(i * 2 + 1);
+cerr << "id_before == " << id_before.get_export_file_name() << endl;
+cerr << " id_after == " << id_after.get_export_file_name() << endl;
 		for(int j = 0; j < 4; j++) {
 			if(!sessions[j]->photo.isNull()) {
-				if(sessions[j]->photo->photo_id == s_before) {
-					std::list<int> v_list = PS_Loader::versions_list(s_after);
-					int v_index = Photo_t::version_index_from_photo_id(s_after);
+				if(sessions[j]->photo->photo_id == id_before) {
+					std::list<int> v_list = PS_Loader::versions_list(id_after.get_file_name());
 					sessions[j]->photo->ids_lock.lock();
-					sessions[j]->photo->photo_id = s_after;
-					QString photo_name = QString::fromLocal8Bit(Photo_t::file_name_from_photo_id(s_after).c_str());
-					sessions[j]->photo->name = Photo_t::photo_name_with_versions(photo_name, v_index, v_list.size());
+					sessions[j]->photo->photo_id = id_after;
+					sessions[j]->photo->name = Photo_t::photo_name_with_versions(id_after, v_list.size());
 					sessions[j]->photo->ids_lock.unlock();
 					sessions[j]->view->update_photo_name();
 				}
@@ -690,18 +688,19 @@ cerr << " s_after == " << s_after << endl;
 // source of a:
 //	- new Photo_t object on open
 //	- destruction of exist Photo_t when photo should be closed
-void Edit::slot_load_photo(string photo_id, QString photo_name, QImage thumbnail_icon) {
+void Edit::slot_load_photo(Photo_ID photo_id, QString photo_name, QImage thumbnail_icon) {
 	if(sessions[session_active]->is_loading)
 		return;
 	View *view = sessions[session_active]->view;
-cerr << "----Edit::slot_load_photo( \"" << photo_id << "\", ...)" << endl;
+cerr << "----Edit::slot_load_photo( \"" << photo_id.get_export_file_name() << "\", ...)" << endl;
 	// start loading clock at view
 //	v->photo_loading(photo_name, thumbnail_icon);
 	photo_close(session_active);
 	sessions[session_active]->is_loading = true;
 	// block image change and reset settings
 	filters_control_clear();
-	if(photo_id == "")
+//	if(photo_id == "")
+	if(photo_id.is_empty())
 		return;
 	// load settings
 //	Photo_t *photo_ptr = new Photo_t;
@@ -713,12 +712,9 @@ cerr << "----Edit::slot_load_photo( \"" << photo_id << "\", ...)" << endl;
 	}
 	sessions[session_active]->photo = photo;
 	// actually locking can be skipped in here
-	std::list<int> v_list = PS_Loader::versions_list(photo_id);
-	int v_index = Photo_t::version_index_from_photo_id(photo_id);
-//	QString _name = QString::fromLocal8Bit(Photo_t::file_name_from_photo_id(photo_id).c_str());
+	std::list<int> v_list = PS_Loader::versions_list(photo_id.get_file_name());
 	photo->ids_lock.lock();
-	photo->name = Photo_t::photo_name_with_versions(photo_name, v_index, v_list.size());
-//	photo->name = photo_name;
+	photo->name = Photo_t::photo_name_with_versions(photo_id, v_list.size());
 	photo->photo_id = photo_id;
 	photo->ids_lock.unlock();
 
@@ -727,7 +723,7 @@ cerr << "----Edit::slot_load_photo( \"" << photo_id << "\", ...)" << endl;
 	// width/height - for CA scaling UI;
 	// but unable to gather it from files w/o exif info, like JPEG/PNG etc...
 	Metadata *metadata = new Metadata;
-	std::string file_name = Photo_t::file_name_from_photo_id(photo_id);
+	std::string file_name = photo_id.get_file_name();
 //	bool ok = Import::load_metadata(file_name, metadata);
 	Import::load_metadata(file_name, metadata);
 //	Import::load_metadata(file_name, metadata);
@@ -762,7 +758,7 @@ void Edit::photo_open(EditSession_t *session, Metadata *metadata) {
 	if(photo.isNull())
 		return;
 //cerr << endl;
-cerr << "===============>>>>  open photo: name == \"" << photo->name.toLocal8Bit().data() << "\"; photo id == \"" << photo->photo_id << "\"" << endl;
+cerr << "===============>>>>  open photo: name == \"" << photo->name.toLocal8Bit().constData() << "\"; photo id == \"" << photo->photo_id.get_export_file_name() << "\"" << endl;
 //cerr << endl;
 	photo->process_source = ProcessSource::s_load;
 
@@ -828,9 +824,9 @@ void Edit::photo_close(int session_id) {
 	QSharedPointer<Photo_t> photo = sessions[session_id]->photo;
 	if(photo.isNull())
 		return;
-	if(photo->photo_id == "")
+	if(photo->photo_id.is_empty())
 		return;
-cerr << endl << "===============>>>> close photo: " << photo->photo_id << endl << endl;
+cerr << endl << "===============>>>> close photo: " << photo->photo_id.get_export_file_name() << endl << endl;
 	if(flag_reset) {
 		edit_history->set_current_photo(QSharedPointer<Photo_t>());
 		// leave filter edit if any

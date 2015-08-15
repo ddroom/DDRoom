@@ -15,13 +15,15 @@
 #include <QList>
 #include <QString>
 
+#include "photo.h"
+
 //------------------------------------------------------------------------------
 class Import {
 public:
 	static QList<QString> extensions(void);
 	// fill Metadata and return incapsulated thumbnail if any. TODO: think how to generate thumb if missing;
 	//	- probably using 'void *load_thumb()' and 'Area *generate_thumb()'
-	static class QImage *thumb(std::string photo_id, class Metadata *metadata, int &thumb_rotation, int thumb_width, int thumb_height);
+	static class QImage *thumb(Photo_ID photo_id, class Metadata *metadata, int &thumb_rotation, int thumb_width, int thumb_height);
 	// fill Metadata and return decoded image
 	static class Area *image(std::string file_name, class Metadata *metadata);
 	static bool load_metadata(std::string file_name, class Metadata *metadata);

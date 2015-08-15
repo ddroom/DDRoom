@@ -18,6 +18,7 @@
 #include <QImage>
 
 #include "dataset.h"
+#include "photo.h"
 
 //------------------------------------------------------------------------------
 class PhotoStorage {
@@ -29,9 +30,9 @@ public:
 // Photo Settings (PS) load/save
 class PS_Loader {
 public:
-	PS_Loader(std::string photo_id = "");
+	PS_Loader(Photo_ID photo_id = Photo_ID());
 	~PS_Loader();
-	void save(std::string photo_id);
+	void save(Photo_ID photo_id);
 
 	class DataSet *get_dataset(const std::string &);
 	void set_dataset(const std::string &, const class DataSet &);
@@ -46,10 +47,10 @@ public:
 	int get_cw_rotation(void);
 	bool cw_rotation_empty(void);
 
-	static std::list<int> versions_list(std::string photo_id);	// file name is acceptable too
+	static std::list<int> versions_list(std::string file_name);
 
-	static void version_create(std::string photo_id, class PS_Loader *ps_loader = NULL);
-	static void version_remove(std::string photo_id);
+	static void version_create(Photo_ID photo_id, class PS_Loader *ps_loader = NULL);
+	static void version_remove(Photo_ID photo_id);
 
 protected:
 	std::map<std::string, class DataSet> dataset_map;
@@ -59,15 +60,15 @@ protected:
 	int cw_rotation;
 	bool _cw_rotation_empty;
 
-	void load(std::string photo_id, bool use_lock);
+	void load(Photo_ID photo_id, bool use_lock);
 	void save(QXmlStreamWriter &xml, int v_index);
 
-	static void lock(std::string photo_id);
-	static void unlock(std::string photo_id);
+	static void lock(std::string file_name);
+	static void unlock(std::string file_name);
 	static QMutex ps_lock;
 	static QWaitCondition ps_lock_wait;
 	static std::set<std::string> ps_lock_set;
-	static void version_rearrange(std::string photo_id, bool remove_not_create, class PS_Loader *ps_loader = NULL);
+	static void version_rearrange(Photo_ID photo_id, bool remove_not_create, class PS_Loader *ps_loader = NULL);
 
 	static std::map<int, PS_Loader *> versions_load(std::string file_name, int index_to_skip);
 	static void versions_save(std::string file_name, std::map<int, PS_Loader *> &ps_map);

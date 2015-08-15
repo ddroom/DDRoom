@@ -447,7 +447,7 @@ void PhotoList_View::selectionChanged(const QItemSelection &selected, const QIte
 class thumbnail_desc_t {
 public:
 	thumbnail_desc_t(void);
-	string photo_id;	// ID used with Photo_t, as ID of thumbnail at all
+	Photo_ID photo_id;
 	string folder_id;	// for PhotoList, is current folder contain photo, or not? Can be used later for more complicated selection at view, not just simple photo-folder model
 	int index;			// cached index of photo in 'items' vector
 	QImage image;		// thumbnail of image processed by Process
@@ -514,10 +514,10 @@ PhotoList::~PhotoList() {
 
 void PhotoList::set_edit(Edit *_edit) {
 	if(edit != NULL)
-		disconnect(this, SIGNAL(signal_update_opened_photo_ids(QStringList)), edit, SLOT(slot_update_opened_photo_ids(QStringList)));
+		disconnect(this, SIGNAL(signal_update_opened_photo_ids(QList<Photo_ID>)), edit, SLOT(slot_update_opened_photo_ids(QList<Photo_ID>)));
 	edit = _edit;
 	if(edit != NULL)
-		connect(this, SIGNAL(signal_update_opened_photo_ids(QStringList)), edit, SLOT(slot_update_opened_photo_ids(QStringList)));
+		connect(this, SIGNAL(signal_update_opened_photo_ids(QList<Photo_ID>)), edit, SLOT(slot_update_opened_photo_ids(QList<Photo_ID>)));
 }
 
 void PhotoList::update_template_images(void) {
@@ -695,11 +695,6 @@ void PhotoList::set_folder_f(void) {
 					if(v_list.size() == 0)
 						v_list.push_back(1);
 					for(std::list<int>::iterator it = v_list.begin(); it != v_list.end(); it++) {
-						QString v_index(QString("%1").arg(*it));
-						QString photo_id = QString::fromLocal8Bit(file_name.c_str());
-						photo_id = photo_id + CHAR_PHOTO_VERSION_SEPARATOR + v_index;
-//						items.append(PhotoList_Item_t());
-//						PhotoList_Item_t &item = items[index];
 						PhotoList_Item_t item;
 						// create QIcon from the QPixmap - from the preview small pics at RAW file
 //cerr << "file: " << name.c_str() << endl;
@@ -707,8 +702,7 @@ void PhotoList::set_folder_f(void) {
 						// should be read from .ddr photo settings, or file name if none
 						item.name = QString::fromLocal8Bit(name.c_str());
 						item.file_name = file_name;
-//						item.photo_id = file_name;	// full file name + version
-						item.photo_id = photo_id.toLocal8Bit().constData();	// full file name + version
+						item.photo_id = Photo_ID(file_name, *it);
 						item.flag_edit = false;
 						item.image = image_thumb_wait;
 						item.version_index = *it;
@@ -793,7 +787,7 @@ void PhotoList::update_item(PhotoList_Item_t *item, int index, std::string folde
 		items[index].is_loaded = true;
 //		delete item;
 		// check thumbnail image from thumbnails cache
-		for(std::map<std::string, class thumbnail_desc_t>::iterator it = thumbnails_cache.begin(); it != thumbnails_cache.end(); it++) {
+		for(std::map<Photo_ID, class thumbnail_desc_t>::iterator it = thumbnails_cache.begin(); it != thumbnails_cache.end(); it++) {
 			if((*it).first == items[index].photo_id) {
 				items[index].image = (*it).second.image;
 				break;
@@ -815,10 +809,10 @@ void PhotoList::slot_item_refresh(int index) {
 	}
 }
 
-void PhotoList::update_thumbnail(std::string photo_id, QImage thumbnail) {
+void PhotoList::update_thumbnail(Photo_ID photo_id, QImage thumbnail) {
 //cerr << "PhotoList::update_thumbnail(\"" << photo_id << "\", ...)" << endl;
 	items_lock.lock();
-	std::map<std::string, class thumbnail_desc_t>::iterator it;
+	std::map<Photo_ID, class thumbnail_desc_t>::iterator it;
 //	for(it = thumbnails_cache.begin(); it != thumbnails_cache.end(); it++)
 //		cerr << "in the cache: \"" << (*it).second.photo_id
 	it = thumbnails_cache.find(photo_id);
@@ -850,10 +844,10 @@ void PhotoList::update_thumbnail(std::string photo_id, QImage thumbnail) {
 		emit signal_item_refresh(index);
 }
 
-void PhotoList::photo_close(std::string photo_id, bool was_changed) {
+void PhotoList::photo_close(Photo_ID photo_id, bool was_changed) {
 	bool update = false;
 	items_lock.lock();
-	std::map<std::string, class thumbnail_desc_t>::iterator it;
+	std::map<Photo_ID, class thumbnail_desc_t>::iterator it;
 	it = thumbnails_cache.find(photo_id);
 	int index = -1;
 	if(it != thumbnails_cache.end()) {
@@ -958,12 +952,12 @@ void PhotoList::update_icons(void) {
 
 //------------------------------------------------------------------------------
 // selection
-list<string> PhotoList::get_selection_list(void) {
-	list<string> _list;
+list<Photo_ID> PhotoList::get_selection_list(void) {
+	list<Photo_ID> _list;
 	const QModelIndexList l = view->get_selected_indexes();
 	for(int i = 0; i < l.size(); i++) {
 		int index = l.at(i).row();
-		_list.push_back(items[index].file_name);
+		_list.push_back(items[index].photo_id);
 //		cerr << items[index].file_name << endl;
 	}
 	return _list;
@@ -994,7 +988,7 @@ void PhotoList::fill_context_menu(QMenu &menu, int item_index) {
 	// add version is always possible
 	menu.addAction(action_version_add);
 	// allow remove only if version is not open for edit
-	std::list<int> v_list = PS_Loader::versions_list(items[item_index].photo_id);
+	std::list<int> v_list = PS_Loader::versions_list(items[item_index].photo_id.get_file_name());
 	bool allow_remove = true;
 	if(v_list.size() <= 1)
 		allow_remove = false;
@@ -1009,7 +1003,7 @@ void PhotoList::fill_context_menu(QMenu &menu, int item_index) {
 }
 
 void PhotoList::slot_version_add(void) {
-	string context_menu_photo_id = items[context_menu_index].photo_id;
+	Photo_ID context_menu_photo_id = items[context_menu_index].photo_id;
 	PS_Loader *ps_loader = NULL;
 	if(edit != NULL)
 		ps_loader = edit->version_get_current_ps_loader(context_menu_photo_id);
@@ -1017,33 +1011,32 @@ void PhotoList::slot_version_add(void) {
 	PS_Loader::version_create(context_menu_photo_id, ps_loader);
 	// update list
 	items_lock.lock();
-	int v_index = Photo_t::version_index_from_photo_id(context_menu_photo_id);
+	int v_index = context_menu_photo_id.get_version_index();
 	v_index++;
 	PhotoList_Item_t item = items[context_menu_index];
 	string file_name = item.file_name;
 	std::list<int> v_list = PS_Loader::versions_list(file_name);
 	item.version_index = v_index;
 	item.version_count = v_list.size();
-	item.photo_id = Photo_t::get_photo_id(file_name, v_index);
+	item.photo_id = Photo_ID(file_name, v_index);
 	// update index in thumbnails_cache if necessary
-	QStringList photo_ids;
-	std::map<std::string, class thumbnail_desc_t> thumbnails_cache_new;
-	for(std::map<std::string, class thumbnail_desc_t>::iterator it = thumbnails_cache.begin(); it != thumbnails_cache.end(); it++) {
-		std::string _key = (*it).first;
+	QList<Photo_ID> photo_ids;
+	std::map<Photo_ID, class thumbnail_desc_t> thumbnails_cache_new;
+	for(std::map<Photo_ID, class thumbnail_desc_t>::iterator it = thumbnails_cache.begin(); it != thumbnails_cache.end(); it++) {
+		Photo_ID _key = (*it).first;
 		class thumbnail_desc_t _value = (*it).second;
 		if(_value.folder_id == current_folder_id) {
 			if(_value.index > context_menu_index) {
 				_value.index++;
 				// update IDs
-				string record_file_name = Photo_t::file_name_from_photo_id(_value.photo_id);
+				string record_file_name = _value.photo_id.get_file_name();
 				if(file_name == record_file_name) {
-					photo_ids.append(QString::fromLocal8Bit(_value.photo_id.c_str()));
-//					std::string photo_file = Photo_t::file_name_from_photo_id(_value.photo_id);
-					int index = Photo_t::version_index_from_photo_id(_value.photo_id);
+					photo_ids.append(_value.photo_id);
+					int index = _value.photo_id.get_version_index();
 					index++;
-					_key = Photo_t::get_photo_id(record_file_name, index);
+					_key = Photo_ID(record_file_name, index);
 					_value.photo_id = _key;
-					photo_ids.append(QString::fromLocal8Bit(_key.c_str()));
+					photo_ids.append(_key);
 				}
 			}
 		}
@@ -1060,7 +1053,7 @@ void PhotoList::slot_version_add(void) {
 	for(int i = context_menu_index + 1; i < items.size(); i++)
 		if(items[i].file_name == file_name) {
 			items[i].version_index++;
-			items[i].photo_id = Photo_t::get_photo_id(file_name, items[i].version_index);
+			items[i].photo_id = Photo_ID(file_name, items[i].version_index);
 			items[i].version_count++;
 		} else
 			break;
@@ -1074,7 +1067,7 @@ void PhotoList::slot_version_add(void) {
 }
 
 void PhotoList::slot_version_remove(void) {
-	string context_menu_photo_id = items[context_menu_index].photo_id;
+	Photo_ID context_menu_photo_id = items[context_menu_index].photo_id;
 	PS_Loader::version_remove(context_menu_photo_id);
 	// update list
 	items_lock.lock();
@@ -1087,34 +1080,29 @@ void PhotoList::slot_version_remove(void) {
 	for(int i = context_menu_index + 1; i < items.size(); i++)
 		if(items[i].file_name == file_name) {
 			items[i].version_index--;
-			items[i].photo_id = Photo_t::get_photo_id(file_name, items[i].version_index);
+			items[i].photo_id = Photo_ID(file_name, items[i].version_index);
 			items[i].version_count--;
 		} else
 			break;
 	items.removeAt(context_menu_index);
 	// update index in thumbnails_cache if necessary
-	QStringList photo_ids;
-	std::map<std::string, class thumbnail_desc_t> thumbnails_cache_new;
-	for(std::map<std::string, class thumbnail_desc_t>::iterator it = thumbnails_cache.begin(); it != thumbnails_cache.end(); it++) {
-		std::string _key = (*it).first;
+	QList<Photo_ID> photo_ids;
+	std::map<Photo_ID, class thumbnail_desc_t> thumbnails_cache_new;
+	for(std::map<Photo_ID, class thumbnail_desc_t>::iterator it = thumbnails_cache.begin(); it != thumbnails_cache.end(); it++) {
+		Photo_ID _key = (*it).first;
 		class thumbnail_desc_t _value = (*it).second;
 		if(_value.folder_id == current_folder_id) {
-//			if(_value.index > context_menu_index)
-//				_value.index--;
 			if(_value.index > context_menu_index) {
 				_value.index--;
 				// update IDs
-				string record_file_name = Photo_t::file_name_from_photo_id(_value.photo_id);
+				string record_file_name = _value.photo_id.get_file_name();
 				if(file_name == record_file_name) {
-					photo_ids.append(QString::fromLocal8Bit(_value.photo_id.c_str()));
-//					photo_ids.append(_value.photo_id);
-//					std::string photo_file = Photo_t::file_name_from_photo_id(_value.photo_id);
-					int index = Photo_t::version_index_from_photo_id(_value.photo_id);
+					photo_ids.append(_value.photo_id);
+					int index = _value.photo_id.get_version_index();
 					index--;
-					_key = Photo_t::get_photo_id(record_file_name, index);
+					_key = Photo_ID(record_file_name, index);
 					_value.photo_id = _key;
-					photo_ids.append(QString::fromLocal8Bit(_key.c_str()));
-//					photo_ids.append(_value.photo_id);
+					photo_ids.append(_key);
 				}
 			}
 		}

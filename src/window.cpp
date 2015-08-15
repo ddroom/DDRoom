@@ -83,10 +83,10 @@ Window::Window(void) {
 	batch = new Batch(this, process, edit, browser);
 
 	// load or reset photo - from browser to edit
-	connect(browser, SIGNAL(signal_load_photo(std::string, QString, QImage)), edit, SLOT(slot_load_photo(std::string, QString, QImage)));
+	connect(browser, SIGNAL(signal_load_photo(Photo_ID, QString, QImage)), edit, SLOT(slot_load_photo(Photo_ID, QString, QImage)));
 
 	// update processed thumbnail in browser
-	connect(edit, SIGNAL(signal_update_thumbnail(std::string, QImage)), browser, SLOT(slot_update_thumbnail(std::string, QImage)));
+	connect(edit, SIGNAL(signal_update_thumbnail(Photo_ID, QImage)), browser, SLOT(slot_update_thumbnail(Photo_ID, QImage)));
 
 	// reset photos selection
 	connect(batch, SIGNAL(signal_batch_accepted(void)), browser, SLOT(slot_selection_clear(void)));

@@ -80,9 +80,9 @@ void Batch::fill_menu(QMenu *menu) {
 }
 
 void Batch::slot_export(void) {
-	std::list<std::string> selected_list = browser->selected_photos_list();
+	std::list<Photo_ID> selected_list = browser->selected_photos_list();
 	if(selected_list.size() == 1) {
-		std::string active_photo = selected_list.front();
+		Photo_ID active_photo = selected_list.front();
 		process_save_as(active_photo);
 	} else {
 		if(selected_list.size() > 1)
@@ -94,9 +94,9 @@ void Batch::menu_save_as(void) {
 	// save currently active edit photo
 	// get that photo from Edit class
 	// this one should run new thread...
-	string active_photo = edit->active_photo();
-	if(active_photo == "") {
-		list<string> selected_list = browser->selected_photos_list();
+	Photo_ID active_photo = edit->active_photo();
+	if(active_photo.is_empty()) {
+		list<Photo_ID> selected_list = browser->selected_photos_list();
 		if(selected_list.size() == 1)
 			active_photo = selected_list.front();
 	}
@@ -105,21 +105,23 @@ void Batch::menu_save_as(void) {
 
 void Batch::menu_batch(void) {
 	// send to batch processing selected in browser photos
-	list<string> selected_list = browser->selected_photos_list();
+	list<Photo_ID> selected_list = browser->selected_photos_list();
 	// this one should run new thread...
 	process_batch(selected_list);
 }
 
 void Batch::slot_selection_changed(int count) {
 	selected_photos_count = count;
-	bool active_photo = (edit->active_photo() != "");
+//	bool active_photo = (edit->active_photo() != "");
+	bool active_photo = (!edit->active_photo().is_empty());
 	if(!active_photo)
 		action_save_as->setEnabled(count == 1);
 	action_batch->setEnabled(count > 0);
 }
 
 void Batch::slot_active_photo_changed(void) {
-	if(edit->active_photo() != "")
+//	if(edit->active_photo() != "")
+	if(!edit->active_photo().is_empty())
 		action_save_as->setEnabled(true);
 	else {
 		action_save_as->setEnabled(selected_photos_count == 1);
@@ -342,11 +344,10 @@ void Batch::run(void) {
 			task_list.pop_front();
 			_c_total = c_total;
 			task_list_lock.unlock();
-cerr << "batch process: import: " << task.fname_import << endl;
+cerr << "batch process: import: " << task.photo_id.get_export_file_name() << endl;
 cerr << "               export: " << task.fname_export << endl;
 			// synchronous call here
-			process->process_export(task.fname_import, task.fname_export, &task.ep);
-//			process->process_export(task.fname_import, task.fname_export, task.ep.data());
+			process->process_export(task.photo_id, task.fname_export, &task.ep);
 			if(to_leave)
 				break;
 			task_list_lock.lock();
@@ -419,28 +420,30 @@ void Batch::save_default_ep(export_parameters_t *ep) {
 	Config::instance()->set(CONFIG_SECTION_BATCH, "image_type", type_name);
 }
 
-void Batch::process_save_as(string file_name) {
-	if(file_name == "")
+void Batch::process_save_as(Photo_ID photo_id) {
+	if(photo_id.is_empty())
 		return;
-	cerr << "Batch::process_save_as( \"" << file_name << "\" )" << endl;
-	list<string> p_list;
-	p_list.push_back(file_name);
+	cerr << "Batch::process_save_as( \"" << photo_id.get_export_file_name() << "\" )" << endl;
+	list<Photo_ID> p_list;
+	p_list.push_back(photo_id);
 	process_export(p_list);
 }
 
-void Batch::process_batch(list<string> _list) {
+void Batch::process_batch(list<Photo_ID> _list) {
 	if(_list.begin() == _list.end())
 		return;
 	process_export(_list);
 }
 
-void Batch::process_export(list<string> _list) {
+void Batch::process_export(list<Photo_ID> _list) {
 	string file_name = "";
 	export_parameters_t *ep = new export_parameters_t;
 	ep->folder = destination_dir;
 	ep->process_single = (_list.size() == 1);
+	Photo_ID photo_id;
 	if(ep->process_single) {
-		file_name = *_list.begin();
+		photo_id = *_list.begin();
+		file_name = (*_list.begin()).get_export_file_name();
 		ep->set_file_name(file_name);
 	}
 	load_default_ep(ep);
@@ -459,18 +462,19 @@ void Batch::process_export(list<string> _list) {
 			out_file_name += QDir::toNativeSeparators("/").toLocal8Bit().constData();
 			out_file_name += ep->get_file_name();
 			task_t task;
-			task.fname_import = file_name;
+			task.photo_id = photo_id;
 			task.fname_export = out_file_name;
 			task.ep = *ep;
 //			task.ep = QSharedPointer<export_parameters_t>(ep);
 			tasks.push_back(task);
 		} else {
 			string separator = QDir::toNativeSeparators("/").toLocal8Bit().constData();
-			for(list<string>::iterator it = _list.begin(); it != _list.end(); it++) {
+			for(list<Photo_ID>::iterator it = _list.begin(); it != _list.end(); it++) {
 				// create target filename
 				task_t task;
-				task.fname_import = *it;
-				ep->set_file_name(*it);
+				task.photo_id = *it;
+				ep->set_file_name((*it).get_export_file_name());
+//				ep->set_file_name(*it);
 				string rez_fn = ep->folder + separator + ep->get_file_name();
 				task.fname_export = rez_fn;
 				task.ep = *ep;

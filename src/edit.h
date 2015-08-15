@@ -30,7 +30,6 @@ class Process_Runner : public QThread {
 public:
 	Process_Runner(class Process *);
 	void queue(void *ptr, QSharedPointer<Photo_t>, class TilesReceiver *tiles_receiver, bool is_inactive);
-//	void queue(void *ptr, class Photo_t *, class TilesReceiver *tiles_receiver, bool is_inactive);
 
 protected:
 	class task_t;
@@ -58,15 +57,15 @@ public:
 	bool flush_current_ps(void);	// call from Batch to force save ps of all open photos
 
 	// versions support, used from ThumbnailView for interaction with context menu
-	bool version_is_open(std::string photo_id);
-	class PS_Loader *version_get_current_ps_loader(std::string photo_id);
+	bool version_is_open(Photo_ID photo_id);
+	class PS_Loader *version_get_current_ps_loader(Photo_ID photo_id);
 
 public slots:
 	void slot_process_complete(void *, class PhotoProcessed_t *);
 	void slot_action_view_grid(void);
 	void slot_action_rotate_minus(void);
 	void slot_action_rotate_plus(void);
-	void slot_update_opened_photo_ids(QStringList);
+	void slot_update_opened_photo_ids(QList<Photo_ID>);
 
 signals:
 	void signal_process_load_photo(std::string);
@@ -74,7 +73,7 @@ signals:
 	// active photo
 public:
 	// return full file name of active photo or "" otherwise
-	std::string active_photo(void);
+	Photo_ID active_photo(void);
 signals:
 	void signal_active_photo_changed(void);
 protected:
@@ -98,8 +97,6 @@ protected:
 	QAction *q_action_rotate_minus;
 	QAction *q_action_rotate_plus;
 
-//	class PS_Loader *get_current_ps_loader(class Photo_t *photo);
-//	void flush_current_ps(class Photo_t *photo);
 	class PS_Loader *get_current_ps_loader(QSharedPointer<Photo_t> photo);
 	bool flush_current_ps(QSharedPointer<Photo_t> photo);
 
@@ -108,12 +105,10 @@ public:
 	void update_thumbnail(void *ptr, QImage thumbnail);
 
 public slots:
-	void slot_load_photo(std::string, QString, QImage);
+	void slot_load_photo(Photo_ID, QString, QImage);
 
 signals:
-	void signal_update_thumbnail(std::string, QImage);
-//	void signal_browser_photo_close(std::string);
-//	void signal_browser_photo_loaded(std::string, bool);
+	void signal_update_thumbnail(Photo_ID, QImage);
 
 protected:
 	void photo_open(class EditSession_t *session, class Metadata *metadata);
