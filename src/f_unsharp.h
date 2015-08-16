@@ -62,9 +62,9 @@ protected:
 
 	QTabWidget *tab_scaled;
 	QCheckBox *checkbox_scaled;
-	class GuiSlider *slider_s_amount[3];
-	class GuiSlider *slider_s_radius[3];
-	class GuiSlider *slider_s_threshold[3];
+	class GuiSlider *slider_s_amount[2];
+	class GuiSlider *slider_s_radius[2];
+	class GuiSlider *slider_s_threshold[2];
 	int scaled_index;
 
 	void reconnect(bool to_connect);

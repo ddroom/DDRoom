@@ -1,4 +1,6 @@
 
+1.0.0.4 - Fixed 'Sharpness' filter parameters UI.
+1.0.0.3 - Refactored inner versions representation.
 1.0.0.2 - Fixed crash on a race condition with frequently View resizing.
 1.0.0.1 - Fixed broken (on some OS like Windows 10 etc.) versions system.
 
