@@ -599,7 +599,11 @@ bool FP_Unsharp::is_enabled(const PS_Base *ps_base) {
 
 void FP_Unsharp::scaled_parameters(const class PS_Unsharp *ps, class FP_params_t *params, double scale_x, double scale_y) {
 	double scale = (scale_x + scale_y) / 2.0;
+/*
+cerr << "_____________________________________________________________________" << endl;
+cerr << "=====================================================================" << endl;
 cerr << "scale == " << scale << endl;
+*/
 	params->lc_radius = 0.0;
 	if(ps->lc_enabled) {
 		params->lc_radius = ps->lc_radius;
@@ -630,62 +634,16 @@ cerr << "scale == " << scale << endl;
 				params->threshold = ps->s_threshold[0] + (ps->s_threshold[1] - ps->s_threshold[0]) * scale;
 			}
 		}
-/*
-		if(ps->scaled) {
-			params->amount = ps->s_amount[1];
-			params->radius = ps->s_radius[1];
-			params->threshold = ps->s_threshold[1];
-		} else {
-			params->amount = ps->amount;
-			params->radius = ps->radius;
-			params->threshold = ps->threshold;
-		}
-		if(scale != 1.0 && ps->scaled) {
-			int s_l = -1;
-			int s_m = -1;
-			int s_h = -1;
-			if(scale == 1.0) {
-				s_m = 1;
-			} else {
-				if(scale < 1.0) {
-					if(scale < 0.5) {
-						s_m = 0;
-					} else {
-						scale -= 0.5;
-						scale *= 2.0;
-						s_l = 0;
-						s_h = 1;
-					}
-				} else {
-					if(scale > 2.0) {
-						s_m = 2;
-					} else {
-						scale -= 1.0;
-						s_l = 1;
-						s_h = 2;
-					}
-				}
-			}
-			if(s_m != -1) {
-				params->amount = ps->s_amount[s_m];
-				params->radius = ps->s_radius[s_m];
-				params->threshold = ps->s_threshold[s_m];
-			} else {
-				params->amount = ps->s_amount[s_l] + (ps->s_amount[s_h] - ps->s_amount[s_l]) * scale;
-				params->radius = ps->s_radius[s_l] + (ps->s_radius[s_h] - ps->s_radius[s_l]) * scale;
-				params->threshold = ps->s_threshold[s_l] + (ps->s_threshold[s_h] - ps->s_threshold[s_l]) * scale;
-			}
-		}
-*/
 	}
-///*
-cerr << "_____________________________________________________________________" << endl;
-cerr << "=====================================================================" << endl;
+/*
+cerr << "ps->amount[0] == " << ps->s_amount[0] << "; ps->amount[1] == " << ps->s_amount[1] << endl;
+cerr << "ps->radius[0] == " << ps->s_radius[0] << "; ps->radius[1] == " << ps->s_radius[1] << endl;
+cerr << "ps->threshold[0] == " << ps->s_threshold[0] << "; ps->threshold[1] == " << ps->s_threshold[1] << endl;
 cerr << "params->amount == " << params->amount << endl;
 cerr << "params->radius == " << params->radius << endl;
 cerr << "params->threshold == " << params->threshold << endl;
 cerr << endl;
-//*/
+*/
 }
 
 //------------------------------------------------------------------------------
