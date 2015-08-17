@@ -42,6 +42,8 @@ TODO:
 
 using namespace std;
 
+#define _DEFAULT_SCALED_INDEX 1
+
 //------------------------------------------------------------------------------
 class PS_Unsharp : public PS_Base {
 public:
@@ -133,14 +135,12 @@ bool PS_Unsharp::load(DataSet *dataset) {
 	dataset->get("threshold", threshold);
 	// scaled
 	dataset->get("scaled", scaled);
-	string n_amount[] = {"s10_amount", "s20_amount"};
-	string n_radius[] = {"s10_radius", "s20_radius"};
-	string n_threshold[] = {"s10_threshold", "s20_threshold"};
-	for(int i = 0; i < 2; i++) {
-		dataset->get(n_amount[i], s_amount[i]);
-		dataset->get(n_radius[i], s_radius[i]);
-		dataset->get(n_threshold[i], s_threshold[i]);
-	}
+	dataset->get("s10_amount", s_amount[0]);
+	dataset->get("s20_amount", s_amount[1]);
+	dataset->get("s10_radius", s_radius[0]);
+	dataset->get("s20_radius", s_radius[1]);
+	dataset->get("s10_threshold", s_threshold[0]);
+	dataset->get("s20_threshold", s_threshold[1]);
 	// local contrast
 	dataset->get("local_contrast_enabled", lc_enabled);
 	dataset->get("local_contrast_amount", lc_amount);
@@ -155,24 +155,13 @@ bool PS_Unsharp::save(DataSet *dataset) {
 	dataset->set("threshold", threshold);
 	// scaled
 	dataset->set("scaled", scaled);
-	string n_amount[] = {"s10_amount", "s20_amount"};
-	string n_radius[] = {"s10_radius", "s20_radius"};
-	string n_threshold[] = {"s10_threshold", "s20_threshold"};
-	for(int i = 0; i < 2; i++) {
-		dataset->set(n_amount[i], s_amount[i]);
-		dataset->set(n_radius[i], s_radius[i]);
-		dataset->set(n_threshold[i], s_threshold[i]);
-	}
-/*
-	string n_amount[] = {"s05_amount", "s10_amount", "s20_amount"};
-	string n_radius[] = {"s05_radius", "s10_radius", "s20_radius"};
-	string n_threshold[] = {"s05_threshold", "s10_threshold", "s20_threshold"};
-	for(int i = 0; i < 3; i++) {
-		dataset->set(n_amount[i], s_amount[i]);
-		dataset->set(n_radius[i], s_radius[i]);
-		dataset->set(n_threshold[i], s_threshold[i]);
-	}
-*/
+	dataset->set("s10_amount", s_amount[0]);
+	dataset->set("s20_amount", s_amount[1]);
+	dataset->set("s10_radius", s_radius[0]);
+	dataset->set("s20_radius", s_radius[1]);
+	dataset->set("s10_threshold", s_threshold[0]);
+	dataset->set("s20_threshold", s_threshold[1]);
+//	string n_amount[] = {"s05_amount", "s10_amount", "s20_amount"};
 	// local contrast
 	dataset->set("local_contrast_enabled", lc_enabled);
 	dataset->set("local_contrast_amount", lc_amount);
@@ -216,7 +205,7 @@ public:
 };
 
 FS_Unsharp::FS_Unsharp(void) {
-	scaled_index = 2;
+	scaled_index = _DEFAULT_SCALED_INDEX;
 }
 
 FS_Base *F_Unsharp::newFS(void) {
@@ -244,7 +233,7 @@ void F_Unsharp::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_
 		return;
 	if(fs_base == NULL) {
 //cerr << "fs_base == NULL" << endl;
-		scaled_index = 2;
+		scaled_index = _DEFAULT_SCALED_INDEX;
 	} else {
 //cerr << "fs_base != NULL" << endl;
 		FS_Unsharp *fs = (FS_Unsharp *)fs_base;
