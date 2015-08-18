@@ -462,10 +462,10 @@ D_AREA_PTR(_area_out)
 					s_max = task->sg->saturation_limit(pixel[0], pixel[2]);
 				// TODO: check histograms
 				int index = 0;
-// NOTE 2
 				float _J = (pixel[0] < J_edge) ? pixel[0] : J_edge;
 				index = ((J_edge - _J) / J_edge) * 100 + 1;
-				if(index > 100)	index = 100;
+				_clip(index, 0, 100);
+//				if(index > 100)	index = 100;
 /*
 				if(pixel[0] < J_edge) {
 					index = ((J_edge - pixel[0]) / J_edge) * 100 + 1;
