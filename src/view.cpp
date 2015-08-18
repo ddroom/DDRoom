@@ -1122,6 +1122,9 @@ cerr << "      pixmap size: " << tp.width() << "x" << tp.height() << endl;
 	//----------
 //	bool draw_grid = true;
 	if(show_helper_grid && !image_is_empty) {
+		// reset panning
+		QTransform tr;
+		painter->setWorldTransform(tr);
 		double xe = viewport_w;
 		double ye = viewport_h;
 		QPen pens_strong[2] = {
