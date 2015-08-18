@@ -453,7 +453,7 @@ D_AREA_PTR(_area_out)
 			if(pixel[0] > 1.0)	pixel[0] = 1.0;
 			if(pixel[2] >= 1.0)	pixel[2] -= 1.0;
 			if(pixel[2] < 0.0)	pixel[2] += 1.0;
-			if(task->sg != NULL) {
+			if(task->sg != NULL && pixel[3] > 0.01) {
 				// compress saturation
 				float J_edge, s_edge;
 				task->sg->lightness_edge_Js(J_edge, s_edge, pixel[2]);
@@ -464,18 +464,19 @@ D_AREA_PTR(_area_out)
 				int index = 0;
 				float _J = (pixel[0] < J_edge) ? pixel[0] : J_edge;
 				index = ((J_edge - _J) / J_edge) * 100 + 1;
-				_clip(index, 0, 100);
-//				if(index > 100)	index = 100;
+				if(index > 0 && index <= 100) {
+//				_clip(index, 0, 100);
 /*
 				if(pixel[0] < J_edge) {
 					index = ((J_edge - pixel[0]) / J_edge) * 100 + 1;
 					if(index > 100)	index = 100;
 				}
 */
-				task->smax_count[index]++;
-				if(task->smax_value[index] < pixel[1] / s_max)
-					task->smax_value[index] = pixel[1] / s_max;
-				task->pixels_count++;
+					task->smax_count[index]++;
+					if(task->smax_value[index] < pixel[1] / s_max)
+						task->smax_value[index] = pixel[1] / s_max;
+					task->pixels_count++;
+				}
 			}
 			in_index += 4;
 			out_index += 4;
