@@ -234,8 +234,8 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 	float *noise_data = task->noise_data;
 	for(int y = y_min; y < y_max; y++) {
 		for(int x = x_min; x < x_max; x++) {
-			int s = __bayer_pos_to_c(x, y);
-			int k = ((width + 4) * (y + 2) + x + 2) * 4;
+			const int s = __bayer_pos_to_c(x, y);
+			const int k = ((width + 4) * (y + 2) + x + 2) * 4;
 //			int k2 = ((width + 4) * (y + 2) + x + 2) * 2;
 			if(s == p_green_r || s == p_green_b) {
 				float c = value_bayer(width, height, x, y, bayer);
@@ -460,7 +460,7 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 	float *sm_out = sm_temp;
 	for(int y = y_min; y < y_max; y++) {
 		for(int x = x_min; x < x_max; x++) {
-			int k = ((width + 4) * (y + 2) + x + 2) * 4;
+			const int k = ((width + 4) * (y + 2) + x + 2) * 4;
 			// looks like a good compromise - code should be optimized
 			sm_out[k + 0]  = sm_in[((width + 4) * (y + 2 + 0) + x + 2 - 1) * 4 + 0];
 			sm_out[k + 0] += sm_in[((width + 4) * (y + 2 + 0) + x + 2 + 0) * 4 + 0];
@@ -510,7 +510,7 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 	sm_out = sm_temp;
 	for(int y = y_min; y < y_max; y++) {
 		for(int x = x_min; x < x_max; x++) {
-			int k = ((width + 4) * (y + 2) + x + 2) * 4;
+			const int k = ((width + 4) * (y + 2) + x + 2) * 4;
 			for(int m = 0; m < 4; m++) {
 				v_signal[k + m] = sm_out[k + m] - v_signal[k + m];
 			}
@@ -532,7 +532,7 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 #endif
 	for(int y = y_min; y < y_max; y++) {
 		for(int x = x_min; x < x_max; x++) {
-			int k = ((width + 4) * (y + 2) + x + 2) * 4;
+			const int k = ((width + 4) * (y + 2) + x + 2) * 4;
 #if 0
 			for(int i = 0; i < 4; i++) {
 				D[k + i]  = _delta(v_green[k + i], v_green[k +      4 + i]) + _delta(v_green[k      - 4 + i], v_green[k + i]);
@@ -571,9 +571,9 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 //	float *noise_data = task->noise_data;
 	for(int y = y_min; y < y_max; y++) {
 		for(int x = x_min; x < x_max; x++) {
-			int s = __bayer_pos_to_c(x, y);
-			int k = ((width + 4) * (y + 2) + x + 2) * 4;
-			int k2 = ((width + 4) * (y + 2) + x + 2) * 2;
+			const int s = __bayer_pos_to_c(x, y);
+			const int k = ((width + 4) * (y + 2) + x + 2) * 4;
+			const int k2 = ((width + 4) * (y + 2) + x + 2) * 2;
 			float C[4];
 			for(int i = 0; i < 4; i++) {
 				float c = D[k - w4 - 4 + i] + D[k - w4 + 0 + i] + D[k - w4 + 4 + i];
@@ -620,6 +620,7 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 				_rgba[k + 1] = (_rgba[k + 2] + _rgba[k + 0]) * 0.5;
 #endif
 			// use Gaussian blur instead of directional interpolation in places with high noise;
+///*
 			if(s == p_red || s == p_blue)
 				n_s1 = n_s0 * 3.0;
 			else
@@ -638,6 +639,7 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 				}
 				_rgba[k + 1] = value;
 			}
+//*/
 			// store directions - in alpha channel
 			// '-' '\' '|' '/' - 0, 1, 2, 3
 			d_ptr[k + 3] = d * 16;
@@ -664,6 +666,41 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 	if(subflow->sync_point_pre())
 		mirror_2(width, height, _m);
 	subflow->sync_point_post();
+
+#if 1
+	//------------
+	// refine diagonal GREEN at RED and BLUE
+	// rather minor improvement
+	for(int y = y_min; y < y_max; y++) {
+		for(int x = x_min; x < x_max; x++) {
+			const int k = w4 * (y + 2) + (x + 2) * 4;
+			const int s = __bayer_pos_to_c(x, y);
+			if(s == p_red || s == p_blue) {
+				const int d4 = d_ptr[k + 3] / 16;
+				if(d4 == 3) { // '/'
+					const int d1 = d_ptr[k - w4 + 4 + 3] / 16;
+					const int d2 = d_ptr[k + w4 - 4 + 3] / 16;
+					if(d1 == 3 || d2 == 3) {
+						float lf_g = (_rgba[k - w4 + 4 + 1] + _rgba[k + 1] + _rgba[k + w4 - 4 + 1]) / 3.0f;
+						_rgba[k + 1] = lf_g;
+					}
+				}
+				if(d4 == 1) { // '\'
+					const int d1 = d_ptr[k - w4 - 4 + 3] / 16;
+					const int d2 = d_ptr[k + w4 + 4 + 3] / 16;
+					if(d1 == 1 || d2 == 1) {
+						float lf_g = (_rgba[k - w4 - 4 + 1] + _rgba[k + 1] + _rgba[k + w4 + 4 + 1]) / 3.0f;
+						_rgba[k + 1] = lf_g;
+					}
+				}
+			}
+		}
+	}
+	//---------------------------
+	if(subflow->sync_point_pre())
+		mirror_2(width, height, _m);
+	subflow->sync_point_post();
+#endif
 
 	//------------
 	// copy known RED and BLUE pixels into output array
@@ -693,8 +730,8 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 	// pass IV: interpolation of the RED and BLUE at the BLUE and RED with known direction and all GREEN points;
 	for(int y = y_min; y < y_max; y++) {
 		for(int x = x_min; x < x_max; x++) {
-			int k = w4 * (y + 2) + (x + 2) * 4;
-			int s = __bayer_pos_to_c(x, y);
+			const int k = w4 * (y + 2) + (x + 2) * 4;
+			const int s = __bayer_pos_to_c(x, y);
 			if(s == p_red || s == p_blue) {
 				float v = value_bayer(width, height, x, y, bayer);
 				int ci_2 = (s == p_red) ? 0 : 2;
@@ -797,8 +834,8 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 	// pass V: interpolation of the RED and BLUE at the GREEN;
 	for(int y = y_min; y < y_max; y++) {
 		for(int x = x_min; x < x_max; x++) {
-			int k = w4 * (y + 2) + (x + 2) * 4;
-			int s = __bayer_pos_to_c(x, y);
+			const int k = w4 * (y + 2) + (x + 2) * 4;
+			const int s = __bayer_pos_to_c(x, y);
 			// save alpha
 //			int direction = d_ptr[k + 3] & 0x000F;
 //			_rgba[k + 3] = 1.0;
@@ -895,7 +932,6 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 			}
 		}
 	}
-
 	//---------------------------
 	if(subflow->sync_point_pre())
 		mirror_2(width, height, _m);
@@ -906,7 +942,7 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 //	const float black_scale = 1.0 / (1.0 - black_offset);
 	for(int y = y_min; y < y_max; y++) {
 		for(int x = x_min; x < x_max; x++) {
-			int k = w4 * (y + 2) + (x + 2) * 4;
+			const int k = w4 * (y + 2) + (x + 2) * 4;
 //			_rgba[k + 3] = 1.0;
 			//--
 //			_rgba[k + 0] = gaussian[k + 0];
