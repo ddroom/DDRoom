@@ -24,11 +24,13 @@ public:
 	class Area *image(class Metadata *metadata);
 
 	void load_metadata(class Metadata *metadata);
+	static class Area *demosaic_xtrans(const uint16_t *_image, int _width, int _height, const class Metadata *metadata, int passes, class Area *area_out = NULL);
 
 protected:
 	static QMutex dcraw_lock;
 	class Area *dcraw_to_area(class DCRaw *dcraw, class Metadata *metadata, const uint16_t *dcraw_raw);
 	class Area *load_foveon(class DCRaw *dcraw, class Metadata *metadata, const uint16_t *dcraw_raw);
+	class Area *load_xtrans(class DCRaw *dcraw, class Metadata *metadata, const uint16_t *dcraw_raw);
 	void auto_wb(DCRaw *dcraw, Metadata *metadata, const uint16_t *dcraw_raw);
 
 	std::string file_name;

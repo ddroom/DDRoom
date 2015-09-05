@@ -159,6 +159,7 @@ Area *Import_Jpeg::load_image(Metadata *metadata, bool is_thumb) {
 						if(index > 2047)	index = 2047;
 //						if(index < 0)		index = 0;
 						(metadata->c_histogram[index + 4096 * j])++;
+						metadata->c_histogram_count[j]++;
 					} else {
 						ptr_u[pos + 2 - j] = (uint8_t)(v * 0xFF); // Qt ARGB32 wich is really 'B', 'G', 'R', 'A'
 					}
@@ -170,7 +171,7 @@ Area *Import_Jpeg::load_image(Metadata *metadata, bool is_thumb) {
 				pos += 4;
 			}
 		}
-		metadata->c_histogram_count = metadata->width * metadata->height;
+//		metadata->c_histogram_count = metadata->width * metadata->height;
 		jpeg_finish_decompress(&cinfo);
 	} else {
 		if(area != NULL)

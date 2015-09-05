@@ -197,6 +197,7 @@ Area *Import_PNG::load_image(Metadata *metadata, bool is_thumb) {
 						uint32_t index = ptr[pos + j] * 2047;
 						if(index > 2047)	index = 2047;
 						(metadata->c_histogram[index + 4096 * j])++;
+						metadata->c_histogram_count[j]++;
 					} else {
 						ptr_u[pos + 2 - j] = (uint8_t)(fv * 0xFF); // Qt ARGB32 wich is really 'B', 'G', 'R', 'A'
 					}
@@ -220,7 +221,7 @@ Area *Import_PNG::load_image(Metadata *metadata, bool is_thumb) {
 		}
 		metadata->width = width;
 		metadata->height = height;
-		metadata->c_histogram_count = metadata->width * metadata->height;
+//		metadata->c_histogram_count = metadata->width * metadata->height;
 
 		// read rest of file, and get additional chunks in ptr_png_info - REQUIRED
 		png_read_end(ptr_png_struct, ptr_png_info);

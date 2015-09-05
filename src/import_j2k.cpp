@@ -225,6 +225,7 @@ Area *Import_J2K::load_image(Metadata *metadata, int reduce, bool is_thumb, bool
 				if(index > 2047)	index = 2047;
 //				if(index < 0)		index = 0;
 				(metadata->c_histogram[index + 4096 * j])++;
+				metadata->c_histogram_count[j]++;
 			} else {
 				out_u[i * 4 + 2 - j] = (uint8_t)(v * 0xFF); // Qt ARGB32 wich is really 'B', 'G', 'R', 'A'
 			}
@@ -235,8 +236,8 @@ Area *Import_J2K::load_image(Metadata *metadata, int reduce, bool is_thumb, bool
 			out_u[i * 4 + 3] = 0xFF;
 		}
 	}
-	if(!is_thumb)
-		metadata->c_histogram_count = metadata->width * metadata->height;
+//	if(!is_thumb)
+//		metadata->c_histogram_count = metadata->width * metadata->height;
 	opj_image_destroy(image);
 	try {
 		Exiv2_load_metadata(file_name, metadata);

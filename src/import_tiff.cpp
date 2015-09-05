@@ -168,6 +168,7 @@ Area *Import_TIFF::load_image(Metadata *metadata, bool is_thumb) {
 								uint32_t index = ptr[pos + j] * 2047;
 								if(index > 2047)	index = 2047;
 								(metadata->c_histogram[index + 4096 * j])++;
+								metadata->c_histogram_count[j]++;
 							} else {
 								ptr_u[pos + 2 - j] = (uint8_t)(fv * 0xFF); // Qt ARGB32 wich is really 'B', 'G', 'R', 'A'
 							}
@@ -180,7 +181,7 @@ Area *Import_TIFF::load_image(Metadata *metadata, bool is_thumb) {
 			metadata->width = width;
 			metadata->height = height;
 			metadata->rotation = 0;
-			metadata->c_histogram_count = metadata->width * metadata->height;
+//			metadata->c_histogram_count = metadata->width * metadata->height;
 		}
 		if(raster != NULL)
 			_TIFFfree(raster);

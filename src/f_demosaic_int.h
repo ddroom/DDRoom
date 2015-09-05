@@ -57,6 +57,7 @@ protected:
 	float *process_denoise_(class SubFlow *);
 	float *process_denoise(class SubFlow *);
 	void fuji_45_rotate(class SubFlow *);
+	void process_xtrans(class SubFlow *);
 
 	static class TF_CIELab tf_cielab;
 
@@ -99,6 +100,12 @@ public:
 	float max_red;
 	float max_green;
 	float max_blue;
+
+	// X-Trans
+	class Area *area_in;
+	class Area *area_out;
+	const class Metadata *metadata;
+	int xtrans_passes;
 
 	// DG
 	float *D; // 4 planes, with green reconstructed in 4 directions

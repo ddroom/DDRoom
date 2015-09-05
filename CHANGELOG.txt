@@ -1,4 +1,5 @@
 
+1.0.1.0 - Added X-Trans sensor import.
 1.0.0.6 - F_WB: improved 'auto white' algorithm, and turned off by default.
 1.0.0.5 - Fixed 'Sharpness' filter parameters UI.
 1.0.0.4 - Fixed 'Sharpness' filter parameters UI.

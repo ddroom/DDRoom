@@ -88,6 +88,7 @@ public:
 		type_float_p6,	// float 2D coordinates separate for 3 colors
 		type_int16_p4,	// I16	RGBA
 		type_int16_p3,	// I16	RGB
+		type_uint16_p4, // raw
 		type_uint8_p4,	// U8	BGRA (QT format)
 		type_uint8_p3,	// U8	RGB (JPEG export)
 		type_float_p1,	// float V
@@ -128,6 +129,8 @@ public:
 			return sizeof(int16_t) * 4;
 		else if(t == type_int16_p3)
 			return sizeof(int16_t) * 3;
+		else if(t == type_uint16_p4)
+			return sizeof(uint16_t) * 4;
 		else if(t == type_uint8_p4)
 			return sizeof(uint8_t) * 4;
 		else if(t == type_uint8_p3)

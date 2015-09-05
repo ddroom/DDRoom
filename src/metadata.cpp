@@ -17,13 +17,15 @@ Metadata::Metadata(void) {
 
 	// signal statistics, for all types of photo
 	for(int i = 0; i < 3; i++) {
-		c_max[i] = 1.0;
-		c_scale_ref[i] = 1.0;
-		c_scale_camera[i] = 1.0;
+		c_max[i] = 1.0f;
+		c_scale_ref[i] = 1.0f;
+		c_scale_camera[i] = 1.0f;
 	}
 	c_scale_camera_valid = false;
 	for(int i = 0; i < 4096 * 4; i++)
 		c_histogram[i] = 0;
+	for(int i = 0; i < 4; i++)
+		c_histogram_count[i] = 0;
 
 	// RAW
 	demosaic_pattern = DEMOSAIC_PATTERN_NONE;
@@ -31,11 +33,12 @@ Metadata::Metadata(void) {
 	demosaic_unsupported = false;
 	sensor_foveon = false;
 	sensor_fuji_45 = false;
+	sensor_xtrans = false;
 	for(int i = 0; i < 4; i++) {
 //		demosaic_level_black[i] = 0.0;
 //		demosaic_level_white[i] = 0.0;
-		demosaic_import_prescale[i] = 1.0;
-		demosaic_signal_max[i] = 0.0;
+		demosaic_import_prescale[i] = 1.0f;
+		demosaic_signal_max[i] = 0.0f;
 	}
 //	demosaic_black_offset = 0.0;
 

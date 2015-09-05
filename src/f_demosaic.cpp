@@ -42,6 +42,7 @@ TODO:
 #include <iostream>
 
 #include "demosaic_pattern.h"
+#include "import_raw.h"
 #include "f_demosaic.h"
 #include "mt.h"
 #include "system.h"
@@ -87,6 +88,9 @@ public:
 	bool enabled_BY;
 	double scale_RC;
 	double scale_BY;
+
+	// X-Trans
+	int xtrans_passes;
 };
  
 //------------------------------------------------------------------------------
@@ -122,6 +126,8 @@ void PS_Demosaic::reset(void) {
 	enabled_BY = false;
 	scale_RC = 1.0;
 	scale_BY = 1.0;
+	//
+	xtrans_passes = 1;
 }
 
 bool PS_Demosaic::load(class DataSet *dataset) {
@@ -136,6 +142,7 @@ bool PS_Demosaic::load(class DataSet *dataset) {
 	dataset->get("enabled_BY", enabled_BY);
 	dataset->get("scale_RC", scale_RC);
 	dataset->get("scale_BY", scale_BY);
+	dataset->get("XTrans_passes", xtrans_passes);
 	return true;
 }
 
@@ -150,6 +157,7 @@ bool PS_Demosaic::save(class DataSet *dataset) {
 	dataset->set("enabled_BY", enabled_BY);
 	dataset->set("scale_RC", scale_RC);
 	dataset->set("scale_BY", scale_BY);
+	dataset->set("XTrans_passes", xtrans_passes);
 	return true;
 }
 
@@ -255,9 +263,23 @@ void F_Demosaic::set_PS_and_FS(PS_Base *new_ps, FS_Base *new_fs, PS_and_FS_args_
 	slider_BY->setLimits(limit_min, limit_max);
 	slider_RC->setValue(ps->scale_RC);
 	slider_BY->setValue(ps->scale_BY);
+	//--
+	if(ps->xtrans_passes == 1)
+		radio_xtrans_passes_1->setChecked(true);
+	else
+		radio_xtrans_passes_3->setChecked(true);
 	reconnect(true);
-	if(metadata != NULL)
+	if(metadata != NULL) {
+		if(metadata->sensor_xtrans) {
+			widget_bayer->setVisible(false);
+			widget_xtrans->setVisible(true);
+		}
+		if(!metadata->sensor_xtrans) {
+			widget_xtrans->setVisible(false);
+			widget_bayer->setVisible(true);
+		}
 		widget->setEnabled(metadata->is_raw && !metadata->sensor_foveon);
+	}
 }
 
 void F_Demosaic::slot_checkbox_hot_pixels(int state) {
@@ -349,13 +371,32 @@ void F_Demosaic::slot_changed_BY(double value) {
 	}
 }
 
+void F_Demosaic::slot_xtrans_passes(bool pass_1) {
+	int passes = pass_1 ? 1 : 3;
+	if(passes != ps->xtrans_passes) {
+		ps->xtrans_passes = passes;
+		emit_signal_update();
+	}
+}
+
 QWidget *F_Demosaic::controls(QWidget *parent) {
 	if(widget != NULL)
 		return widget;
 	QGroupBox *nr_q = new QGroupBox(_name, parent);
 	widget = nr_q;
 
-	QGridLayout *l = new QGridLayout(nr_q);
+	QVBoxLayout *main_vb = new QVBoxLayout(widget);
+	main_vb->setSpacing(0);
+	main_vb->setContentsMargins(0, 0, 0, 0);
+	main_vb->setSizeConstraint(QLayout::SetMinimumSize);
+
+	// Bayer UI
+	widget_bayer = new QWidget();
+//	widget_bayer->setVisible(true);
+	main_vb->addWidget(widget_bayer);
+
+//	QGridLayout *l = new QGridLayout(nr_q);
+	QGridLayout *l = new QGridLayout(widget_bayer);
 	l->setSpacing(1);
 	l->setContentsMargins(2, 1, 2, 1);
 	l->setSizeConstraint(QLayout::SetMinimumSize);
@@ -388,6 +429,28 @@ QWidget *F_Demosaic::controls(QWidget *parent) {
 	slider_BY = new GuiSlider(-5.0, 5.0, 0.0, 10, 10, 10);
 	l->addWidget(slider_BY, row++, 1);
 
+	// XTrans UI
+	widget_xtrans = new QWidget();
+	widget_xtrans->setVisible(false);
+	main_vb->addWidget(widget_xtrans);
+
+	QGridLayout *lx = new QGridLayout(widget_xtrans);
+	lx->setSpacing(1);
+	lx->setContentsMargins(2, 1, 2, 1);
+	lx->setSizeConstraint(QLayout::SetMinimumSize);
+	row = 0;
+
+	QLabel *passes_label = new QLabel(tr("Refining steps:"));
+	lx->addWidget(passes_label, row, 0);
+	QButtonGroup *passes_group = new QButtonGroup(widget_xtrans);
+	radio_xtrans_passes_1 = new QRadioButton(tr("1 pass"));
+	passes_group->addButton(radio_xtrans_passes_1);
+	lx->addWidget(radio_xtrans_passes_1, row, 1);
+	radio_xtrans_passes_3 = new QRadioButton(tr("3 passes"));
+	passes_group->addButton(radio_xtrans_passes_3);
+	lx->addWidget(radio_xtrans_passes_3, row++, 2);
+
+	//--
 	reset();
 	reconnect(true);
 
@@ -407,6 +470,8 @@ void F_Demosaic::reconnect(bool to_connect) {
 		connect(checkbox_BY, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_BY(int)));
 		connect(slider_RC, SIGNAL(signal_changed(double)), this, SLOT(slot_changed_RC(double)));
 		connect(slider_BY, SIGNAL(signal_changed(double)), this, SLOT(slot_changed_BY(double)));
+		//--
+		connect(radio_xtrans_passes_1, SIGNAL(toggled(bool)), this, SLOT(slot_xtrans_passes(bool)));
 	} else {
 		disconnect(checkbox_hot_pixels, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_hot_pixels(int)));
 		disconnect(checkbox_luma, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_luma(int)));
@@ -419,6 +484,8 @@ void F_Demosaic::reconnect(bool to_connect) {
 		disconnect(checkbox_BY, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_BY(int)));
 		disconnect(slider_RC, SIGNAL(signal_changed(double)), this, SLOT(slot_changed_RC(double)));
 		disconnect(slider_BY, SIGNAL(signal_changed(double)), this, SLOT(slot_changed_BY(double)));
+		//--
+		disconnect(radio_xtrans_passes_1, SIGNAL(toggled(bool)), this, SLOT(slot_xtrans_passes(bool)));
 	}
 }
 
@@ -605,40 +672,48 @@ Area *FP_Demosaic::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filte
 	Metadata *metadata = process_obj->metadata;
 	PS_Demosaic *ps = (PS_Demosaic *)(filter_obj->ps_base);
 
+	const bool flag_process_xtrans = metadata->sensor_xtrans;
 	if(subflow->is_master())
 		_init();
-	if(!demosaic_pattern_is_bayer(metadata->demosaic_pattern)) {
-		if(subflow->is_master())
-			return new Area(*area_in);
-		else
-			return NULL;
+	if(flag_process_xtrans == false) {
+		if(!demosaic_pattern_is_bayer(metadata->demosaic_pattern)) {
+			if(subflow->is_master())
+				return new Area(*area_in);
+			else
+				return NULL;
+		}
 	}
 
 	bool flag_process_raw = false;
 //	bool flag_process_raw = true;
 	process_obj->mutators->get("_s_raw_colors", flag_process_raw);
 
-	bool use_DG = true;
-//	use_DG = false;
-	bool flag_process_DG = use_DG;
-	bool flag_process_AHD = !use_DG;
+	bool flag_process_DG = true;
+	bool flag_process_AHD = false;
+	bool flag_process_bilinear = false;
+	bool flag_process_denoise = true;
+	//
 	if(flag_process_raw) {
 		flag_process_DG = false;
 		flag_process_AHD = false;
 	}
-/*
+	if(flag_process_xtrans) {
+		flag_process_raw = false;
+		flag_process_denoise = false;
 		flag_process_DG = false;
 		flag_process_AHD = false;
-*/
+	}
 	const int cores = subflow->cores();
 
 	// -- chromatic aberration
 	Area *bayer_ca = NULL;
 	double scale_red = 1.0;
 	double scale_blue = 1.0;
-	if(ps->enabled_CA && ((ps->enabled_RC && ps->scale_RC != 1.0) || (ps->enabled_BY && ps->scale_BY != 1.0))) {
-		scale_red = double(1.0) / ps->scale_RC;
-		scale_blue = double(1.0) / ps->scale_BY;
+	if(!flag_process_xtrans) {
+		if(ps->enabled_CA && ((ps->enabled_RC && ps->scale_RC != 1.0) || (ps->enabled_BY && ps->scale_BY != 1.0))) {
+			scale_red = double(1.0) / ps->scale_RC;
+			scale_blue = double(1.0) / ps->scale_BY;
+		}
 	}
 
 	int bayer_pattern = metadata->demosaic_pattern;
@@ -753,7 +828,7 @@ Area *FP_Demosaic::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filte
 		width -= 4;
 		height -= 4;
 
-		Area::t_dimensions d_out;
+		Area::t_dimensions d_out = *area_in->dimensions();
 		FP_size_t fp_size(ps);
 		fp_size.metadata = metadata;
 /*
@@ -762,24 +837,29 @@ const Area::t_dimensions *d = area_in->dimensions();
 cerr << "position.x == " << d->position.x << " - " << d->position.y << endl;
 cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - " << d->position.y - d->position.px_size_y * 0.5 << endl;
 */
-		size_forward(&fp_size, area_in->dimensions(), &d_out);
-		area_out = new Area(&d_out);
+		float *bayer = NULL;
+		if(flag_process_xtrans) {
+			area_out = new Area(area_in->dimensions()->width(), area_in->dimensions()->height(), Area::type_float_p4);
+		} else {
+			size_forward(&fp_size, area_in->dimensions(), &d_out);
+			area_out = new Area(&d_out);
 
-		float *bayer = (float *)area_in->ptr();
-		mirror_2(width, height, bayer);
+			bayer = (float *)area_in->ptr();
+			mirror_2(width, height, bayer);
 
-		area_noise_data = new Area(d_out.size.w, d_out.size.h, Area::type_float_p2);
-		area_D = new Area(d_out.size.w, d_out.size.h, Area::type_float_p4);
-		area_dn1 = new Area(area_in->mem_width(), area_in->mem_height(), Area::type_float_p1);
-		area_dn2 = new Area(area_in->mem_width(), area_in->mem_height(), Area::type_float_p1);
-		area_sm_temp = new Area(area_in->mem_width(), area_in->mem_height(), Area::type_float_p4);
-//		area_dn3 = new Area(area_in->mem_width(), area_in->mem_height(), Area::type_float_p4);
-		area_gaussian = new Area(area_in->mem_width(), area_in->mem_height(), Area::type_float_p4);
-		if(flag_process_AHD) {
-			area_fH = new Area(width + 4, height + 4, Area::type_float_p4);
-			area_fV = new Area(width + 4, height + 4, Area::type_float_p4);
-			area_lH = new Area(width + 4, height + 4, Area::type_float_p3);
-			area_lV = new Area(width + 4, height + 4, Area::type_float_p3);
+			area_noise_data = new Area(d_out.size.w, d_out.size.h, Area::type_float_p2);
+			area_D = new Area(d_out.size.w, d_out.size.h, Area::type_float_p4);
+			area_dn1 = new Area(area_in->mem_width(), area_in->mem_height(), Area::type_float_p1);
+			area_dn2 = new Area(area_in->mem_width(), area_in->mem_height(), Area::type_float_p1);
+			area_sm_temp = new Area(area_in->mem_width(), area_in->mem_height(), Area::type_float_p4);
+//			area_dn3 = new Area(area_in->mem_width(), area_in->mem_height(), Area::type_float_p4);
+			area_gaussian = new Area(area_in->mem_width(), area_in->mem_height(), Area::type_float_p4);
+			if(flag_process_AHD) {
+				area_fH = new Area(width + 4, height + 4, Area::type_float_p4);
+				area_fV = new Area(width + 4, height + 4, Area::type_float_p4);
+				area_lH = new Area(width + 4, height + 4, Area::type_float_p3);
+				area_lV = new Area(width + 4, height + 4, Area::type_float_p3);
+			}
 		}
 		// experimental
 #ifdef DIRECTIONS_SMOOTH
@@ -799,6 +879,17 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 		fuji_45 = new Fuji_45(metadata->sensor_fuji_45_width, width + 4, height + 4, true);
 		for(int i = 0; i < cores; i++) {
 			tasks[i] = new task_t;
+			tasks[i]->area_in = area_in;
+			tasks[i]->area_out = area_out;
+			tasks[i]->metadata = metadata;
+			tasks[i]->xtrans_passes = ps->xtrans_passes;
+/*
+			if(flag_process_xtrans) {
+				for(int u = 0; u < 6; u++)
+					for(int v = 0; v < 6; v++)
+						tasks[i]->sensor_xtrans_pattern[u][v] = metadata->sensor_xtrans_pattern[u][v];
+			}
+*/
 			tasks[i]->width = width;
 			tasks[i]->height = height;
 			tasks[i]->bayer = (float *)area_in->ptr();
@@ -807,7 +898,7 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 //			tasks[i]->bayer_pattern = metadata->demosaic_pattern;
 			tasks[i]->ps = ps;
 
-			tasks[i]->noise_data = (float *)area_noise_data->ptr();
+			tasks[i]->noise_data = area_noise_data ? (float *)area_noise_data->ptr() : NULL;
 			for(int j = 0; j < 4; j++)
 				tasks[i]->bayer_import_prescale[j] = metadata->demosaic_import_prescale[j];
 //			tasks[i]->black_offset = metadata->demosaic_black_offset;
@@ -815,12 +906,12 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 			tasks[i]->max_green = max_green;
 			tasks[i]->max_blue = max_blue;
 			tasks[i]->_tasks = (void *)tasks;
-			tasks[i]->D = (float *)area_D->ptr();
-			tasks[i]->dn1 = (float *)area_dn1->ptr();
-			tasks[i]->dn2 = (float *)area_dn2->ptr();
-			tasks[i]->sm_temp = (float *)area_sm_temp->ptr();
-//			tasks[i]->dn3 = (float *)area_dn3->ptr();
-			tasks[i]->gaussian = (float *)area_gaussian->ptr();
+			tasks[i]->D = area_D ? (float *)area_D->ptr() : NULL;
+			tasks[i]->dn1 = area_dn1 ? (float *)area_dn1->ptr() : NULL;
+			tasks[i]->dn2 = area_dn2 ? (float *)area_dn2->ptr() : NULL;
+			tasks[i]->sm_temp = area_sm_temp ? (float *)area_sm_temp->ptr() : NULL;
+//			tasks[i]->dn3 = area_dn3 ? (float *)area_dn3->ptr() : NULL;
+			tasks[i]->gaussian = area_gaussian ? (float *)area_gaussian->ptr() : NULL;
 			tasks[i]->c_scale[0] = metadata->c_scale_ref[0];
 			tasks[i]->c_scale[1] = metadata->c_scale_ref[1];
 			tasks[i]->c_scale[2] = metadata->c_scale_ref[2];
@@ -861,30 +952,30 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 			// experimental - directions detection
 			for(int l = 0; l < 9; l++)
 				tasks[i]->cRGB_to_XYZ[l] = metadata->cRGB_to_XYZ[l];
-			if(area_v_signal != NULL)
-				tasks[i]->v_signal = (float *)area_v_signal->ptr();
+			tasks[i]->v_signal = area_v_signal ? (float *)area_v_signal->ptr() : NULL;
 		}
 		subflow->set_private((void **)tasks);
 	}
 	subflow->sync_point_post();
 
 	// analyse noise
-	process_denoise_wrapper(subflow);
-	subflow->sync_point();
+	if(flag_process_denoise) {
+		process_denoise_wrapper(subflow);
+		subflow->sync_point();
+	}
 
 	// process demosaic
 //	process_DG(subflow);
-	if(flag_process_raw) {
+	if(flag_process_raw)
 		process_square(subflow);
-	} else {
-		if(flag_process_DG) {
-			process_DG(subflow);
-		} else if(flag_process_AHD) {
-			process_AHD(subflow);
-		} else {
-			process_bilinear(subflow);
-		}
-	}
+	if(flag_process_DG)
+		process_DG(subflow);
+	if(flag_process_AHD)
+		process_AHD(subflow);
+	if(flag_process_bilinear)
+		process_bilinear(subflow);
+	if(flag_process_xtrans)
+		process_xtrans(subflow);
 
 	// apply Fuji 45 degree rotation if necessary
 	if(metadata->sensor_fuji_45) {
@@ -902,20 +993,20 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 	subflow->sync_point();
 	if(subflow->is_master()) {
 //cerr << "Demosaic: size.w == " << area_out->dimensions()->size.w << "; edges.x1 == " << area_out->dimensions()->edges.x1 << endl;
-		delete area_noise_data;
-		delete area_D;
-		delete area_dn1;
-		delete area_dn2;
-		delete area_sm_temp;
-//		delete area_dn3;
-		delete area_gaussian;
+		if(area_noise_data) delete area_noise_data;
+		if(area_D) delete area_D;
+		if(area_dn1) delete area_dn1;
+		if(area_dn2) delete area_dn2;
+		if(area_sm_temp) delete area_sm_temp;
+//		if(area_dn3) delete area_dn3;
+		if(area_gaussian) delete area_gaussian;
 		if(flag_process_AHD) {
 			delete area_fH;
 			delete area_fV;
 			delete area_lH;
 			delete area_lV;
 		}
-		if(area_v_signal != NULL)	delete area_v_signal;
+		if(area_v_signal) delete area_v_signal;
 
 //		for(int i = 0; i < subflow->cores(); i++)
 		for(int i = 0; i < cores; i++)
@@ -930,10 +1021,8 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 		edges->y1 = 2;
 		edges->y2 = 2;
 		// CA
-		if(bayer_ca != NULL)
-			delete bayer_ca;
-		if(fuji_45 != NULL)
-			delete fuji_45;
+		if(bayer_ca) delete bayer_ca;
+		if(fuji_45) delete fuji_45;
 /*
 cerr << "F_Demosaic; area_out->dimensions:" << endl;
 const Area::t_dimensions *d = area_out->dimensions();
@@ -2311,6 +2400,48 @@ void FP_Demosaic::fuji_45_rotate(class SubFlow *subflow) {
 			fuji_45->rotate_45(out, x, y, in_width, in_height, in);
 		}
 	}
+}
+
+//------------------------------------------------------------------------------
+void FP_Demosaic::process_xtrans(class SubFlow *subflow) {
+	if(!subflow->is_master())
+		return;
+cerr << "process_xtrans...1" << endl;
+	task_t *task = (task_t *)subflow->get_private();
+	Area *area_in = task->area_in;
+//	uint16_t *in = (uint16_t *)task->area_in->ptr();
+	const int width = area_in->dimensions()->width();
+	const int height = area_in->dimensions()->height();
+
+	// use Import_Raw instead of direct call of 'dcraw::demosaic_xtrans' as workaround of collisions in 'dcraw' and Qt headers
+//	int passes = 1;
+//	int passes = 1;
+//	int passes = 3;
+	Import_Raw::demosaic_xtrans((const uint16_t *)area_in->ptr(), width, height, task->metadata, task->xtrans_passes, task->area_out);
+cerr << "process_xtrans...2" << endl;
+//	DCRaw dcraw;
+//	dcraw.demosaic_xtrans((const uint16_t *)area_in->ptr(), width, height, task->sensor_xtrans_pattern, 1, task->area_out);
+
+/*
+	Area *area_out = task->area_out;
+	float *out = (float *)area_out->ptr();
+cerr << "process_xtrans...3" << endl;
+	
+	for(int j = 0; j < height; j++) {
+		for(int i = 0; i < width; i++) {
+			int k = (width * j + i) * 4;
+			float v = 0.0f;
+			v += in[k + 0];
+			v += in[k + 1];
+			v += in[k + 2];
+			v /= 65535.0f;
+			out[k + 0] = v;
+			out[k + 1] = v;
+			out[k + 2] = v;
+			out[k + 3] = 1.0;
+		}
+	}
+*/
 }
 
 //------------------------------------------------------------------------------

@@ -46,6 +46,8 @@ public slots:
 	void slot_changed_RC(double value);
 	void slot_changed_BY(double value);
 
+	void slot_xtrans_passes(bool);
+
 protected:
 	class PS_Demosaic *ps;
 	class PS_Demosaic *_ps;
@@ -53,19 +55,24 @@ protected:
 
 	// controls
 	QWidget *widget;
+	// Bayer UI
+	QWidget *widget_bayer;
 	QCheckBox *checkbox_hot_pixels;
 	QCheckBox *checkbox_luma;
 	class GuiSlider *slider_luma;
 	QCheckBox *checkbox_chroma;
 	class GuiSlider *slider_chroma;
-	void reconnect(bool to_connect);
-
 	QCheckBox *checkbox_CA;
 	QCheckBox *checkbox_RC;
 	QCheckBox *checkbox_BY;
 	class GuiSlider *slider_RC;
 	class GuiSlider *slider_BY;
+	// X-Trans UI
+	QWidget *widget_xtrans;
+	QRadioButton *radio_xtrans_passes_1;
+	QRadioButton *radio_xtrans_passes_3;
 
+	void reconnect(bool to_connect);
 	void slot_checkbox_process(int state, bool &value);
 };
 

@@ -32,10 +32,14 @@ public:
 	bool sensor_foveon;
 	bool sensor_fuji_45;
 	int sensor_fuji_45_width;
+	bool sensor_xtrans;
+
+	char sensor_xtrans_pattern[6][6];
+	float rgb_cam[3][4];
 
 	float c_max[3];				// maximum value of unscaled signal from sensor
 	uint32_t c_histogram[4096 * 4];	// 2048 == 1.0, signal scaled to D50 for RAW import, or w/o scaling otherwise
-	long c_histogram_count;		//
+	long c_histogram_count[4];
 	float c_scale_ref[3];		// dcraw->pre_mul, already applied to image at import stage
 	float c_scale_camera[3];	// dcraw->cam_mul, camera multipliers;
 	bool c_scale_camera_valid;	// == false if import is RAW and camera scaling coefficients can't be determined

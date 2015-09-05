@@ -41,6 +41,8 @@
 
 #define DCRAW_VERSION "9.26"
 
+#include "area.h"
+#include "metadata.h"
 #include "dcraw.h"
 #include <iostream>
 
@@ -4538,6 +4540,7 @@ void CLASS xtrans_interpolate (int passes)
    char (*homo)[TS][TS], *buffer;
 
   if (verbose)
+    fprintf (stderr,_("%d-pass X-Trans interpolation...\n"), passes);
     fprintf (stderr,_("%d-pass X-Trans interpolation...\n"), passes);
 
   cielab (0,0);
@@ -10104,6 +10107,51 @@ void *DCRaw::_load_raw(string fname, long &length) {
 	return __load(length, DCRaw::load_type_raw, fname);
 }
 
+Area *DCRaw::demosaic_xtrans(const uint16_t *_image, int _width, int _height, const class Metadata *metadata, int passes, class Area *area_out) {
+	colors = 3;
+	verbose = 0;
+	filters = 9;
+	width = _width;
+	height = _height;
+	for(int j = 0; j < 6; j++)
+		for(int i = 0; i < 6; i++)
+			xtrans[j][i] = metadata->sensor_xtrans_pattern[j][i];
+	Area area_image(width, height, Area::type_uint16_p4);
+	uint16_t *image_ptr = (uint16_t *)area_image.ptr();
+	float c_scale[3];
+	for(int i = 0; i < 3; i++)
+		c_scale[i] = metadata->c_scale_ref[i];
+	for(int j = 0; j < 3; j++)
+		for(int i = 0; i < 4; i++)
+			rgb_cam[j][i] = metadata->rgb_cam[j][i];
+	memcpy(image_ptr, _image, width * height * sizeof(uint16_t) * 4);
+/*
+	for(int y = 0; y < height, y++) {
+		for(int x = 0; x < width; x++) {
+			for(int k = 0; k < 4; k++)
+				image_ptr[(y * width + x) * 4 + k] = _image[(y * width + x) * 4 + k];
+		}
+	}	
+*/
+	image = (ushort (*)[4])image_ptr;
+	xtrans_interpolate(passes);
+	// convert and return result
+	if(area_out == NULL)
+		area_out = new Area(width, height, Area::type_float_p4);
+	float *out = (float *)area_out->ptr();
+	for(int y = 0; y < height; y++) {
+		for(int x = 0; x < width; x++) {
+			const int index = (y * width + x) * 4;
+			for(int k = 0; k < 3; k++) {
+//				out[index + k] = float(image_ptr[index + k]) / 65535.0f;
+				out[index + k] = (float(image_ptr[index + k]) / 65535.0f) / c_scale[k];
+			}
+			out[index + 3] = 1.0f;
+		}
+	}
+	return area_out;
+}
+
 //==============================================================================
 //int DCRaw::_main(int argc, const char **argv) {
 void *DCRaw::__load(long &length, load_type_t type, std::string fname) {
@@ -10554,6 +10602,10 @@ next:
 //			for(colors=3, i=0; i < height*width; i++)
 //					image[i][1] = (image[i][1] + image[i][3]) >> 1;
 		convert_to_rgb();
+	}
+	if(filters == 9) {
+		scale_colors();
+		pre_interpolate();
 	}
 	res = (void *)image;
 	image = NULL;

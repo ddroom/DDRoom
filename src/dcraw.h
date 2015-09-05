@@ -95,6 +95,7 @@
 
 class DCRaw {
 friend class Import_Raw;
+friend class FP_Demosaic;
 
 //------------------------------------------------------------------------------
 protected:
@@ -425,6 +426,7 @@ int CLASS _main (int argc, const char **argv);
 	void *_load_raw(std::string fname, long &length);
 	void _load_metadata(std::string fname);
 	static void free_raw(void *ptr);
+	class Area *demosaic_xtrans(const uint16_t *_image, int _width, int _height, const class Metadata *metadata, int passes, class Area *area_out = NULL);
 
 	enum load_type_t {
 		load_type_metadata,

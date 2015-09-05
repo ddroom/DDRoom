@@ -109,27 +109,123 @@ Area *Import_Raw::image(Metadata *metadata) {
 	Profiler prof(prof_name);
 	DCRaw *dcraw = new DCRaw();
 	long length;
-	prof.mark("load raw with dcraw");
+	prof.mark("load raw photo with dcraw");
 	uint16_t *dcraw_raw = (uint16_t *)dcraw->_load_raw(file_name, length);
-	prof.mark("get metadata");
+//	prof.mark("get metadata");
 	get_metadata(dcraw, metadata, dcraw_raw);
 	Exiv2_load_metadata(file_name, metadata);
-	prof.mark("convert to Area");
 	bool processed = false;
 	if(metadata->sensor_foveon) {
+		prof.mark("process Foveon data with dcraw");
 		processed = true;
-//		metadata->is_raw = false;
-//		metadata->sensor_foveon = true;
 		area_out = load_foveon(dcraw, metadata, dcraw_raw);
 	}
-	if(!processed && !metadata->demosaic_unsupported) {
+	if(metadata->sensor_xtrans) {
+		prof.mark("load X-Trans data");
 		processed = true;
+		area_out = load_xtrans(dcraw, metadata, dcraw_raw);
+	}
+	if(!processed && !metadata->demosaic_unsupported) {
+		prof.mark("load Bayer data");
+//		processed = true;
 		area_out = dcraw_to_area(dcraw, metadata, dcraw_raw);
 	}
 	DCRaw::free_raw(dcraw_raw);
 	delete dcraw;
 	prof.mark("");
 	dcraw_lock.unlock();
+	return area_out;
+}
+
+//------------------------------------------------------------------------------
+class Area *Import_Raw::demosaic_xtrans(const uint16_t *_image, int _width, int _height, const class Metadata *metadata, int passes, class Area *area_out) {
+	DCRaw dcraw;
+	return dcraw.demosaic_xtrans(_image, _width, _height, metadata, passes, area_out);
+}
+
+Area *Import_Raw::load_xtrans(DCRaw *dcraw, Metadata *metadata, const uint16_t *dcraw_raw) {
+	// prepare metadata
+//	metadata->is_raw = false;
+	metadata->is_raw = true;
+	const int width = dcraw->width;
+	const int height = dcraw->height;
+	metadata->width = width;
+	metadata->height = height;
+	for(int j = 0; j < 6; j++) {
+		for(int i = 0; i < 6; i++) {
+			metadata->sensor_xtrans_pattern[j][i] = dcraw->xtrans[j][i];
+		}
+	}
+	for(int i = 0; i < 3; i++) {
+		metadata->c_scale_ref[i] = dcraw->pre_mul[i];
+		metadata->c_scale_camera[i] = dcraw->cam_mul[i];
+	}
+	float f = metadata->c_scale_camera[1];
+	for(int i = 0; i < 3; i++) {
+		metadata->c_scale_camera[i] /= f;
+	}
+	metadata->c_scale_camera_valid = true;
+
+	float mc[9];
+	int k = 0;
+	for(int j = 0; j < 3; j++) {
+		for(int i = 0; i < 3; i++) {
+			mc[k++] = dcraw->rgb_cam[j][i];
+		}
+		for(int i = 0; i < 4; i++) {
+			metadata->rgb_cam[j][i] = dcraw->rgb_cam[j][i];
+		}
+	}
+	float m_srgb_to_xyz[9] = {
+		 0.4124564,  0.3575761,  0.1804375,
+		 0.2126729,  0.7151522,  0.0721750,
+		 0.0193339,  0.1191920,  0.9503041};
+	// restore matrix cRGB-XYZ D65 from matrix cRGB-sRGB D65 provided by dcraw
+	m3_m3_mult(metadata->cRGB_to_XYZ, m_srgb_to_xyz, mc);
+	//--------------------------------------------------------------------------
+	float scale[4];
+//	const float maximum = dcraw->maximum - dcraw->black;
+	for(int i = 0; i < 4; i++)
+		scale[i] = 1.0f / 65535.0f;
+//		scale[i] = 1.0f / maximum;
+//	Area *area_out = new Area(width, height, Area::type_float_p4);
+	Area *area_out = new Area(width, height, Area::type_uint16_p4);
+	uint16_t *out = (uint16_t *)area_out->ptr();
+	for(int i = 0; i < 3; i++)
+		metadata->c_max[i] = 0.0f;
+	for(int y = 0; y < height; y++) {
+		for(int x = 0; x < width; x++) {
+			const int index = (y * width + x) * 4;
+			int k = metadata->sensor_xtrans_pattern[(y + 6) % 6][(x + 6) % 6];
+			float value = (scale[k] * dcraw_raw[index + k]) / metadata->c_scale_ref[k];
+//			float value = (scale[k] * dcraw_raw[index + k]) * metadata->c_scale_ref[k];
+//			float value = (scale[k] * dcraw_raw[index + k]);
+			value = (value > 0.0) ? value : 0.0;
+			if(metadata->c_max[k] < value)
+				metadata->c_max[k] = value;
+			uint32_t c_index = value * 2048;
+			if(c_index > 4095)	c_index = 4095;
+			(metadata->c_histogram[4096 * k + c_index])++;
+			metadata->c_histogram_count[k]++;
+/*
+			float value = 0.0f;
+			for(int k = 0; k < 3; k++)
+				value += scale[k] * dcraw_raw[index + k];
+//				value += scale[k] * (dcraw_raw[index + k] - dcraw->black);
+			float value_n = (value > 0.0) ? value : 0.0;
+			uint32_t c_index = value_n * 2048;
+			if(c_index > 4095)	c_index = 4095;
+			for(int k = 0; k < 3; k++) {
+//				out[index + k] = value;
+				(metadata->c_histogram[4096 * k + c_index])++;
+				metadata->c_histogram_count[k]++;
+			}
+*/
+			for(int k = 0; k < 4; k++)
+				out[index + k] = dcraw_raw[index + k];
+//			out[index + 3] = 1.0;
+		}
+	}
 	return area_out;
 }
 
@@ -181,14 +277,17 @@ Area *Import_Raw::load_foveon(DCRaw *dcraw, Metadata *metadata, const uint16_t *
 				value *= scale[k];
 				out[index + k] = value;
 				float value_n = (value > 0.0) ? value : 0.0;
+				if(metadata->c_max[k] < value_n)
+					metadata->c_max[k] = value_n;
 				uint32_t c_index = value_n * 2048;
 				if(c_index > 4095)	c_index = 4095;
 				(metadata->c_histogram[4096 * k + c_index])++;
+				metadata->c_histogram_count[k]++;
 			}
 			out[index + 3] = 1.0;
 		}
 	}
-	metadata->c_histogram_count = (metadata->width * metadata->height);
+//	metadata->c_histogram_count = (metadata->width * metadata->height);
 	return area_out;
 }
 
@@ -328,10 +427,6 @@ cerr << "dcraw->pre_mul[3] == " << dcraw->pre_mul[3] << endl;
 	//--
 	int offset = 2 * (width + 4) + 2;
 	float *out = (float *)area_out->ptr() + offset;
-	//--
-	for(int i = 0; i < 3; i++) {
-		metadata->c_max[i] = 0.0;
-	}
 	// fill metadata with signal levels and scaling factor for demosaic processing
 	float _import_prescale[4];
 	float _signal_max[4];
@@ -470,6 +565,8 @@ cerr << "bayer_signal_maximum[3] == " << bayer_signal_maximum[3] << endl;
 	if(metadata->sensor_fuji_45)
 		fuji_45 = new Fuji_45(metadata->sensor_fuji_45_width, metadata->width, metadata->height);
 	float cmax[3] = {0.0f, 0.0f, 0.0f};
+	for(int i = 0; i < 3; i++)
+		metadata->c_max[i] = 0.0f;
 
 //	float max1[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 //	float max2[4] = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -552,7 +649,8 @@ cerr << "bayer_signal_maximum[3] == " << bayer_signal_maximum[3] << endl;
 			uint32_t c_index = value_n * 2048;
 			if(c_index > 4095)	c_index = 4095;
 //			if(c_index < 0)		c_index = 0;
-			(metadata->c_histogram[4096 * index_4 + c_index])++;
+			(metadata->c_histogram[4096 * index_3 + c_index])++;
+			metadata->c_histogram_count[index_3]++;
 			// store result
 //			value = dcraw_raw[k + index_4];
 //			value /= metadata->demosaic_level_white[index_4];
@@ -605,7 +703,7 @@ cerr << "signal_max[ " << i << "] == " << metadata->demosaic_signal_max[i] << en
 }
 */
 //	metadata->c_histogram_count = (width * height) / 4;
-	metadata->c_histogram_count = (metadata->width * metadata->height) / 4;
+//	metadata->c_histogram_count = (metadata->width * metadata->height) / 4;
 /*
 	for(int i = 0; i < 3; i++) {
 		cerr << "  c_max[" << i << "] == " << metadata->c_max[i] << endl;
@@ -763,15 +861,20 @@ void Import_Raw::get_metadata(DCRaw *dcraw, Metadata *metadata, const uint16_t *
 		metadata->demosaic_unknown = true;
 		metadata->demosaic_unsupported = true;
 	}
-//	} else {
-		if(dcraw->is_foveon) {
-			metadata->sensor_foveon = true;
-//			metadata->is_raw = false;
-			metadata->demosaic_pattern = DEMOSAIC_PATTERN_FOVEON;
-			metadata->demosaic_unknown = true;
-			metadata->demosaic_unsupported = true;
-		}
-//	}
+	if(dcraw->is_foveon) {
+		metadata->sensor_foveon = true;
+//		metadata->is_raw = false;
+		metadata->demosaic_pattern = DEMOSAIC_PATTERN_FOVEON;
+		metadata->demosaic_unknown = true;
+		metadata->demosaic_unsupported = true;
+	}
+	if(dcraw->filters == 9) {
+		metadata->sensor_xtrans = true;
+//		metadata->is_raw = true;
+		metadata->demosaic_pattern = DEMOSAIC_PATTERN_XTRANS;
+		metadata->demosaic_unknown = true;
+		metadata->demosaic_unsupported = true;
+	}
 //cerr << "sensor_fuji_45 == " << metadata->sensor_fuji_45 << endl;
 //cerr << "fuji_width == " << dcraw->fuji_width << endl;
 #if 0
