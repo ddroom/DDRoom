@@ -15,6 +15,7 @@
 
  Notes:
  - the real colors scaling happens at "filter_gp" right now, before image sampling;
+ - MARK3 - mark for a code to show a real histograms or the ones used for auto alignments
 
 */
 
@@ -124,7 +125,7 @@ void PS_WB::reset(void) {
 		scale_current[i] = 1.0;
 	}
 	auto_alignment = true;
-	auto_white = true;
+	auto_white = false;
 	auto_white_edge = 0.0001;
 	auto_black = false;
 	auto_black_edge = 0.0001;
@@ -975,8 +976,6 @@ Area *FP_WB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj)
 		process_obj->mutators->get("_p_thumb", is_thumb);
 		bool _s_raw_colors = false;
 		process_obj->mutators->get("_s_raw_colors", _s_raw_colors);
-//cerr << endl;
-//cerr << endl;
 		if((fp_cache->is_empty || is_thumb == true) && _s_raw_colors == false) {
 			// is critical for export with processing w/o thumbnails
 			fp_cache->is_empty = false;
@@ -1001,7 +1000,6 @@ Area *FP_WB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj)
 				for(int i = 0; i < 3; i++) {
 					bool is_clipped = (metadata->c_max[i] >= 1.0);
 					float v = scale[i] * (metadata->c_max[i] * metadata->c_scale_ref[i]);
-//cerr << "v[" << i << "] == " << v << endl;
 					clipped |= (v > 1.0);
 					max = (v > max) ? v : max;
 					max_unclipped = (v > max_unclipped && !is_clipped) ? v : max_unclipped;
@@ -1009,7 +1007,7 @@ Area *FP_WB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj)
 				}
 				if(clipped) {
 					// align by maximum unclipped value, or minimum clipped
-						alignment = 1.0 / min;
+					alignment = 1.0 / min;
 				} else {
 					if(max < 1.0) {
 						alignment = 1.0 / max;
@@ -1023,39 +1021,25 @@ Area *FP_WB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj)
 			//----
 			// auto white upscale if possible (i.e. unclipped signals only)
 			if(ps->auto_white) {
-				// ps->auto_black_edge - how much percents of image should be put cut at zero level;
-//cerr << "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ps->auto_black_edge == " << ps->auto_black_edge << endl;
-				// calculate each channel separatelly and cut when one of them fill asked percents;
+				float s_white[3] = {1.0f, 1.0f, 1.0f};
 				long sum[3] = {0, 0, 0};
 				double edge = 1.0 - ps->auto_white_edge * 0.01;
-				bool flag = false;
-				int i = 0;
-				int j = 0;
-				for(; i < 2048; i++) {
-					j = 0;
-					for(; j < 3; j++) {
-						sum[j] += metadata->c_histogram[4098 * j + i];
-						double rate = double(sum[j]) / metadata->c_histogram_count;
+				for(int j = 0; j < 3; j++) {
+					for(int i = 0; i < 2048; i++) {
+						sum[j] += metadata->c_histogram[4096 * j + i];
+						double rate = double(sum[j]) / metadata->c_histogram_count[j];
 						if(rate >= edge) {
-//cerr << "rate == " << rate << "; edge == " << edge << "; i == " << i << endl;
-							flag = true;
+							s_white[j] = 1.0 / ((float(i - 1) / 2047) * scale[j]);
+							s_white[j] /= metadata->c_scale_ref[j];
 							break;
 						}
 					}
-					if(flag) {
-						break;
-					}
 				}
-				if(flag) {
-					float s = 1.0 / ((float(i - 1) / 2047) * scale[j]);
-//cerr << "i == " << i << endl;
-//cerr << "s == " << s << endl;
-					if(s > 1.01)
-						for(int k = 0; k < 3; k++) {
-							scale[k] *= s;
-//cerr << "scale[" << k << "] == " << scale[k] << endl;
-					}
-				}
+				float s_max = s_white[0];
+				s_max = (s_max > s_white[1]) ? s_max : s_white[1];
+				s_max = (s_max > s_white[2]) ? s_max : s_white[2];
+				for(int k = 0; k < 3; k++)
+					scale[k] *= s_max;
 			}
 			//----
 			// auto black offset
@@ -1071,8 +1055,8 @@ Area *FP_WB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj)
 				for(; i < 2000; i++) {
 					j = 0;
 					for(; j < 3; j++) {
-						sum[j] += metadata->c_histogram[4098 * j + i];
-						float rate = float(sum[j]) / metadata->c_histogram_count;
+						sum[j] += metadata->c_histogram[4096 * j + i];
+						float rate = float(sum[j]) / metadata->c_histogram_count[j];
 						if(rate >= edge) {
 //cerr << "rate == " << rate << "; edge == " << edge << endl;
 							flag = true;
@@ -1095,20 +1079,21 @@ Area *FP_WB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj)
 				scale[1] *= s;
 				scale[2] *= s;
 			}
+#if 0
+			// MARK3
 			//----
 			// update and emit histograms
 			// TODO: correct that, especially unawareness of black level autocorrection
-/*
 			if(filter != NULL) {
 				QVector<long> hist_before(256 * 3);
 				QVector<long> hist_after(256 * 3);
 				QVector<float> v(400);
 				for(int j = 0; j < 3; j++) {
-					scale_histogram(v, 200, &metadata->c_histogram[4098 * j], 4098, 2048, 1.0, 0.0);
+					scale_histogram(v, 200, &metadata->c_histogram[4096 * j], 4096, 2048, 1.0, 0.0);
 					for(int i = 0; i < 256; i++)
 						hist_before[j * 256 + i] = v[i];
 					// TODO: add offset support
-					scale_histogram(v, 200, &metadata->c_histogram[4098 * j], 4098, 2048, scale[j], offset);
+					scale_histogram(v, 200, &metadata->c_histogram[4096 * j], 4096, 2048, scale[j], offset);
 					for(int i = 0; i < 256; i++)
 						hist_after[j * 256 + i] = v[i];
 				}
@@ -1120,7 +1105,7 @@ Area *FP_WB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj)
 					filter->set_histograms(histogram_data, hist_before, hist_after);
 				}
 			}
-*/
+#endif
 			//--
 			for(int i = 0; i < 3; i++)
 				fp_cache->scale[i] = scale[i];
@@ -1356,6 +1341,7 @@ cerr << endl;
 			if(filter_obj->fs_base != NULL)
 				histogram_data = &((FS_WB *)filter_obj->fs_base)->histogram_data;
 //cerr << "args->fs_base == " << (unsigned long)args->fs_base << endl;
+// MARK3
 			filter->set_histograms(histogram_data, hist_in, hist_out);
 		}
 		delete tasks[0]->y_flow;
