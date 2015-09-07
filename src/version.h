@@ -11,6 +11,6 @@
 
 #define APP_NAME "DDRoom"
 #define APP_NAME_FULL "Digital Dark Room"
-#define APP_VERSION	"1.0.1.1"
+#define APP_VERSION	"1.0.1.2"
 
 #endif //__H_VERSION__

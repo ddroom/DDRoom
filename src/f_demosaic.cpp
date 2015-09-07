@@ -7,38 +7,6 @@
  *
  */
 
-/*
-ISSUES that needs further investigation:
-	- bad reconstruction of RED where is no, or low, correlation with GREEN: IMG_0517.CR2, img_7206.cr2;
-		- possible solution: use 4-directional reconstruction with directions from RED channel.
-	- direction detection - wrong recognition as horisontal at the end of vertical lines : IMG_1389.CR2;
-	- strong moire at left windows: IMG_2156.CR2;
-		- possible solution: moire detection from GREEN channel as strong function 0, 1, 0 or somethin like this...
-		- possible solution: detect with noise recognition;
-	- bad diagonal lines at green channel, looks like depend on correlation of GREEN and RED/BLUE:
-		- 4D: good at signs in IMG_0954.CR2, green in IMG_1951.CR2;
-		- 2D: good at arc of building in IMG_2156.CR2;
-
-- try to apply 2D reconstruction with workflow from AHD.
-
-TODO:
-	- reconstruct RED / BLUE channel according to CA correction that can be transferred via mutators (if any);
-	- check blooming at overexposed pixels;
-	- improve direction detection with 'main line recognition' for the main continuous line of the same lightness, or end of line, or corner;
-	- process with tiling support;
-
-	- noise suspension:
-		- with edges detection;
-		- offline profiles of statistical law for noise suspension;
-		- looks like only Canon provide usable black pixels (i.e. accessible via DCRaw) - try noise profiles creation in offline mode for other brands/cameras, with 4-plane RAW output for analyze;
-		- use a real 9x9 kernel for chroma noise suspension;
-		- apply smooth function for smoothing factor;
-
-	- measure std_dev according to signal level - looks like with signal increase std_dev increased also...
-
- *
- */
-
 #include <iostream>
 
 #include "demosaic_pattern.h"
@@ -49,20 +17,6 @@ TODO:
 #include "ddr_math.h"
 #include "gui_slider.h"
 #include "f_demosaic_int.h"
-
-#define HPR_COLD_PIXELS
-//#undef HPR_COLD_PIXELS
-
-// use only 2 directions for green instead of 4
-//#undef NO_DIAGONAL_GREEN
-#define NO_DIAGONAL_GREEN
-
-// calculate directions from 3x3 window of red/blue for red/blue reconstruction
-// good at places where correlation red-green and blue-green is low
-// bad for diagonal lines on sharpness test charts
-//#define USE_DIRECTIONS_FROM_COLOR
-// or use directions from green channel instead
-#undef USE_DIRECTIONS_FROM_COLOR
 
 using namespace std;
 
@@ -132,11 +86,13 @@ void PS_Demosaic::reset(void) {
 
 bool PS_Demosaic::load(class DataSet *dataset) {
 	reset();
+/*
 	dataset->get("hot_pixels_removal_enable", hot_pixels_removal_enable);
 	dataset->get("noise_luma_enable", noise_luma_enable);
 	dataset->get("noise_luma", noise_luma);
 	dataset->get("noise_chroma_enable", noise_chroma_enable);
 	dataset->get("noise_chroma", noise_chroma);
+*/
 	dataset->get("enabled_CA", enabled_CA);
 	dataset->get("enabled_RC", enabled_RC);
 	dataset->get("enabled_BY", enabled_BY);
@@ -147,11 +103,13 @@ bool PS_Demosaic::load(class DataSet *dataset) {
 }
 
 bool PS_Demosaic::save(class DataSet *dataset) {
+/*
 	dataset->set("hot_pixels_removal_enable", hot_pixels_removal_enable);
 	dataset->set("noise_luma_enable", noise_luma_enable);
 	dataset->set("noise_luma", noise_luma);
 	dataset->set("noise_chroma_enable", noise_chroma_enable);
 	dataset->set("noise_chroma", noise_chroma);
+*/
 	dataset->set("enabled_CA", enabled_CA);
 	dataset->set("enabled_RC", enabled_RC);
 	dataset->set("enabled_BY", enabled_BY);
@@ -406,14 +364,14 @@ QWidget *F_Demosaic::controls(QWidget *parent) {
 //	l->addWidget(checkbox_hot_pixels, row++, 0, 1, 0);
 
 	checkbox_luma = new QCheckBox(tr("Luma"));
-	l->addWidget(checkbox_luma, row, 0);
+//	l->addWidget(checkbox_luma, row, 0);
 	slider_luma = new GuiSlider(0.0, 20.0, 0.0, 10, 10, 10);
-	l->addWidget(slider_luma, row++, 1);
+//	l->addWidget(slider_luma, row++, 1);
 
 	checkbox_chroma = new QCheckBox(tr("Chroma"));
-	l->addWidget(checkbox_chroma, row, 0);
+//	l->addWidget(checkbox_chroma, row, 0);
 	slider_chroma = new GuiSlider(0.0, 20.0, 0.0, 10, 10, 10);
-	l->addWidget(slider_chroma, row++, 1);
+//	l->addWidget(slider_chroma, row++, 1);
 
 	//--
 	checkbox_CA = new QCheckBox(tr("Chromatic aberration"));
@@ -691,7 +649,8 @@ Area *FP_Demosaic::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filte
 	bool flag_process_DG = true;
 	bool flag_process_AHD = false;
 	bool flag_process_bilinear = false;
-	bool flag_process_denoise = true;
+//	bool flag_process_denoise = true;
+	bool flag_process_denoise = false;
 	//
 	if(flag_process_raw) {
 		flag_process_DG = false;
@@ -860,11 +819,11 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 				area_lH = new Area(width + 4, height + 4, Area::type_float_p3);
 				area_lV = new Area(width + 4, height + 4, Area::type_float_p3);
 			}
-		}
-		// experimental
 #ifdef DIRECTIONS_SMOOTH
-		area_v_signal = new Area(width + 4, height + 4, Area::type_float_p4);
+			// experimental
+			area_v_signal = new Area(width + 4, height + 4, Area::type_float_p4);
 #endif
+		}
 
 //		int cores = subflow->cores();
 		tasks = new task_t *[cores];

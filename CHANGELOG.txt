@@ -1,5 +1,6 @@
 
-1.0.1.1 - SDrA - improved diagonal green reconstruction.
+1.0.1.2 - DG Bayer demosaic - improved colors reconstruction; denoise processing is disabled.
+1.0.1.1 - DG Bayer demosaic - improved diagonal green reconstruction.
 1.0.1.0 - Added X-Trans sensor import.
 1.0.0.6 - F_WB: improved 'auto white' algorithm, and turned off by default.
 1.0.0.5 - Fixed 'Sharpness' filter parameters UI.

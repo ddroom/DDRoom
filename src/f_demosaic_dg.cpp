@@ -8,14 +8,12 @@
  */
 /*
 
- On first, that was a slightly modified version of 'DDFAPD':
+ DG - 'Directional Gradients' Bayer demosaic filter.
+ Author: Mykhailo Malyshko a.k.a. Spectr.
+ Inspired by Bayer demosaic filter 'DDFAPD':
     "Demosaicing With Directional Filtering and a Posteriori Decision"
     Daniele Menon, Stefano Andriani, Student Member, IEEE, and Giancarlo Calvagno, Member, IEEE
     "IEEE TRANSACTIONS ON IMAGE PROCESSING, VOL. 16, NO. 1, JANUARY 2007", p.132-141
- Then later it was hardly modified and tuned, so now instead of make some sort of
-    complicated abbreviation it's called SDrA, which is means 'Spectr's Demosaic revision A'.
-    I'm just don't have a time to figure out a some fancy mathematical basis for parts of algorithm
-    that would looks nice in theory but not so in reality :)
 
 */
 
@@ -28,21 +26,28 @@
 #include "ddr_math.h"
 #include "f_demosaic_int.h"
 
-#define HPR_COLD_PIXELS
-//#undef HPR_COLD_PIXELS
-
-// use only 2 directions for green instead of 4
-//#undef NO_DIAGONAL_GREEN
-#define NO_DIAGONAL_GREEN
-
-// calculate directions from 3x3 window of red/blue for red/blue reconstruction
-// good at places where correlation red-green and blue-green is low
-// bad for diagonal lines on sharpness test charts
-//#define USE_DIRECTIONS_FROM_COLOR
-// or use directions from green channel instead
-#undef USE_DIRECTIONS_FROM_COLOR
-
 using namespace std;
+
+// '-' W, '\' NW, '|' N, '/' NE; i.e. West, North and East
+#define D2_V	0x00
+#define D2_H	0x01
+#define D2_N	D2_V
+#define D2_W	D2_H
+#define D2_MASK	0x01
+
+#define D2D_NW	(0x00 << 1)
+#define D2D_NE	(0x01 << 1)
+#define D2D_MASK	(0x01 << 1)
+
+#define D4_W	(0x00 << 2)
+#define D4_NW	(0x01 << 2)
+#define D4_N	(0x02 << 2)
+#define D4_NE	(0x03 << 2)
+#define D4_MASK	(0x03 << 2)
+
+// moire
+#define DM_FLAG	(0x01 << 4)
+#define DM_MASK	(0x01 << 4)
 
 //------------------------------------------------------------------------------
 inline float middle(const float v1, const float v2, const float v3, const float v4) {
@@ -231,7 +236,7 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 	float *v_signal = task->v_signal;
 	//------------
 	// pass I: interpolation of the GREEN at RED and BLUE points
-	float *noise_data = task->noise_data;
+//	float *noise_data = task->noise_data;
 	for(int y = y_min; y < y_max; y++) {
 		for(int x = x_min; x < x_max; x++) {
 			const int s = __bayer_pos_to_c(x, y);
@@ -455,6 +460,7 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 	subflow->sync_point_post();
 
 	//--==--
+	// smooth reconstructed signals to improve direction detection
 	// low-pass filter signal, and extract high-freq component
 	float *sm_in = v_signal;
 	float *sm_out = sm_temp;
@@ -520,7 +526,6 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 		mirror_2(width, height, _m);
 	subflow->sync_point_post();
 
-
 	//------------
 	// pass II: create Dv, Dnw, Dh, Dne tables
 	const float w = 1.0;
@@ -566,14 +571,12 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 	//------------
 	// pass III: determine directions of green plane, reconstruct GREEN by direction, copy known RED and BLUE
 //	float noise_std_dev_min = task->noise_std_dev_min * 2.0;
-	const float n_s0 = task->noise_std_dev_min;
-	float n_s1 = 1.0;
+//	const float n_s0 = task->noise_std_dev_min;
+//	float n_s1 = 1.0;
 //	float *noise_data = task->noise_data;
 	for(int y = y_min; y < y_max; y++) {
 		for(int x = x_min; x < x_max; x++) {
-			const int s = __bayer_pos_to_c(x, y);
 			const int k = ((width + 4) * (y + 2) + x + 2) * 4;
-			const int k2 = ((width + 4) * (y + 2) + x + 2) * 2;
 			float C[4];
 			for(int i = 0; i < 4; i++) {
 				float c = D[k - w4 - 4 + i] + D[k - w4 + 0 + i] + D[k - w4 + 4 + i];
@@ -619,8 +622,10 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 			if(C[0] == C[2])
 				_rgba[k + 1] = (_rgba[k + 2] + _rgba[k + 0]) * 0.5;
 #endif
+#if 0
+			const int s = __bayer_pos_to_c(x, y);
+			const int k2 = ((width + 4) * (y + 2) + x + 2) * 2;
 			// use Gaussian blur instead of directional interpolation in places with high noise;
-///*
 			if(s == p_red || s == p_blue)
 				n_s1 = n_s0 * 3.0;
 			else
@@ -639,27 +644,25 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 				}
 				_rgba[k + 1] = value;
 			}
-//*/
+#endif
 			// store directions - in alpha channel
 			// '-' '\' '|' '/' - 0, 1, 2, 3
-			d_ptr[k + 3] = d * 16;
-			// 11110000 - directions from GREEN
-			// 00001111 - directions for color
-			// 0000000x, x == 0 - horizontal, x == 1 - vertical
-			// 0000000x, x == 0 - '\', x == 2 - '/'
-#if 1
-			// use 4 directions for colors
-			if(C[0] > C[2]) // & 0x01 ==> '|'
-				d_ptr[k + 3] += 1;
-			if(C[1] > C[3]) // & 0x02 ==> '/'
-				d_ptr[k + 3] += 2;
-#else
-			// save only vertical-horizontal directions
-			int d_ = 0;
-			if(C[0] > C[2])
-				d_ = 2 * 16 + 1;
-			d_ptr[k + 3] = d_;
-#endif
+			d_ptr[k + 3] = 0x00;
+			//--
+			if(C[0] < C[2])
+				d_ptr[k + 3] |= D2_H;
+			else
+				d_ptr[k + 3] |= D2_V;
+			//--
+			if(C[1] < C[3])
+				d_ptr[k + 3] |= D2D_NW;
+			else
+				d_ptr[k + 3] |= D2D_NE;
+			//--
+			if(d == 0)	d_ptr[k + 3] |= D4_W;
+			if(d == 1)	d_ptr[k + 3] |= D4_NW;
+			if(d == 2)	d_ptr[k + 3] |= D4_N;
+			if(d == 3)	d_ptr[k + 3] |= D4_NE;
 		}
 	}
 	//------------
@@ -670,30 +673,64 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 #if 1
 	//------------
 	// refine diagonal GREEN at RED and BLUE
-	// rather minor improvement
 	for(int y = y_min; y < y_max; y++) {
 		for(int x = x_min; x < x_max; x++) {
 			const int k = w4 * (y + 2) + (x + 2) * 4;
 			const int s = __bayer_pos_to_c(x, y);
 			if(s == p_red || s == p_blue) {
-				const int d4 = d_ptr[k + 3] / 16;
-				if(d4 == 3) { // '/'
-					const int d1 = d_ptr[k - w4 + 4 + 3] / 16;
-					const int d2 = d_ptr[k + w4 - 4 + 3] / 16;
-					if(d1 == 3 || d2 == 3) {
-						float lf_g = (_rgba[k - w4 + 4 + 1] + _rgba[k + 1] + _rgba[k + w4 - 4 + 1]) / 3.0f;
-						_rgba[k + 1] = lf_g;
-					}
+				const int d4 = d_ptr[k + 3] & D4_MASK;
+				if(d4 == D4_NW) { // '\'
+					const int d1 = d_ptr[k - w4 - 4 + 3] & D4_MASK;
+					const int d2 = d_ptr[k + w4 + 4 + 3] & D4_MASK;
+					if(d1 == D4_NW || d2 == D4_NW)
+						_rgba[k + 1] = (_rgba[k - w4 - 4 + 1] + _rgba[k + 1] + _rgba[k + w4 + 4 + 1]) / 3.0f;
 				}
-				if(d4 == 1) { // '\'
-					const int d1 = d_ptr[k - w4 - 4 + 3] / 16;
-					const int d2 = d_ptr[k + w4 + 4 + 3] / 16;
-					if(d1 == 1 || d2 == 1) {
-						float lf_g = (_rgba[k - w4 - 4 + 1] + _rgba[k + 1] + _rgba[k + w4 + 4 + 1]) / 3.0f;
-						_rgba[k + 1] = lf_g;
-					}
+				if(d4 == D4_NE) { // '/'
+					const int d1 = d_ptr[k - w4 + 4 + 3] & D4_MASK;
+					const int d2 = d_ptr[k + w4 - 4 + 3] & D4_MASK;
+					if(d1 == D4_NE || d2 == D4_NE)
+						_rgba[k + 1] = (_rgba[k - w4 + 4 + 1] + _rgba[k + 1] + _rgba[k + w4 - 4 + 1]) / 3.0f;
 				}
 			}
+		}
+	}
+	//---------------------------
+	if(subflow->sync_point_pre())
+		mirror_2(width, height, _m);
+	subflow->sync_point_post();
+#endif
+
+#if 1
+	//------------
+	// detect moire
+	for(int y = y_min; y < y_max; y++) {
+		for(int x = x_min; x < x_max; x++) {
+			const int k = w4 * (y + 2) + (x + 2) * 4;
+			const int d4 = d_ptr[k + 3] & D4_MASK;
+			const float g = _rgba[k + 1];
+			float g1 = g;
+			float g2 = g;
+			if(d4 == D4_W) { // '-'
+				g1 = _rgba[k - w4 + 1];
+				g2 = _rgba[k + w4 + 1];
+			}
+			if(d4 == D4_NW) { // '\'
+				g1 = _rgba[k - w4 + 4 + 1];
+				g2 = _rgba[k + w4 - 4 + 1];
+			}
+			if(d4 == D4_N) { // '|'
+				g1 = _rgba[k - 4 + 1];
+				g2 = _rgba[k + 4 + 1];
+			}
+			if(d4 == D4_NE) { // '/'
+				g1 = _rgba[k - w4 - 4 + 1];
+				g2 = _rgba[k + w4 + 4 + 1];
+			}
+			bool flag = false;
+			flag |= (g1 > g) && (g2 > g);
+			flag |= (g1 < g) && (g2 < g);
+			if(flag)
+				d_ptr[k + 3] |= DM_FLAG;
 		}
 	}
 	//---------------------------
@@ -734,17 +771,11 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 			const int s = __bayer_pos_to_c(x, y);
 			if(s == p_red || s == p_blue) {
 				float v = value_bayer(width, height, x, y, bayer);
-				int ci_2 = (s == p_red) ? 0 : 2;
+				const int ci_2 = (s == p_red) ? 0 : 2;
 				_rgba[k + ci_2] = v;
-/*
-				float scale = 1.0;
-				float scale = task->c_scale[0];
-				if(s == p_blue)
-					scale = task->c_scale[2];
-*/
 				// interpolation for other color
 				float c = 0.0;
-				int ci = (s == p_red) ? 2 : 0;
+				const int ci = (s == p_red) ? 2 : 0;
 				// c1 c2
 				// c3 c4
 				float c1 = value_bayer(width, height, x - 1, y - 1, bayer);
@@ -752,76 +783,95 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 				float c3 = value_bayer(width, height, x - 1, y + 1, bayer);
 				float c4 = value_bayer(width, height, x + 1, y + 1, bayer);
 				float g = _rgba[k + 1];
-				// used 4-directions RED_at_BLUE interpolation, with greatly (almost at all) reduced color moire
-				// and keeps significant improvement of reconstruction on diagonal edges;
-				// TODO: don't use '-' and '|' directions where is no correlations of RED/GREEN
-				// TODO: check how to improve diagonal direction detection and processing
-				int d4 = d_ptr[k + 3] / 16;
-				int d2 = (((d_ptr[k + 3] & 0x0F) % 2) * 2);
-				int d = d2;
-				if(d4 == 1 || d4 == 3) {
-					d = d4;
-					if(d4 == 1) { // '\'
-						float d4_1 = d_ptr[k - w4 - w4 - 4 - 4 + 3] / 16;
-						float d4_2 = d_ptr[k + w4 + w4 + 4 + 4 + 3] / 16;
-						if(d4_1 != 1 && d4_2 != 1)
-							d = d2;
+				// MARK2
+				const int dm = d_ptr[k + 3] & DM_MASK;
+				if(dm != DM_FLAG) {
+//				if(false) {
+					const int d = d_ptr[k + 3] & D2D_MASK;
+					if(d == D2D_NW) { // '\'
+						float g1 = _rgba[k - w4 - 4 + 1];
+						float g4 = _rgba[k + w4 + 4 + 1];
+						c = _reconstruct((c1 + c4) * 0.5, g, (g1 + g4) * 0.5);
+						clip_smooth(c, c1, c4);
 					} else { // '/'
-						float d4_1 = d_ptr[k - w4 - w4 + 4 + 4 + 3] / 16;
-						float d4_2 = d_ptr[k + w4 + w4 - 4 - 4 + 3] / 16;
-						if(d4_1 != 3 && d4_2 != 3)
-							d = d2;
+						float g2 = _rgba[k - w4 + 4 + 1];
+						float g3 = _rgba[k + w4 - 4 + 1];
+						c = _reconstruct((c2 + c3) * 0.5, g, (g2 + g3) * 0.5);
+						clip_smooth(c, c2, c3);
 					}
+					_rgba[k + ci] = c;
+				} else {
+					// used 4-directions RED_at_BLUE interpolation, with greatly (almost at all) reduced color moire
+					// and keeps significant improvement of reconstruction on diagonal edges;
+					// TODO: don't use '-' and '|' directions where is no correlations of RED/GREEN
+					// TODO: check how to improve diagonal direction detection and processing
+					int d4 = d_ptr[k + 3] & D4_MASK;
+					int d2 = ((d_ptr[k + 3] & D2_MASK) == D2_N) ? D4_N : D4_W;
+					int d = d2;
+					if(d4 == D4_NW || d4 == D4_NE) {
+						d = d4;
+						if(d4 == D4_NW) { // '\'
+							float d4_1 = d_ptr[k - w4 - w4 - 4 - 4 + 3] & D4_MASK;
+							float d4_2 = d_ptr[k + w4 + w4 + 4 + 4 + 3] & D4_MASK;
+							if(d4_1 != D4_NW && d4_2 != D4_NW)
+								d = d2;
+						} else { // '/'
+							float d4_1 = d_ptr[k - w4 - w4 + 4 + 4 + 3] & D4_MASK;
+							float d4_2 = d_ptr[k + w4 + w4 - 4 - 4 + 3] & D4_MASK;
+							if(d4_1 != D4_NE && d4_2 != D4_NE)
+								d = d2;
+						}
+					}
+					//--
+					if(d == D4_W) { // '-'
+						float g = _rgba[k + 1];
+						float g1 = _rgba[k - w4 + 1];
+						float g2 = _rgba[k + w4 + 1];
+						float g11 = _rgba[k - 4 - w4 + 1];
+						float g12 = _rgba[k + 4 - w4 + 1];
+						float g21 = _rgba[k - 4 + w4 + 1];
+						float g22 = _rgba[k + 4 + w4 + 1];
+						// use low freq from the color channel, and use high freq from the green channel
+						float gt = (g1 + g11 + g12) / 3.0;
+						float gb = (g2 + g21 + g22) / 3.0;
+//						if(_abs(g - gt) < _abs(g - gb))
+							c = _reconstruct((c1 + c2) * 0.5, g, gt);
+//						else
+							c += _reconstruct((c3 + c4) * 0.5, g, gb);
+						c /= 2.0;
+//						c = _reconstruct((c2 + c3 + c1 + c4) * 0.25, g, (g1 + g2) * 0.5);
+					}
+					if(d == D4_N) { // '|'
+						float g = _rgba[k + 1];
+						float g1 = _rgba[k - 4 + 1];
+						float g2 = _rgba[k + 4 + 1];
+						float g11 = _rgba[k - 4 - w4 + 1];
+						float g12 = _rgba[k - 4 + w4 + 1];
+						float g21 = _rgba[k + 4 - w4 + 1];
+						float g22 = _rgba[k + 4 + w4 + 1];
+						float gl = (g1 + g11 + g12) / 3.0;
+						float gr = (g2 + g21 + g22) / 3.0;
+//						if(_abs(g - gl) < _abs(g - gr))
+							c = _reconstruct((c1 + c3) * 0.5, g, gl);
+//						else
+							c += _reconstruct((c2 + c4) * 0.5, g, gr);
+						c /= 2.0;
+//						c = _reconstruct((c2 + c3 + c1 + c4) * 0.25, g, (g1 + g2) * 0.5);
+					}
+					if(d == D4_NW) { // '\'
+						float g1 = _rgba[k - w4 - 4 + 1];
+						float g4 = _rgba[k + w4 + 4 + 1];
+						c = _reconstruct((c1 + c4) * 0.5, g, (g1 + g4) * 0.5);
+						clip_smooth(c, c1, c4);
+					}
+					if(d == D4_NE) { // '/'
+						float g2 = _rgba[k - w4 + 4 + 1];
+						float g3 = _rgba[k + w4 - 4 + 1];
+						c = _reconstruct((c2 + c3) * 0.5, g, (g2 + g3) * 0.5);
+						clip_smooth(c, c2, c3);
+					}
+					_rgba[k + ci] = c;
 				}
-				//--
-				if(d == 0) { // '-'
-					float g = _rgba[k + 1];
-					float g1 = _rgba[k - w4 + 1];
-					float g2 = _rgba[k + w4 + 1];
-					float g11 = _rgba[k - 4 - w4 + 1];
-					float g12 = _rgba[k + 4 - w4 + 1];
-					float g21 = _rgba[k - 4 + w4 + 1];
-					float g22 = _rgba[k + 4 + w4 + 1];
-					// use low freq from the color channel, and use high freq from the green channel
-					float gt = (g1 + g11 + g12) / 3.0;
-					float gb = (g2 + g21 + g22) / 3.0;
-//					if(_abs(g - gt) < _abs(g - gb))
-						c = _reconstruct((c1 + c2) * 0.5, g, gt);
-//					else
-						c += _reconstruct((c3 + c4) * 0.5, g, gb);
-					c /= 2.0;
-//					c = _reconstruct((c2 + c3 + c1 + c4) * 0.25, g, (g1 + g2) * 0.5);
-				}
-				if(d == 2) { // '|'
-					float g = _rgba[k + 1];
-					float g1 = _rgba[k - 4 + 1];
-					float g2 = _rgba[k + 4 + 1];
-					float g11 = _rgba[k - 4 - w4 + 1];
-					float g12 = _rgba[k - 4 + w4 + 1];
-					float g21 = _rgba[k + 4 - w4 + 1];
-					float g22 = _rgba[k + 4 + w4 + 1];
-					float gl = (g1 + g11 + g12) / 3.0;
-					float gr = (g2 + g21 + g22) / 3.0;
-//					if(_abs(g - gl) < _abs(g - gr))
-						c = _reconstruct((c1 + c3) * 0.5, g, gl);
-//					else
-						c += _reconstruct((c2 + c4) * 0.5, g, gr);
-					c /= 2.0;
-//					c = _reconstruct((c2 + c3 + c1 + c4) * 0.25, g, (g1 + g2) * 0.5);
-				}
-				if(d == 1) { // '\'
-					float g1 = _rgba[k - w4 - 4 + 1];
-					float g4 = _rgba[k + w4 + 4 + 1];
-					c = _reconstruct((c1 + c4) * 0.5, g, (g1 + g4) * 0.5);
-					clip_smooth(c, c1, c4);
-				}
-				if(d == 3) { // '/'
-					float g2 = _rgba[k - w4 + 4 + 1];
-					float g3 = _rgba[k + w4 - 4 + 1];
-					c = _reconstruct((c2 + c3) * 0.5, g, (g2 + g3) * 0.5);
-					clip_smooth(c, c2, c3);
-				}
-				_rgba[k + ci] = c;
 			}
 		}
 	}
@@ -836,40 +886,34 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 		for(int x = x_min; x < x_max; x++) {
 			const int k = w4 * (y + 2) + (x + 2) * 4;
 			const int s = __bayer_pos_to_c(x, y);
-			// save alpha
-//			int direction = d_ptr[k + 3] & 0x000F;
-//			_rgba[k + 3] = 1.0;
 			//--
 			if(s == p_red || s == p_blue) {
 				continue;
 			} else {
-				int ci = (s == p_green_r) ? 0 : 2;
+				const int ci = (s == p_green_r) ? 0 : 2;
 				float g = _rgba[k + 1];
 #if 1
 				// check direction
-				int d4 = d_ptr[k + 3] / 16;
-//				int d = d4;
-///*
-				int d2 = (((d_ptr[k + 3] & 0x0F) % 2) * 2);
+				int d4 = d_ptr[k + 3] & D4_MASK;
+				int d2 = ((d_ptr[k + 3] & D2_MASK) == D2_N) ? D4_N : D4_W;
 				int d = d2;
-				if(d4 == 1 || d4 == 3) {
+				if(d4 == D4_NW || d4 == D4_NE) {
 					d = d4;
-					if(d4 == 1) { // '\'
-						float d4_1 = d_ptr[k - w4 - w4 - 4 - 4 + 3] / 16;
-						float d4_2 = d_ptr[k + w4 + w4 + 4 + 4 + 3] / 16;
-						if(d4_1 != 1 && d4_2 != 1)
+					if(d4 == D4_NW) { // '\'
+						float d4_1 = d_ptr[k - w4 - w4 - 4 - 4 + 3] & D4_MASK;
+						float d4_2 = d_ptr[k + w4 + w4 + 4 + 4 + 3] & D4_MASK;
+						if(d4_1 != D4_NW && d4_2 != D4_NW)
 							d = d2;
 					} else { // '/'
-						float d4_1 = d_ptr[k - w4 - w4 + 4 + 4 + 3] / 16;
-						float d4_2 = d_ptr[k + w4 + w4 - 4 - 4 + 3] / 16;
-						if(d4_1 != 3 && d4_2 != 3)
+						float d4_1 = d_ptr[k - w4 - w4 + 4 + 4 + 3] & D4_MASK;
+						float d4_2 = d_ptr[k + w4 + w4 - 4 - 4 + 3] & D4_MASK;
+						if(d4_1 != D4_NE && d4_2 != D4_NE)
 							d = d2;
 					}
 				}
-//*/
 				// apply
-				if(d == 0 || d == 2) {
-					int doff = (d == 0) ? 4 : w4;	// horizontal - vertical
+				if(d == D4_W || d == D4_N) {
+					int doff = (d == D4_W) ? 4 : w4;	// horizontal - vertical
 					int ai[2] = {ci, 2 - ci};
 					for(int i = 0; i < 2; i++) {
 						float c1 = _rgba[k - doff + ai[i]];
@@ -884,7 +928,7 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 					float g2 = _rgba[k -  4 + 1];
 					float g3 = _rgba[k +  4 + 1];
 					float g4 = _rgba[k + w4 + 1];
-					if(d == 1) { // '\'
+					if(d == D4_NW) { // '\'
 						int ai[2] = {ci, 2 - ci};
 						for(int i = 0; i < 2; i++) {
 							float c1 = _rgba[k - w4 + ai[i]];
@@ -938,12 +982,86 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 	subflow->sync_point_post();
 
 	//------------
+	// refine horizontal and vertical RED at BLUE and BLUE at RED
+	for(int y = y_min; y < y_max; y++) {
+		for(int x = x_min; x < x_max; x++) {
+			const int k = w4 * (y + 2) + (x + 2) * 4;
+			const int dm = d_ptr[k + 3] & DM_MASK;
+			if(dm != DM_FLAG) { // was used diagonal reconstruction only
+				const int s = __bayer_pos_to_c(x, y);
+				if(s == p_red || s == p_blue) {
+					const int d4 = d_ptr[k + 3] & D4_MASK;
+					const int ci = (s == p_blue) ? 0 : 2;
+					if(d4 == D4_W) { // '-'
+						const int d1 = d_ptr[k - 4 + 3] & D4_MASK;
+						const int d2 = d_ptr[k + 4 + 3] & D4_MASK;
+						if(d1 == D4_W || d2 == D4_W)
+							_rgba[k + ci] = (_rgba[k - 4 + ci] + _rgba[k + ci] + _rgba[k + 4 + ci]) / 3.0f;
+					}
+					if(d4 == D4_N) { // '|'
+						const int d1 = d_ptr[k - w4 + 3] & D4_MASK;
+						const int d2 = d_ptr[k + w4 + 3] & D4_MASK;
+						if(d1 == D4_N || d2 == D4_N)
+							_rgba[k + ci] = (_rgba[k - w4 + ci] + _rgba[k + ci] + _rgba[k + w4 + ci]) / 3.0f;
+					}
+				}
+			}
+		}
+	}
+	//---------------------------
+	if(subflow->sync_point_pre())
+		mirror_2(width, height, _m);
+	subflow->sync_point_post();
+
+#if 0
+	for(int y = y_min; y < y_max; y++) {
+		for(int x = x_min; x < x_max; x++) {
+			const int k = w4 * (y + 2) + (x + 2) * 4;
+			const int d4 = d_ptr[k + 3] & D4_MASK;
+			if(d4 == D4_W) { // '-' - check for moire
+				bool moire[3];
+				for(int i = -1; i < 2; i++) {
+					moire[i + 1] = false;
+					const int d = d_ptr[k + i * 4 + 3] & D4_MASK;
+					if(d == D4_W) {
+						const float g1 = _rgba[k - w4 + i * 4 + 1];
+						const float g2 = _rgba[k      + i * 4 + 1];
+						const float g3 = _rgba[k + w4 + i * 4 + 1];
+						moire[i + 1] |= (g1 > g2) && (g3 > g2);
+						moire[i + 1] |= (g1 < g2) && (g3 < g2);
+//						moire[i + 1] = (g1 - g2) * (g2 - g3) < 0.0f;
+//						if((g1 - g2) * (g2 - g3) < 0.0f)
+//							moire[i + 1] = true;
+					}
+				}
+//				if((moire[0] && moire[1]) || (moire[1] && moire[2])) {
+				if(moire[1]) {
+					_rgba[k + 0] = 0.0f;
+					_rgba[k + 1] = 0.0f;
+					_rgba[k + 2] = 0.0f;
+				}
+			}
+		}
+	}
+	//---------------------------
+	if(subflow->sync_point_pre())
+		mirror_2(width, height, _m);
+	subflow->sync_point_post();
+#endif
+
+	//------------
 //	const float black_offset = task->black_offset;
 //	const float black_scale = 1.0 / (1.0 - black_offset);
 	for(int y = y_min; y < y_max; y++) {
 		for(int x = x_min; x < x_max; x++) {
 			const int k = w4 * (y + 2) + (x + 2) * 4;
-//			_rgba[k + 3] = 1.0;
+#if 0
+			if((d_ptr[k + 3] & DM_MASK) & DM_FLAG) {
+				_rgba[k + 0] = 0.0f;
+				_rgba[k + 1] = 0.0f;
+				_rgba[k + 2] = 0.0f;
+			}
+#endif
 			//--
 //			_rgba[k + 0] = gaussian[k + 0];
 //			_rgba[k + 1] = gaussian[k + 1];
