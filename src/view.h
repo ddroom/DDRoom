@@ -149,6 +149,7 @@ signals:
 
 	//== TilesReceiver
 public:
+	void reset_deferred_tiles(void);
 //	void register_forward_dimensions(class Area::t_dimensions *d, int rotation);
 	void register_forward_dimensions(class Area::t_dimensions *d);
 	class TilesDescriptor_t *get_tiles(class Area::t_dimensions *, int cw_rotation, bool is_thumb);

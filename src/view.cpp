@@ -1307,7 +1307,14 @@ void View::view_refresh(void) {
 	emit update();
 }
 
+// should be called from Edit each time when asked process not from View to process deferred tiles
+void View::reset_deferred_tiles(void) {
+	tiles_descriptor.reset();
+}
+
 void View::process_deferred_tiles(void) {
+	if(tiles_descriptor.is_empty)
+		return;
 	image->lock.lock();
 	// TODO: use coordinates of viewport according to rotation
 	double x1, x2;
@@ -1735,6 +1742,7 @@ cerr << "View::get_tiles(): photo->cw_rotation == " << photo->cw_rotation << end
 */
 //cerr << "View::get_tiles(): is_thumb == " << is_thumb << " d->position.px_size == " << d->position.px_size << endl;
 	tiles_descriptor.reset();
+cerr << "tiles_descriptor.reset()" << endl;
 	TilesDescriptor_t *t = &tiles_descriptor;
 	float scale_factor_x = image->scale_x;
 	float scale_factor_y = image->scale_y;
@@ -1976,6 +1984,7 @@ cerr << "dimensions.size.w   == " << t->tiles[0].dimensions_post.size.w << endl;
 cerr << "dimensions.size.h   == " << t->tiles[0].dimensions_post.size.h << endl;
 */
 	delete[] weights;
+	tiles_descriptor.is_empty = false;
 	return t;
 }
 //------------------------------------------------------------------------------

@@ -82,6 +82,7 @@ public:
 	double scale_factor_x; // > 1.0 - downscale; < 1.0 - upscale.
 	double scale_factor_y; // due to down/up scaling, to fill the whole area, aspect ratio of pixel would be not 1:1, i.e. 'square'
 
+	bool is_empty;
 	void reset(void);
 };
 

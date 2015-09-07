@@ -65,6 +65,7 @@ Tile_t::Tile_t(void) {
 
 //------------------------------------------------------------------------------
 void TilesDescriptor_t::reset(void) {
+	is_empty = true;
 	index_list_lock.lock();
 //	for(int i = 0; i < tiles.size(); i++)
 //		if(tiles[i].area != NULL)
@@ -79,6 +80,7 @@ void TilesDescriptor_t::reset(void) {
 
 //------------------------------------------------------------------------------
 void TilesReceiver::_init(void) {
+	tiles_descriptor.is_empty = true;
 	request_ID = 0;
 	area_thumb = NULL;
 	area_image = NULL;

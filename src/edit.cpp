@@ -1074,6 +1074,8 @@ void Edit::slot_update(void *session_id, int process_id, void *_filter, void *_p
 	if(session != sessions[session_active]) {
 		is_inactive = true;
 	}
+	if(photo->process_source != ProcessSource::s_view_tiles)
+		session->view->reset_deferred_tiles();
 	process_runner->queue((void *)session, photo, session->view, is_inactive);
 }
 
