@@ -1309,9 +1309,11 @@ void View::view_refresh(void) {
 	emit update();
 }
 
-// should be called from Edit each time when asked process not from View to process deferred tiles
+// Should be called from Edit each time when asked process not from View to process deferred tiles
+// Don't do an actual reset because some tiles could be still processed in 'Process'
 void View::reset_deferred_tiles(void) {
-	tiles_descriptor.reset();
+//	tiles_descriptor.reset();
+	tiles_descriptor.is_empty = true;
 }
 
 void View::process_deferred_tiles(void) {
