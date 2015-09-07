@@ -1,4 +1,5 @@
 
+1.0.1.4 - View - disabled zoom with mouse double click when photo is loading.
 1.0.1.3 - View - fixed deferred tiles processing instability.
 1.0.1.2 - DG Bayer demosaic - improved colors reconstruction; denoise processing is disabled.
 1.0.1.1 - DG Bayer demosaic - improved diagonal green reconstruction.

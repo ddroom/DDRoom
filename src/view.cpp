@@ -568,6 +568,8 @@ void View::photo_open_finish(PhotoProcessed_t *pp) {
 
 //------------------------------------------------------------------------------
 void View::mouseDoubleClickEvent(QMouseEvent *mouse) {
+	if(image->is_empty)
+		return;
 	// TODO: remove image_t tiles
 	if(image->zoom_type == zoom_fit)
 		set_zoom(zoom_100, 100.0, false, mouse->x(), mouse->y());
