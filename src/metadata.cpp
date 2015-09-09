@@ -123,6 +123,12 @@ QString Metadata::get_tooltip(QString file_name) {
 		QString str = QString("%1").arg(lens_focal_length, 1, 'f', 1, QLatin1Char('0'));
 		tooltip += "<tr><td align='right'><b>Focal length:</b></td><td>" + str + " mm</td></tr>";
 	}
+	if(width > 0 && height > 0) {
+		int w = width; int h = height;
+		if(rotation == 90 || rotation == 270) {w = height; h = width;}
+		QString str = QString("%1 x %2").arg(w).arg(h);
+		tooltip += "<tr><td align='right'><b>Size:</b></td><td>" + str + " px</td></tr>";
+	}
 	tooltip += "</table>";
 	return tooltip;
 }

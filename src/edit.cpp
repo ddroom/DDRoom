@@ -948,12 +948,18 @@ QWidget *Edit::get_controls_widget(QWidget *parent) {
 #endif
 	page_widgets[1].push_back(fstore->f_demosaic->controls());
 	page_widgets[1].push_back(fstore->f_chromatic_aberration->controls());
+	page_widgets[2].push_back(fstore->f_crop->controls());
+	page_widgets[2].push_back(fstore->f_shift->controls());
+	page_widgets[2].push_back(fstore->f_rotation->controls());
+	page_widgets[2].push_back(fstore->f_distortion->controls());
+	page_widgets[2].push_back(fstore->f_projection->controls());
+/*
 	page_widgets[2].push_back(fstore->f_shift->controls());
 	page_widgets[2].push_back(fstore->f_rotation->controls());
 	page_widgets[2].push_back(fstore->f_projection->controls());
 	page_widgets[2].push_back(fstore->f_distortion->controls());
 	page_widgets[2].push_back(fstore->f_crop->controls());
-//	page_widgets[2].push_back(fstore->f_scale->controls());
+*/
 	page_widgets[3].push_back(fstore->f_unsharp->controls());
 	page_widgets[3].push_back(fstore->f_soften->controls());
 	page_widgets[4].push_back(fstore->f_crgb_to_cm->controls());

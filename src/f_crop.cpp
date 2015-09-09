@@ -23,6 +23,7 @@ TODO:
 
 
 #include <iostream>
+#include <sstream>
 #include <math.h>
 
 #include "f_crop.h"
@@ -66,7 +67,7 @@ public:
 	bool save(DataSet *);
 
 	bool defined;
-	bool enabled;
+	bool enabled_crop;
 
 	// inclusive coordinates; aligned to edges, i.e. not at center of pixels; in scale of position.(x_max|y_max) (i.e. 1:1)
 	double crop_x1;	// left
@@ -83,6 +84,17 @@ public:
 	string crop_aspect_str;
 
 	double photo_aspect;	// edit time only, original aspect of photo
+
+	// scale
+	bool enabled_scale;
+	string scale_str;
+	bool scale_to_fit;
+
+	//
+	static std::string scale_string_normalize(std::string str);
+	static void scale_string_to_size(int &width, int &height, std::string str);
+	static int _split_scale_string(char &separator, std::string str);
+
 };
 
 //------------------------------------------------------------------------------
@@ -116,7 +128,7 @@ PS_Base *PS_Crop::copy(void) {
 void PS_Crop::reset(void) {
 	// TODO: use 'defined' status when edit
 	defined = false;
-	enabled = false;
+	enabled_crop = false;
 
 	crop_x1 = 0;
 	crop_x2 = 0;
@@ -131,18 +143,25 @@ void PS_Crop::reset(void) {
 	fixed_aspect = false;
 	crop_aspect_str = "0-0";
 	photo_aspect = 1.0;
+
+	enabled_scale = false;
+	scale_str = "0x0";
+	scale_to_fit = true;
 }
 
 bool PS_Crop::load(DataSet *dataset) {
 	reset();
 	dataset->get("defined", defined);
-	dataset->get("enabled", enabled);
+	dataset->get("enabled", enabled_crop);
 	dataset->get("crop_x1", crop_x1);
 	dataset->get("crop_x2", crop_x2);
 	dataset->get("crop_y1", crop_y1);
 	dataset->get("crop_y2", crop_y2);
 	dataset->get("fixed_aspect", fixed_aspect);
 	dataset->get("crop_aspect", crop_aspect_str);
+	dataset->get("enabled_scale", enabled_scale);
+	dataset->get("scale_str", scale_str);
+	dataset->get("scale_to_fit", scale_to_fit);
 	// verify
 	if(defined) {
 		if(crop_x1 > crop_x2)
@@ -167,7 +186,7 @@ bool PS_Crop::load(DataSet *dataset) {
 
 bool PS_Crop::save(DataSet *dataset) {
 	dataset->set("defined", defined);
-	dataset->set("enabled", enabled);
+	dataset->set("enabled", enabled_crop);
 	// don't save undefined things
 	if(defined) {
 /*
@@ -183,6 +202,9 @@ cerr << "crop_y2 == " << crop_y2 << endl;
 		dataset->set("fixed_aspect", fixed_aspect);
 		dataset->set("crop_aspect", crop_aspect_str);
 	}
+	dataset->set("enabled_scale", enabled_scale);
+	dataset->set("scale_str", scale_str);
+	dataset->set("scale_to_fit", scale_to_fit);
 	return true;
 }
 
@@ -192,7 +214,7 @@ FP_Crop *F_Crop::fp = NULL;
 F_Crop::F_Crop(int id) {
 	filter_id = id;
 	_id = "F_Crop";
-	_name = tr("Crop");
+	_name = tr("Crop and scale");
 	if(fp == NULL)
 		fp = new FP_Crop();
 	_ps = (PS_Crop *)newPS();
@@ -268,12 +290,23 @@ void F_Crop::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t a
 	// apply settings to UI
 	if(widget != NULL) {
 		reconnect(false);
-		checkbox_enable->setCheckState(ps->enabled ? Qt::Checked : Qt::Unchecked);
+		checkbox_crop->setCheckState(ps->enabled_crop ? Qt::Checked : Qt::Unchecked);
 		checkbox_aspect->setCheckState(ps->fixed_aspect ? Qt::Checked : Qt::Unchecked);
 		if(ps->crop_aspect_str != "0-0")
 			le_aspect->setText(ps->crop_aspect_str.c_str());
 		else
 			le_aspect->setText("");
+		//
+		checkbox_scale->setCheckState(ps->enabled_scale ? Qt::Checked : Qt::Unchecked);
+		if(ps->scale_str != "0x0")
+			le_scale->setText(ps->scale_str.c_str());
+		else
+			le_scale->setText("");
+		reconnect_scale_radio(false);
+		int pressed_index = ps->scale_to_fit ? 0 : 1;
+		scale_radio->button(pressed_index)->setChecked(true);
+		scale_radio->button(1 - pressed_index)->setChecked(false);
+		reconnect_scale_radio(true);
 		reconnect(true);
 	}
 	if(q_action_edit != NULL) {
@@ -285,19 +318,29 @@ QWidget *F_Crop::controls(QWidget *parent) {
 	if(widget != NULL)
 		return widget;
 	QGroupBox *crop_q = new QGroupBox(_name, parent);
+
+	QGridLayout *gl = new QGridLayout(crop_q);
+	gl->setVerticalSpacing(2);
+	gl->setHorizontalSpacing(2);
+	gl->setContentsMargins(2, 1, 2, 1);
+	gl->setSizeConstraint(QLayout::SetMinimumSize);
+	int row = 0;
+/*
 	QVBoxLayout *crop_l = new QVBoxLayout(crop_q);
 	crop_l->setSpacing(0);
 	crop_l->setContentsMargins(0, 0, 0, 0);
 	crop_l->setSizeConstraint(QLayout::SetMinimumSize);
-
+*/
 	// 1-st row
 	QHBoxLayout *crop_l1 = new QHBoxLayout();
 	crop_l1->setSpacing(8);
-	crop_l1->setContentsMargins(2, 1, 2, 1);
-	crop_l->addLayout(crop_l1);
+	crop_l1->setContentsMargins(0, 0, 0, 0);
+//	crop_l1->setContentsMargins(2, 1, 2, 1);
+//	crop_l->addLayout(crop_l1);
 
-	checkbox_enable = new QCheckBox(tr("Enable crop"));
-	crop_l1->addWidget(checkbox_enable);
+	checkbox_crop = new QCheckBox(tr("Enable crop"));
+	gl->addWidget(checkbox_crop, row, 0);
+//	crop_l1->addWidget(checkbox_crop);
 
 	QToolButton *b_original = new QToolButton(parent);
 	b_original->setIcon(QIcon(":/resources/crop_original.svg"));
@@ -310,24 +353,93 @@ QWidget *F_Crop::controls(QWidget *parent) {
 	b_revert->setToolTip(tr("Revert aspect"));
 	b_revert->setToolButtonStyle(Qt::ToolButtonIconOnly);
 	crop_l1->addWidget(b_revert, 0, Qt::AlignRight);
+	gl->addLayout(crop_l1, row++, 1);
 
 	// row 2
+/*
 	QHBoxLayout *crop_l2 = new QHBoxLayout();
 	crop_l2->setSpacing(8);
 	crop_l2->setContentsMargins(2, 1, 2, 1);
 	crop_l->addLayout(crop_l2);
-
+*/
 	checkbox_aspect = new QCheckBox(tr("Fixed aspect"));
-	crop_l2->addWidget(checkbox_aspect);
+	gl->addWidget(checkbox_aspect, row, 0);
+//	crop_l2->addWidget(checkbox_aspect);
 
 	le_aspect = new QLineEdit("");
-	le_aspect->setValidator(new QRegExpValidator(QRegExp("[0-9]{1,5}[.|x|X|/|\\-]{,1}[0-9]{,5}"), le_aspect));
-	crop_l2->addWidget(le_aspect);
+	le_aspect->setValidator(new QRegExpValidator(QRegExp("[0-9]{1,5}[.|,|x|X|/|\\-| ]{,1}[0-9]{,5}"), le_aspect));
+	gl->addWidget(le_aspect, row++, 1);
+//	crop_l2->addWidget(le_aspect);
 
+	// scale
+/*
+	QLabel *scale_label_name = new QLabel(tr("Actual 1:1 size:"));
+	gl->addWidget(scale_label_name, row, 0);
+
+	scale_label = new QLabel(tr("NNNN x NNNN"));
+	gl->addWidget(scale_label, row++, 1);
+*/
+	//--
+	checkbox_scale = new QCheckBox(tr("Scale to size:"));
+	gl->addWidget(checkbox_scale, row, 0);
+
+	le_scale = new QLineEdit("");
+	le_scale->setValidator(new QRegExpValidator(QRegExp("|[0-9]{1,5}[x|X|/|\\-| ]{1,1}[0-9]{1,5}"), le_scale));
+//	le_scale->setValidator(new QRegExpValidator(QRegExp("[0-9]{1,5}[x|X|/|\\-| ]{1,1}[0-9]{1,5}"), le_scale));
+//	le_scale->setValidator(new QRegExpValidator(QRegExp("[0-9]{1,5}[.|,|x|X|/|\\-| ]{,1}[0-9]{,5}"), le_scale));
+	gl->addWidget(le_scale, row++, 1);
+	//--
+	scale_radio = new QButtonGroup(gl);
+	QToolButton *b_size_fit = new QToolButton(parent);
+	b_size_fit->setIcon(QIcon(":/resources/scale_fit.svg"));
+	b_size_fit->setToolTip(tr("Scale to fit size"));
+	b_size_fit->setToolButtonStyle(Qt::ToolButtonIconOnly);
+	b_size_fit->setCheckable(true);
+	QLabel *l_size_fit = new QLabel(tr("Fit size"));
+
+	QToolButton *b_size_fill = new QToolButton(parent);
+	b_size_fill->setIcon(QIcon(":/resources/scale_fill.svg"));
+	b_size_fill->setToolTip(tr("Scale to fill size"));
+	b_size_fill->setToolButtonStyle(Qt::ToolButtonIconOnly);
+	b_size_fill->setCheckable(true);
+	QLabel *l_size_fill = new QLabel(tr("Fill size"));
+
+	scale_radio->addButton(b_size_fit, 0);
+	scale_radio->addButton(b_size_fill, 1);
+#if 0
+	QHBoxLayout *l_fit = new QHBoxLayout();
+	l_fit->setSpacing(8);
+	l_fit->setContentsMargins(2, 1, 2, 1);
+	l_fit->addWidget(b_size_fit, 0, Qt::AlignLeft);
+	l_fit->addWidget(l_size_fit, 0, Qt::AlignLeft);
+	l_fit->addStretch(1);
+	gl->addLayout(l_fit, row++, 0, 1, 0);
+
+	QHBoxLayout *l_fill = new QHBoxLayout();
+	l_fill->setSpacing(8);
+	l_fill->setContentsMargins(2, 1, 2, 1);
+	l_fill->addWidget(b_size_fill, 0, Qt::AlignLeft);
+	l_fill->addWidget(l_size_fill, 0, Qt::AlignLeft);
+	l_fill->addStretch(1);
+	gl->addLayout(l_fill, row++, 0, 1, 0);
+#else
+	QHBoxLayout *l_fit_fill = new QHBoxLayout();
+	l_fit_fill->setSpacing(8);
+	l_fit_fill->setContentsMargins(2, 1, 2, 1);
+	l_fit_fill->addWidget(b_size_fit, 0, Qt::AlignLeft);
+	l_fit_fill->addWidget(l_size_fit, 0, Qt::AlignLeft);
+	l_fit_fill->addSpacing(8);
+	l_fit_fill->addWidget(b_size_fill, 0, Qt::AlignLeft);
+	l_fit_fill->addWidget(l_size_fill, 0, Qt::AlignLeft);
+	l_fit_fill->addStretch(1);
+
+	gl->addLayout(l_fit_fill, row++, 0, 1, 0);
+#endif
 	reset();
 	connect(b_original, SIGNAL(clicked(bool)), this, SLOT(slot_btn_original(bool)));
 	connect(b_revert, SIGNAL(clicked(bool)), this, SLOT(slot_btn_revert(bool)));
 	reconnect(true);
+	reconnect_scale_radio(true);
 
 	widget = crop_q;
 	return widget;
@@ -335,14 +447,25 @@ QWidget *F_Crop::controls(QWidget *parent) {
 
 void F_Crop::reconnect(bool to_connect) {
 	if(to_connect) {
-		connect(checkbox_enable, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_enable(int)));
+		connect(checkbox_crop, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_crop(int)));
 		connect(checkbox_aspect, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_aspect(int)));
 		connect(le_aspect, SIGNAL(editingFinished(void)), this, SLOT(slot_le_aspect(void)));
+		connect(checkbox_scale, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_scale(int)));
+		connect(le_scale, SIGNAL(editingFinished(void)), this, SLOT(slot_le_scale(void)));
 	} else {
-		disconnect(checkbox_enable, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_enable(int)));
+		disconnect(checkbox_crop, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_crop(int)));
 		disconnect(checkbox_aspect, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_aspect(int)));
 		disconnect(le_aspect, SIGNAL(editingFinished(void)), this, SLOT(slot_le_aspect(void)));
+		disconnect(checkbox_scale, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_scale(int)));
+		disconnect(le_scale, SIGNAL(editingFinished(void)), this, SLOT(slot_le_scale(void)));
 	}
+}
+
+void F_Crop::reconnect_scale_radio(bool to_connect) {
+	if(to_connect)
+		connect(scale_radio, SIGNAL(buttonClicked(int)), this, SLOT(slot_scale_radio(int)));
+	else
+		disconnect(scale_radio, SIGNAL(buttonClicked(int)), this, SLOT(slot_scale_radio(int)));
 }
 
 QList<QAction *> F_Crop::get_actions_list(void) {
@@ -382,7 +505,6 @@ bool F_Crop::get_ps_field_desc(std::string field_name, class ps_field_desc_t *de
 }
 
 //------------------------------------------------------------------------------
-
 FP_Crop::FP_Crop(void) : FilterProcess_2D() {
 	_name = "F_Crop";
 }
@@ -391,8 +513,9 @@ bool FP_Crop::is_enabled(const PS_Base *ps_base) {
 	PS_Crop *ps = (PS_Crop *)ps_base;
 	if(ps->crop_x1 == 0.0 && ps->crop_x2 == 0.0 && ps->crop_y1 == 0.0 && ps->crop_y2 == 0.0)	// enable call of size_forward() to init edit mode
 		return true;
-	bool is_enabled = ps->enabled;
-	return is_enabled;
+//	bool is_enabled = ps->enabled;
+//	return is_enabled;
+	return (ps->enabled_crop || (ps->enabled_scale && ps->scale_str != "0x0"));
 }
 
 void FP_Crop::size_forward(FP_size_t *fp_size, const Area::t_dimensions *d_before, Area::t_dimensions *d_after) {
@@ -402,6 +525,22 @@ void FP_Crop::size_forward(FP_size_t *fp_size, const Area::t_dimensions *d_befor
 	*d_after = *d_before;
 //cerr << "FP_Crop::size_before()... 1" << endl;
 //d_after->dump();
+	bool enabled_scale = (ps->enabled_scale && ps->scale_str != "0x0");
+	if(fp_size->mutators != NULL)
+		fp_size->mutators->set("scale_to_size", enabled_scale);
+	if(enabled_scale) {
+		int width = 0;
+		int height = 0;
+		PS_Crop::scale_string_to_size(width, height, ps->scale_str);
+		if(fp_size->mutators != NULL) {
+			fp_size->mutators->set("scale_to_width", width);
+			fp_size->mutators->set("scale_to_height", height);
+			fp_size->mutators->set("scale_to_fit", ps->scale_to_fit);
+		}
+	}
+
+	if(!ps->enabled_crop)
+		return;
 
 	bool edit_mode = false;
 	if(fp_size->filter != NULL)
@@ -428,7 +567,7 @@ void FP_Crop::size_forward(FP_size_t *fp_size, const Area::t_dimensions *d_befor
 			_ps->crop_y2 = im_y2 - h * 0.1;
 		}
 	}
-	if(ps->enabled == false || edit_mode)
+	if(ps->enabled_crop == false || edit_mode)
 		return;
 /*
 cerr << endl;
@@ -511,17 +650,104 @@ Area *FP_Crop::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_ob
 	return area_out;
 }
 
-void F_Crop::update_status_info(Area *area_in, Metadata *metadata) {
-/*
-	s_width = area_in->geometry->area.width;
-	s_height = area_in->geometry->area.height;
-	if(metadata->rotation == 90 || metadata->rotation == 270) {
-		int t = s_width;
-		s_width = s_height;
-		s_height = t;
+//------------------------------------------------------------------------------
+int PS_Crop::_split_scale_string(char &separator, std::string str) {
+	char ch[5] = {'x', 'X', '/', '-', ' '};
+	const char *p = str.c_str();
+	int index;
+	int s;
+	for(index = 0; index < 5; index++) {
+		for(s = 0; p[s] && p[s] != ch[index]; s++);
+		if(p[s])
+			break;
 	}
-*/
-//cerr << "--------------------=========================== update status info: " << s_width << "x" << s_height << endl;
+	if(!p[s]) {
+		separator = '\0';
+		return s;
+	}
+	separator = ch[index];
+	return s;
+}
+
+void PS_Crop::scale_string_to_size(int &width, int &height, std::string str) {
+	width = 0;
+	height = 0;
+	char separator = '\0';
+	int pos = _split_scale_string(separator, str);
+	if(separator == '\0')
+		return;
+	const char *p = str.c_str();
+	char *buffer = new char[str.size()];
+	for(int i = 0; (buffer[i] = p[i]); i++);
+	buffer[pos++] = ' ';
+	std::istringstream iss(buffer);
+	iss >> width;
+	iss >> height;
+	width = (width < 32) ? 32 : width;
+	height = (height < 32) ? 32 : height;
+	delete[] buffer;
+}
+
+std::string PS_Crop::scale_string_normalize(std::string str) {
+	char separator = '\0';
+	_split_scale_string(separator, str);
+	if(separator == '\0')
+		return "0x0";
+	int width = 0;
+	int height = 0;
+	scale_string_to_size(width, height, str);
+	std::ostringstream oss;
+	oss << width << separator << height;
+	return oss.str();
+}
+
+void F_Crop::slot_checkbox_scale(int state) {
+	bool value = (state == Qt::Checked) ? true : false;
+	if(value == ps->enabled_scale)
+		return;
+	ps->enabled_scale = value;
+	emit_signal_update();
+}
+
+void F_Crop::slot_le_scale(void) {
+	string value = le_scale->text().toStdString();
+	if(value == ps->scale_str)
+		return;
+	string scale_str = PS_Crop::scale_string_normalize(value);
+	bool update_enabled = false;
+	bool update_enabled_value = true;
+	if(ps->scale_str == "0x0" && scale_str != "0x0")
+		update_enabled = true;
+	if(ps->scale_str != "0x0" && scale_str == "0x0") {
+		update_enabled = true;
+		update_enabled_value = false;
+	}
+	if(update_enabled) {
+		reconnect(false);
+		ps->enabled_scale = update_enabled_value;
+		checkbox_scale->setCheckState(ps->enabled_scale ? Qt::Checked : Qt::Unchecked);
+		reconnect(true);
+	}
+	if(scale_str != value) {
+		reconnect(false);
+		if(scale_str == "0x0")
+			le_scale->setText("");
+		else
+			le_scale->setText(QString::fromStdString(scale_str));
+		reconnect(true);
+	}
+	ps->scale_str = scale_str;
+	if(ps->enabled_scale || update_enabled)
+		emit_signal_update();
+}
+
+void F_Crop::slot_scale_radio(int index) {
+	bool value = (index == 0);
+	if(ps->scale_to_fit == value)
+		return;
+	ps->scale_to_fit = value;
+	if(ps->enabled_scale)
+		emit_signal_update();
 }
 
 //------------------------------------------------------------------------------
@@ -529,18 +755,16 @@ void F_Crop::slot_le_aspect_update(void) {
 	le_aspect->setText(ps->crop_aspect_str.c_str());
 }
 
-void F_Crop::slot_checkbox_enable(int state) {
-	bool _en = false;
-	if(state == Qt::Checked)
-		_en = true;
-	if(_en == ps->enabled)
+void F_Crop::slot_checkbox_crop(int state) {
+	bool value = (state == Qt::Checked);
+	if(value == ps->enabled_crop)
 		return;
 	if(!ps->defined) {
 		q_action_edit->setChecked(true);
 		return;
 	}
-	ps->enabled = _en;
-	if(!ps->enabled)
+	ps->enabled_crop = value;
+	if(!ps->enabled_crop)
 		edit_mode_exit();
 	if(!edit_mode_enabled)
 		emit_signal_update();
@@ -589,11 +813,11 @@ void F_Crop::slot_checkbox_aspect(int state) {
 			ps->crop_aspect_str = s.toStdString();
 			le_aspect->setText(ps->crop_aspect_str.c_str());
 		}
-		if(!ps->enabled)
-			checkbox_enable->setChecked(true);
+		if(!ps->enabled_crop)
+			checkbox_crop->setChecked(true);
 		if(aspect_normalize()) {
 //			emit signal_view_refresh(session_id);
-			if(ps->enabled) {
+			if(ps->enabled_crop) {
 				if(edit_mode_enabled)
 					emit signal_view_refresh(session_id);
 				else
@@ -614,7 +838,7 @@ void F_Crop::slot_le_aspect(void) {
 		ps->crop_aspect_str = aspect_str;
 		aspect_normalize();
 //		emit signal_view_refresh(session_id);
-		if(ps->enabled) {
+		if(ps->enabled_crop) {
 			if(edit_mode_enabled)
 				emit signal_view_refresh(session_id);
 			else
@@ -632,7 +856,7 @@ void F_Crop::slot_btn_original(bool checked) {
 //		le_aspect->setText(s.setNum(crop_aspect));
 		le_aspect->setText(ps->crop_aspect_str.c_str());
 		aspect_normalize();
-		if(ps->enabled) {
+		if(ps->enabled_crop) {
 			if(edit_mode_enabled)
 				emit signal_view_refresh(session_id);
 			else
@@ -686,7 +910,7 @@ void F_Crop::slot_btn_revert(bool checked) {
 	crop_aspect_revert(false);
 	le_aspect->setText(ps->crop_aspect_str.c_str());
 	aspect_normalize();
-	if(ps->enabled) {
+	if(ps->enabled_crop) {
 		if(edit_mode_enabled)
 			emit signal_view_refresh(session_id);
 		else
@@ -725,7 +949,7 @@ void F_Crop::edit_mode_exit(void) {
 }
 
 void F_Crop::edit_mode_forced_exit(void) {
-//	checkbox_enable->setCheckState(Qt::Unchecked);
+//	checkbox_crop->setCheckState(Qt::Unchecked);
 	slot_edit_action(false);
 }
 
@@ -734,10 +958,10 @@ void F_Crop::slot_edit_action(bool checked) {
 		return;
 	edit_mode_enabled = checked;
 	// apply crop when leave edit crop mode and cropping is enabled
-//	if(checked && !ps->enabled && !ps->defined) {
-	if(checked && !ps->enabled) {
-		ps->enabled = true;
-		checkbox_enable->setCheckState(Qt::Checked);
+//	if(checked && !ps->enabled_crop && !ps->defined) {
+	if(checked && !ps->enabled_crop) {
+		ps->enabled_crop = true;
+		checkbox_crop->setCheckState(Qt::Checked);
 	}
 	ps->defined = true;
 //	ps->edit_mode = checked;

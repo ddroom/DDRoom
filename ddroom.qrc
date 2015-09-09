@@ -7,6 +7,8 @@
 	<file>resources/crop_icon.svg</file>
 	<file>resources/crop_original.svg</file>
 	<file>resources/crop_revert.svg</file>
+	<file>resources/scale_fit.svg</file>
+	<file>resources/scale_fill.svg</file>
 	<file>resources/shift_v.svg</file>
 	<file>resources/view_grid.svg</file>
 	<file>resources/rotate_minus.svg</file>

@@ -280,8 +280,9 @@ Batch_Dialog::Batch_Dialog(export_parameters_t *_ep, QWidget *parent) : QDialog(
 	QGridLayout *layout_scaling = new QGridLayout();
 	QCheckBox *check_scaling_enable = new QCheckBox(tr("Enable"));
 	layout_scaling->addWidget(check_scaling_enable, 0, 0);
-	check_scaling_to_fill = new QCheckBox(tr("Cut to fill size"));
-	layout_scaling->addWidget(check_scaling_to_fill, 1, 0);
+
+//	check_scaling_to_fill = new QCheckBox(tr("Cut to fill size"));
+//	layout_scaling->addWidget(check_scaling_to_fill, 1, 0);
 	// width
 	label_scaling_width = new QLabel(tr("Width:"));
 	layout_scaling->addWidget(label_scaling_width, 0, 1, Qt::AlignRight);
@@ -294,6 +295,36 @@ Batch_Dialog::Batch_Dialog(export_parameters_t *_ep, QWidget *parent) : QDialog(
 	line_scaling_height = new QLineEdit();
 	layout_scaling->addWidget(line_scaling_height, 1, 2, Qt::AlignLeft);
 	line_scaling_height->setValidator(new QRegExpValidator(QRegExp("[0-9]{,5}"), line_scaling_height));
+	// fit-fill radio
+	scale_fit_radio = new QButtonGroup(vb_scaling);
+	b_size_fit = new QToolButton();
+	b_size_fit->setIcon(QIcon(":/resources/scale_fit.svg"));
+	b_size_fit->setToolTip(tr("Scale to fit size"));
+	b_size_fit->setToolButtonStyle(Qt::ToolButtonIconOnly);
+	b_size_fit->setCheckable(true);
+	l_size_fit = new QLabel(tr("Fit size"));
+
+	b_size_fill = new QToolButton();
+	b_size_fill->setIcon(QIcon(":/resources/scale_fill.svg"));
+	b_size_fill->setToolTip(tr("Scale to fill size"));
+	b_size_fill->setToolButtonStyle(Qt::ToolButtonIconOnly);
+	b_size_fill->setCheckable(true);
+	l_size_fill = new QLabel(tr("Fill size"));
+
+	scale_fit_radio->addButton(b_size_fit, 0);
+	scale_fit_radio->addButton(b_size_fill, 1);
+
+	QHBoxLayout *l_fit_fill = new QHBoxLayout();
+	l_fit_fill->setSpacing(8);
+	l_fit_fill->setContentsMargins(2, 1, 2, 1);
+	l_fit_fill->addWidget(b_size_fit, 0, Qt::AlignLeft);
+	l_fit_fill->addWidget(l_size_fit, 0, Qt::AlignLeft);
+	l_fit_fill->addSpacing(8);
+	l_fit_fill->addWidget(b_size_fill, 0, Qt::AlignLeft);
+	l_fit_fill->addWidget(l_size_fill, 0, Qt::AlignLeft);
+	l_fit_fill->addStretch(1);
+	layout_scaling->addLayout(l_fit_fill, 2, 0, 1, 0);
+//	vb_scaling->addLayout(l_fit_fill);
 	//
 	vb_scaling->addLayout(layout_scaling);
 	vb_scaling->addStretch();
@@ -336,7 +367,10 @@ Batch_Dialog::Batch_Dialog(export_parameters_t *_ep, QWidget *parent) : QDialog(
 	check_process_asap->setCheckState(ep->process_asap ? Qt::Checked : Qt::Unchecked);
 
 	check_scaling_enable->setCheckState(ep->scaling_force ? Qt::Checked : Qt::Unchecked);
-	check_scaling_to_fill->setCheckState(ep->scaling_to_fill ? Qt::Checked : Qt::Unchecked);
+//	check_scaling_to_fill->setCheckState(ep->scaling_to_fill ? Qt::Checked : Qt::Unchecked);
+	int pressed_index = ep->scaling_to_fill ? 1 : 0;
+	scale_fit_radio->button(pressed_index)->setChecked(true);
+	scale_fit_radio->button(1 - pressed_index)->setChecked(false);
 	line_scaling_width->setText(QString::number(ep->scaling_width));
 	line_scaling_height->setText(QString::number(ep->scaling_height));
 
@@ -368,7 +402,8 @@ Batch_Dialog::Batch_Dialog(export_parameters_t *_ep, QWidget *parent) : QDialog(
 	connect(line_scaling_width, SIGNAL(editingFinished(void)), this, SLOT(slot_line_scaling_width(void)));
 	connect(line_scaling_height, SIGNAL(editingFinished(void)), this, SLOT(slot_line_scaling_height(void)));
 	connect(check_scaling_enable, SIGNAL(stateChanged(int)), this, SLOT(slot_scaling_enable(int)));
-	connect(check_scaling_to_fill, SIGNAL(stateChanged(int)), this, SLOT(slot_scaling_to_fill(int)));
+	connect(scale_fit_radio, SIGNAL(buttonClicked(int)), this, SLOT(slot_scale_fit_radio(int)));
+//	connect(check_scaling_to_fill, SIGNAL(stateChanged(int)), this, SLOT(slot_scaling_to_fill(int)));
 
 	connect(line_folder, SIGNAL(editingFinished(void)), this, SLOT(slot_line_folder(void)));
 	connect(button_ok, SIGNAL(pressed(void)), this, SLOT(slot_button_ok(void)));
@@ -479,13 +514,17 @@ void Batch_Dialog::slot_scaling_enable(int checked) {
 //cerr << "slot_scaling_enable: " << ep->scaling_force << endl;
 	line_scaling_width->setEnabled(ep->scaling_force);
 	line_scaling_height->setEnabled(ep->scaling_force);
-	check_scaling_to_fill->setEnabled(ep->scaling_force);
+//	check_scaling_to_fill->setEnabled(ep->scaling_force);
 	label_scaling_width->setEnabled(ep->scaling_force);
 	label_scaling_height->setEnabled(ep->scaling_force);
+	l_size_fit->setEnabled(ep->scaling_force);
+	l_size_fill->setEnabled(ep->scaling_force);
+	b_size_fit->setEnabled(ep->scaling_force);
+	b_size_fill->setEnabled(ep->scaling_force);
 }
 
-void Batch_Dialog::slot_scaling_to_fill(int checked) {
-	ep->scaling_to_fill = (checked == Qt::Checked);
+void Batch_Dialog::slot_scale_fit_radio(int index) {
+	ep->scaling_to_fill = (index == 1);
 }
 
 void Batch_Dialog::slot_line_scaling_width(void) {

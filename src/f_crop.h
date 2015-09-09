@@ -40,19 +40,20 @@ public:
 	FS_Base *newFS(void);
 	void saveFS(FS_Base *fs_base);
 
-	void update_status_info(Area *in, Metadata *metadata);
-//	void process_edit(const G_Geometry_t *g_in, Metadata *metadata);
-
 	void *_get_ps(void);	// for edit purposes, called from FP_Crop
 
 public slots:
-	void slot_checkbox_enable(int state);
+	void slot_checkbox_crop(int state);
 	void slot_checkbox_aspect(int state);
 	void slot_le_aspect(void);
 	void slot_btn_original(bool);
 	void slot_btn_revert(bool);
 	void slot_edit_action(bool checked);
 	void slot_le_aspect_update(void);
+	//
+	void slot_checkbox_scale(int state);
+	void slot_le_scale(void);
+	void slot_scale_radio(int index);
 
 signals:
 	void signal_view_refresh(void *);
@@ -77,10 +78,15 @@ protected:
 	// controls
 	QWidget *widget;
 	QAction *q_action_edit;
-	QCheckBox *checkbox_enable;
+	QCheckBox *checkbox_crop;
 	QCheckBox *checkbox_aspect;
 	QLineEdit *le_aspect;
 	void reconnect(bool to_connect);
+	void reconnect_scale_radio(bool to_connect);
+	QCheckBox *checkbox_scale;
+	QLineEdit *le_scale;
+	QLabel *scale_label;
+	QButtonGroup *scale_radio; // index '0' - fit, '1' - fill
 
 // edit mode interaction
 public:

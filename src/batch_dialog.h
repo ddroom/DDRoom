@@ -41,7 +41,8 @@ protected slots:
 	// TODO: check folder too
 	void slot_process_asap(int checked);
 	void slot_scaling_enable(int checked);
-	void slot_scaling_to_fill(int checked);
+//	void slot_scaling_to_fill(int checked);
+	void slot_scale_fit_radio(int index);
 	void slot_line_scaling_width(void);
 	void slot_line_scaling_height(void);
 	//
@@ -53,9 +54,14 @@ protected:
 	QLineEdit *line_folder;
 	QLineEdit *line_scaling_width;
 	QLineEdit *line_scaling_height;
-	QCheckBox *check_scaling_to_fill;
 	QLabel *label_scaling_width;
 	QLabel *label_scaling_height;
+//	QCheckBox *check_scaling_to_fill;
+	QButtonGroup *scale_fit_radio;
+	QToolButton *b_size_fit;
+	QLabel *l_size_fit;
+	QToolButton *b_size_fill;
+	QLabel *l_size_fill;
 
 	QTabWidget *tab_type;
 

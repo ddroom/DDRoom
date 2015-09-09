@@ -711,8 +711,31 @@ void Process::run_mt(SubFlow *subflow, void *data) {
 			Area::t_dimensions d;
 			// image size will be as after processing with 1:1 scale
 			process_size_forward(task, pl_filters[2], d_full_forward);
-//			process_size_forward(task, pl_filters[1], d_full_forward);
-//cerr << "after process_size_forward position is " << d.position.x << ", " << d.position.y << endl;
+/*
+cerr << "after process_size_forward  px_size is " << d_full_forward.position.px_size_x << ", " << d_full_forward.position.px_size_y << endl;
+cerr << "after process_size_forward position is " << d_full_forward.position.x << ", " << d_full_forward.position.y << endl;
+cerr << "after process_size_forward     size is " << d_full_forward.width() << " x " << d_full_forward.height() << endl;
+*/
+			bool scale_to_size = false;
+			int scale_to_width = 0;
+			int scale_to_height = 0;
+			bool scale_to_fit = true;
+			task->mutators->get("scale_to_size", scale_to_size);
+			if(scale_to_size) {
+				task->mutators->get("scale_to_width", scale_to_width);
+				task->mutators->get("scale_to_height", scale_to_height);
+				task->mutators->get("scale_to_fit", scale_to_fit);
+//cerr << "scale_to_size: " << scale_to_width << " x " << scale_to_height << "; and scale_to_fit == " << scale_to_fit << endl;
+				if(scale_to_fit)
+					Area::scale_dimensions_to_size_fit(&d_full_forward, scale_to_width, scale_to_height);
+				else
+					Area::scale_dimensions_to_size_fill(&d_full_forward, scale_to_width, scale_to_height);
+			}
+/*
+cerr << "after process_size_forward  px_size is " << d_full_forward.position.px_size_x << ", " << d_full_forward.position.px_size_y << endl;
+cerr << "after process_size_forward position is " << d_full_forward.position.x << ", " << d_full_forward.position.y << endl;
+cerr << "after process_size_forward     size is " << d_full_forward.width() << " x " << d_full_forward.height() << endl;
+*/
 			task->tiles_receiver->register_forward_dimensions(&d_full_forward);
 			delete task->mutators;
 			task->mutators = NULL;
@@ -745,6 +768,12 @@ void Process::run_mt(SubFlow *subflow, void *data) {
 					int preview_size_w = _PREVIEW_SIZE;
 					int preview_size_h = _PREVIEW_SIZE;
 					Area::scale_dimensions_to_size_fit(&target_dimensions, preview_size_w, preview_size_h);
+/*
+cerr << "preview size: " << preview_size_w << " x " << preview_size_h << endl;
+cerr << "  px_size is: " << target_dimensions.position.px_size_x << ", " << target_dimensions.position.px_size_y << endl;
+cerr << " position is: " << target_dimensions.position.x << ", " << target_dimensions.position.y << endl;
+cerr << "     size is: " << target_dimensions.width() << " x " << target_dimensions.height() << endl;
+*/					
 				}
 				// get_tiles, asked rescaled size is inside tiles_request, and tiles exactly inside of that size
 				task->tiles_request = task->tiles_receiver->get_tiles(&target_dimensions, task->photo->cw_rotation, (iteration == 0));

@@ -1729,7 +1729,7 @@ cerr << "  px_size_y == " << d->position.px_size_y << endl;
 	update_image_to_zoom();
 	normalize_offset();	// 1:1 image size can be changed - like with 'F_Distortion' and 'clip'
 	image->lock.unlock();
-//cerr << "View::register_forward_dimensions(), size == " << image->size_scaled.width() << "x" << image->size_scaled.height() << endl;
+cerr << "View::register_forward_dimensions(), size == " << image->size_scaled.width() << "x" << image->size_scaled.height() << endl;
 }
 
 //------------------------------------------------------------------------------
