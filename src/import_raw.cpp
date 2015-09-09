@@ -299,9 +299,9 @@ Area *Import_Raw::dcraw_to_area(DCRaw *dcraw, Metadata *metadata, const uint16_t
 	const int width = dcraw->iwidth;
 	const int height = dcraw->iheight;
 	// rotation
-//cerr << "     metadata->rotation == " << metadata->rotation << endl;
+//cerr << "dcraw_to_area():     metadata->rotation == " << metadata->rotation << endl;
 //cerr << "metadata->demosaic_pattern == " << metadata->demosaic_pattern << endl;
-	metadata->rotation = 0;
+//	metadata->rotation = 0;
 	Area *area_out = new Area(width + 4, height + 4, Area::type_float_p1);
 	D_AREA_PTR(area_out);
 /*
