@@ -226,7 +226,6 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 
 	float *D = (float *)task->D;
 	struct rgba_t *_D = (struct rgba_t *)task->D;
-//	float *dn3 = task->dn3;
 	float *sm_temp = (float *)task->sm_temp;
 
 	if(subflow->sync_point_pre())
@@ -248,12 +247,6 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 				_rgba[k + 2] = c;
 				_rgba[k + 1] = c;
 				_rgba[k + 3] = c;
-/*
-				dn3[k + 0] = c;
-				dn3[k + 2] = c;
-				dn3[k + 1] = c;
-				dn3[k + 3] = c;
-*/
 			} else {
 				float gH, gV, gNE, gNW;
 //				float c, c_low, c1, c2, c3, c4, g1, g2, g3, g4;
@@ -281,7 +274,6 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 				else
 					gH = (g3 * c) / ((c3 + c) * 0.5);
 				clip_smooth(gH, g2, g3);
-				dn3[k + 0] = gH;
 #else
 				// more noise but better for directions detection with current direction detection algorithm
 //				c_low = (c2 + c3) * 0.5 + c;
@@ -304,7 +296,6 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 				else
 					gV = (g4 * c) / ((c4 + c) * 0.5);
 				clip_smooth(gV, g1, g4);
-				dn3[k + 2] = gV;
 #else
 //				c_low = (c1 + c4) * 0.5 + c;
 //				gV = (c_low != 0.0) ? ((g1 + g4) * (c / c_low)) : ((g1 + g4) * 0.5);
@@ -422,8 +413,6 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 				_rgba[k + 1] = gNW;
 				_rgba[k + 2] = gV;
 				_rgba[k + 3] = gNE;
-//				dn3[k + 1] = gNW;
-//				dn3[k + 3] = gNE;
 			}
 #ifdef DIRECTIONS_SMOOTH
 			const float *gaussian = task->gaussian;

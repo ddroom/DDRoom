@@ -772,7 +772,6 @@ Area *FP_Demosaic::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filte
 	Area *area_dn1 = NULL;
 	Area *area_dn2 = NULL;
 	Area *area_sm_temp = NULL;
-//	Area *area_dn3 = NULL;
 	Area *area_gaussian = NULL;
 	Area *area_fH = NULL;
 	Area *area_fV = NULL;
@@ -806,13 +805,13 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 			bayer = (float *)area_in->ptr();
 			mirror_2(width, height, bayer);
 
-			area_noise_data = new Area(d_out.size.w, d_out.size.h, Area::type_float_p2);
 			area_D = new Area(d_out.size.w, d_out.size.h, Area::type_float_p4);
-			area_dn1 = new Area(area_in->mem_width(), area_in->mem_height(), Area::type_float_p1);
-			area_dn2 = new Area(area_in->mem_width(), area_in->mem_height(), Area::type_float_p1);
-			area_sm_temp = new Area(area_in->mem_width(), area_in->mem_height(), Area::type_float_p4);
-//			area_dn3 = new Area(area_in->mem_width(), area_in->mem_height(), Area::type_float_p4);
-			area_gaussian = new Area(area_in->mem_width(), area_in->mem_height(), Area::type_float_p4);
+			if(flag_process_denoise) {
+				area_gaussian = new Area(area_in->mem_width(), area_in->mem_height(), Area::type_float_p4);
+				area_noise_data = new Area(d_out.size.w, d_out.size.h, Area::type_float_p2);
+				area_dn1 = new Area(area_in->mem_width(), area_in->mem_height(), Area::type_float_p1);
+				area_dn2 = new Area(area_in->mem_width(), area_in->mem_height(), Area::type_float_p1);
+			}
 			if(flag_process_AHD) {
 				area_fH = new Area(width + 4, height + 4, Area::type_float_p4);
 				area_fV = new Area(width + 4, height + 4, Area::type_float_p4);
@@ -820,7 +819,7 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 				area_lV = new Area(width + 4, height + 4, Area::type_float_p3);
 			}
 #ifdef DIRECTIONS_SMOOTH
-			// experimental
+			area_sm_temp = new Area(area_in->mem_width(), area_in->mem_height(), Area::type_float_p4);
 			area_v_signal = new Area(width + 4, height + 4, Area::type_float_p4);
 #endif
 		}
@@ -869,7 +868,6 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 			tasks[i]->dn1 = area_dn1 ? (float *)area_dn1->ptr() : NULL;
 			tasks[i]->dn2 = area_dn2 ? (float *)area_dn2->ptr() : NULL;
 			tasks[i]->sm_temp = area_sm_temp ? (float *)area_sm_temp->ptr() : NULL;
-//			tasks[i]->dn3 = area_dn3 ? (float *)area_dn3->ptr() : NULL;
 			tasks[i]->gaussian = area_gaussian ? (float *)area_gaussian->ptr() : NULL;
 			tasks[i]->c_scale[0] = metadata->c_scale_ref[0];
 			tasks[i]->c_scale[1] = metadata->c_scale_ref[1];
@@ -957,7 +955,6 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 		if(area_dn1) delete area_dn1;
 		if(area_dn2) delete area_dn2;
 		if(area_sm_temp) delete area_sm_temp;
-//		if(area_dn3) delete area_dn3;
 		if(area_gaussian) delete area_gaussian;
 		if(flag_process_AHD) {
 			delete area_fH;

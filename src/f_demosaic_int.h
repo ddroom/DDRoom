@@ -100,6 +100,8 @@ public:
 	float max_red;
 	float max_green;
 	float max_blue;
+	float *dn1; // for hot / cold pixels suspension
+	float *dn2; // for denoise reduction
 
 	// X-Trans
 	class Area *area_in;
@@ -109,9 +111,6 @@ public:
 
 	// DG
 	float *D; // 4 planes, with green reconstructed in 4 directions
-	float *dn1; // for hot / cold pixels suspension
-	float *dn2; // for denoise reduction
-	float *dn3;
 	float *sm_temp;
 
 	// AHD
