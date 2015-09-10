@@ -158,6 +158,7 @@ public:
 	QSharedPointer<Photo_t> photo;
 //	Photo_t *photo;
 	TilesReceiver *tiles_receiver;
+	bool scale_override;
 	Area::format_t out_format;
 	bool is_offline;
 	bool is_inactive;	// some filters should know how process is run - like for histogram update etc...
@@ -178,6 +179,7 @@ public:
 Process::task_run_t::task_run_t(void) {
 	area_transfer = NULL;
 	tiles_receiver = NULL;
+	scale_override = false;
 	mutators = NULL;
 	mutators_mpass = NULL;
 	tiles_request = NULL;
@@ -466,6 +468,7 @@ void Process::process_export(Photo_ID photo_id, string fname_export, export_para
 
 	if(ep->scaling_force) {
 		task.tiles_receiver = new TilesReceiver(!ep->scaling_to_fill, ep->scaling_width, ep->scaling_height);
+		task.scale_override = true;
 	} else {
 		task.tiles_receiver = new TilesReceiver();
 	}
@@ -721,7 +724,7 @@ cerr << "after process_size_forward     size is " << d_full_forward.width() << "
 			int scale_to_height = 0;
 			bool scale_to_fit = true;
 			task->mutators->get("scale_to_size", scale_to_size);
-			if(scale_to_size) {
+			if(scale_to_size && !task->scale_override) {
 				task->mutators->get("scale_to_width", scale_to_width);
 				task->mutators->get("scale_to_height", scale_to_height);
 				task->mutators->get("scale_to_fit", scale_to_fit);
