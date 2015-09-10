@@ -138,22 +138,18 @@ void export_parameters_t::cut_and_set_file_name(string file_name) {
 	for(; i >= 0; i--)
 		if(ptr[i] == separator)
 			break;
-	// taht part wo folders; check extension
+	// part w/o folders; check extension
 	new_name = &ptr[i + 1];
-	i = new_name.length();
 	ptr = new_name.c_str();
-	for(; i >= 0; i--)
+	for(i = new_name.length(); i >= 0; i--)
 		if(ptr[i] == '.')
 			break;
-	if(i > 0) {
+	if(i >= 0) {
 		string ext = &ptr[i + 1];
 		bool skip_ext = false;
-		if(ext == "jpeg" || ext == "JPEG" || ext == "jpg" || ext == "JPG" || ext == "jpe" || ext == "JPE")
-			skip_ext = true;
-		if(ext == "png" || ext == "PNG")
-			skip_ext = true;
-		if(ext == "tiff" || ext == "TIFF" || ext == "tif" || ext == "TIF")
-			skip_ext = true;
+		skip_ext |= (ext == "jpeg" || ext == "JPEG" || ext == "jpg" || ext == "JPG" || ext == "jpe" || ext == "JPE");
+		skip_ext |= (ext == "png" || ext == "PNG");
+		skip_ext |= (ext == "tiff" || ext == "TIFF" || ext == "tif" || ext == "TIF");
 		new_name.erase(i, new_name.length() - i);
 		if(skip_ext == false) {
 			new_name += "_";
