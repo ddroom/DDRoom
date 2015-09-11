@@ -7,9 +7,7 @@
  *
  */
 
-/* TODO:
-	- add Foveon import;
-	- add Fuji support;
+/*
    NOTES on dcraw.cpp adaptation:
 	- forced type conversion for 'void swab(char *, char *, int)';
 */
