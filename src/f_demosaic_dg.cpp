@@ -232,7 +232,7 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 		mirror_2(width, height, bayer);
 	subflow->sync_point_post();
 
-	float *v_signal = task->v_signal;
+//	float *v_signal = task->v_signal;
 	//------------
 	// pass I: interpolation of the GREEN at RED and BLUE points
 //	float *noise_data = task->noise_data;
@@ -414,7 +414,8 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 				_rgba[k + 2] = gV;
 				_rgba[k + 3] = gNE;
 			}
-#ifdef DIRECTIONS_SMOOTH
+//#ifdef DIRECTIONS_SMOOTH
+#if 0
 			const float *gaussian = task->gaussian;
 			const float gr = gaussian[k + 0];
 			const float gg = gaussian[k + 1];
@@ -431,12 +432,13 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 				float XYZ[3];
 				m3_v3_mult(XYZ, task->cRGB_to_XYZ, rgb);
 				v_signal[k + m] = XYZ[1];
+//				v_signal[k + m] = rgb[1];
+
 //				v_signal[k + m] = tf_cielab(XYZ[1]);
 //				v_signal[k + m] = (1.16f * tf_cielab(XYZ[1]) - 0.16f); // use 'L' from 'CIELab'
 //				v_signal[k + m] = _max(_max(XYZ[0], XYZ[1]), XYZ[2]);
 
 //				v_signal[k + m] = _max(_max(rgb[0], rgb[1]), rgb[2]);
-//				v_signal[k + m] = rgb[1];
 //				v_signal[k + m] = tf_cielab(_max(_max(rgb[0], rgb[1]), rgb[2]));
 //				_rgba[k + m] = v_signal[k + m];
 			}
@@ -451,7 +453,8 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 	//--==--
 	// smooth reconstructed signals to improve direction detection
 	// low-pass filter signal, and extract high-freq component
-	float *sm_in = v_signal;
+//	float *sm_in = v_signal;
+	float *sm_in = _rgba;
 	float *sm_out = sm_temp;
 	for(int y = y_min; y < y_max; y++) {
 		for(int x = x_min; x < x_max; x++) {
@@ -477,7 +480,6 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 			sm_out[k + 3] += sm_in[((width + 4) * (y + 2 + 1) + x + 2 - 1) * 4 + 3];
 			sm_out[k + 3] *= 2.0;
 
-///*
 			for(int m = 0; m < 4; m++) {
 				float v = 0.0;
 				v += sm_in[((width + 4) * (y + 2 + 0) + x + 2 + 0) * 4 + m];
@@ -492,27 +494,13 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 //				v /= 9.0;
 				sm_out[k + m] += v;
 				sm_out[k + m] /= 9.0 + 6.0;
-			}
-//*/
-		}
-	}
-
-	if(subflow->sync_point_pre())
-		mirror_2(width, height, _m);
-	subflow->sync_point_post();
-
-	sm_in = v_signal;
-	sm_out = sm_temp;
-	for(int y = y_min; y < y_max; y++) {
-		for(int x = x_min; x < x_max; x++) {
-			const int k = ((width + 4) * (y + 2) + x + 2) * 4;
-			for(int m = 0; m < 4; m++) {
-				v_signal[k + m] = sm_out[k + m] - v_signal[k + m];
+//				sm_out[k + m] = sm_out[k + m] - sm_in[k + m];
+				sm_out[k + m] = sm_in[k + m] - sm_out[k + m];
 			}
 		}
 	}
 	if(subflow->sync_point_pre())
-		mirror_2(width, height, _m);
+		mirror_2(width, height, (struct rgba_t *)sm_out);
 	subflow->sync_point_post();
 
 	//------------
@@ -520,7 +508,8 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 	const float w = 1.0;
 //	const float w = 1.0 / 1.41421356;
 #ifdef DIRECTIONS_SMOOTH
-	float *v_green = v_signal;
+//	float *v_green = v_signal;
+	float *v_green = sm_temp;
 #else
 	float *v_green = _rgba;
 #endif

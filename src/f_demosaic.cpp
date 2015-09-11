@@ -819,8 +819,10 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 				area_lV = new Area(width + 4, height + 4, Area::type_float_p3);
 			}
 #ifdef DIRECTIONS_SMOOTH
+//			if(area_gaussian == NULL)
+//				area_gaussian = new Area(area_in->mem_width(), area_in->mem_height(), Area::type_float_p4);
 			area_sm_temp = new Area(area_in->mem_width(), area_in->mem_height(), Area::type_float_p4);
-			area_v_signal = new Area(width + 4, height + 4, Area::type_float_p4);
+//			area_v_signal = new Area(width + 4, height + 4, Area::type_float_p4);
 #endif
 		}
 
@@ -906,7 +908,7 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 			tasks[i]->fuji_45 = fuji_45;
 			tasks[i]->fuji_45_flow = fuji_45_flow;
 
-			// experimental - directions detection
+			// smooth directions detection
 			for(int l = 0; l < 9; l++)
 				tasks[i]->cRGB_to_XYZ[l] = metadata->cRGB_to_XYZ[l];
 			tasks[i]->v_signal = area_v_signal ? (float *)area_v_signal->ptr() : NULL;
@@ -920,6 +922,13 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 		process_denoise_wrapper(subflow);
 		subflow->sync_point();
 	}
+//#ifdef DIRECTIONS_SMOOTH
+#if 0
+	if(!flag_process_denoise) {
+		process_gaussian(subflow);
+		subflow->sync_point();
+	}
+#endif
 
 	// process demosaic
 //	process_DG(subflow);
@@ -987,20 +996,6 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 */
 	}
 	return area_out;
-}
-
-void FP_Demosaic::process_denoise_wrapper(class SubFlow *subflow) {
-	task_t *task = (task_t *)subflow->get_private();
-	PS_Demosaic *ps = task->ps;
-
-	bool denoise = false;
-	denoise |= task->noise_std_dev[0] != 0.0 && (ps->noise_luma_enable || ps->noise_chroma_enable);
-//	denoise |= (ps->noise_luma_enable || ps->noise_chroma_enable);
-	denoise |= ps->hot_pixels_removal_enable;
-	denoise = true;
-	if(denoise)
-		task->bayer = process_denoise(subflow);
-//		process_denoise(subflow);
 }
 
 //------------------------------------------------------------------------------
@@ -2014,6 +2009,21 @@ noise_std_dev[p_green_b] = std_dev_min;
 }
 
 //------------------------------------------------------------------------------
+void FP_Demosaic::process_denoise_wrapper(class SubFlow *subflow) {
+	task_t *task = (task_t *)subflow->get_private();
+	PS_Demosaic *ps = task->ps;
+
+	bool denoise = false;
+	denoise |= task->noise_std_dev[0] != 0.0 && (ps->noise_luma_enable || ps->noise_chroma_enable);
+//	denoise |= (ps->noise_luma_enable || ps->noise_chroma_enable);
+	denoise |= ps->hot_pixels_removal_enable;
+	denoise = true;
+	if(denoise)
+		task->bayer = process_denoise(subflow);
+//		process_denoise(subflow);
+}
+
+//------------------------------------------------------------------------------
 float *FP_Demosaic::process_denoise(class SubFlow *subflow) {
 	task_t *task = (task_t *)subflow->get_private();
 	int width = task->width;
@@ -2109,10 +2119,7 @@ float *FP_Demosaic::process_denoise(class SubFlow *subflow) {
 							sum_w_blue += m_blue * wc;
 						}
 					}
-					if(w_sum != 0.0)
-						D[k4 + 0] = sum / w_sum;
-					else
-						D[k4 + 0] = 1.0;
+					D[k4 + 0] = (w_sum != 0.0f) ? sum / w_sum : 1.0f;
 					D[k4 + 3] = _abs(bayer[k] - D[k4 + 0]);
 				} else {
 					float sum = 0.0;
@@ -2143,30 +2150,11 @@ float *FP_Demosaic::process_denoise(class SubFlow *subflow) {
 							sum_w_blue += m_blue * wc;
 						}
 					}
-					if(w_sum != 0.0)
-						D[k4 + 0] = sum / w_sum;
-					else
-						D[k4 + 0] = 1.0;
+					D[k4 + 0] = (w_sum != 0.0f) ? sum / w_sum : 1.0f;
 				}
-/*
-				if(s == p_red) {
-					sum_red = bayer[k];
-					sum_w_red = 1.0;
-				}
-				if(s == p_blue) {
-					sum_blue = bayer[k];
-					sum_w_blue = 1.0;
-				}
-*/
-				if(sum_w_red != 0.0)
-					gaussian[k4 + 0] = sum_red / sum_w_red;
-				else
-					gaussian[k4 + 0] = 1.0;
 				gaussian[k4 + 1] = D[k4 + 0];
-				if(sum_w_blue != 0.0)
-					gaussian[k4 + 2] = sum_blue / sum_w_blue;
-				else
-					gaussian[k4 + 2] = 1.0;
+				gaussian[k4 + 0] = (sum_w_red != 0.0f) ? sum_red / sum_w_red : 1.0f;
+				gaussian[k4 + 2] = (sum_w_blue != 0.0f) ? sum_blue / sum_w_blue : 1.0f;
 			}
 		}
 		if(subflow->sync_point_pre())
@@ -2398,6 +2386,125 @@ cerr << "process_xtrans...3" << endl;
 		}
 	}
 */
+}
+
+//------------------------------------------------------------------------------
+void FP_Demosaic::process_gaussian(class SubFlow *subflow) {
+	task_t *task = (task_t *)subflow->get_private();
+	int width = task->width;
+//	int height = task->height;
+	float *bayer = task->bayer;	// input mosaic, float plane 1
+	int bayer_pattern = task->bayer_pattern;
+//	PS_Demosaic *ps = task->ps;
+
+	int x_min = task->x_min;
+	int x_max = task->x_max;
+	int y_min = task->y_min;
+	int y_max = task->y_max;
+
+	int p_red = __bayer_red(bayer_pattern);
+	int p_green_r = __bayer_green_r(bayer_pattern);
+	int p_green_b = __bayer_green_b(bayer_pattern);
+//	int p_blue = __bayer_blue(bayer_pattern);
+
+	float *gaussian = (float *)task->gaussian;
+
+	//--
+	// gaussian kernels preparation
+	float gaussian_kernel_G[25];
+	float gaussian_kernel_C[25];
+	for(int j = 0; j < 5; j++) {
+		for(int i = 0; i < 5; i++) {
+			// green
+			float x = i - 2;
+			float y = j - 2;
+			float sigma = 5.0 / 6.0;
+			float sigma_sq = sigma * sigma;
+			float z = sqrtf(x * x + y * y);
+			float w = (1.0 / sqrtf(2.0 * M_PI * sigma_sq)) * expf(-(z * z) / (2.0 * sigma_sq));
+			int index = j * 5 + i;
+			gaussian_kernel_G[index] = w;
+			// color
+			gaussian_kernel_C[index] = 0.0;
+			sigma = 7.0 / 6.0; // simulate 7x7 kernel - good enough in that case with a real 5x5
+			sigma_sq = sigma * sigma;
+			z = sqrtf(x * x + y * y);
+			w = (1.0 / sqrtf(2.0 * M_PI * sigma_sq)) * expf(-(z * z) / (2.0 * sigma_sq));
+			gaussian_kernel_C[index] = w;
+		}
+	}
+	//----
+	for(int y = y_min; y < y_max; y++) {
+		for(int x = x_min; x < x_max; x++) {
+			int k = (width + 4) * (y + 2) + x + 2;
+			int k4 = k * 4;
+			int s = __bayer_pos_to_c(x, y);
+			float sum_red = 0.0;
+			float sum_w_red = 0.0;
+			float sum_green = 0.0;
+			float sum_w_green = 0.0;
+			float sum_blue = 0.0;
+			float sum_w_blue = 0.0;
+			if(s == p_green_r || s == p_green_b) {
+				for(int j = 0; j < 5; j++) {
+					for(int i = 0; i < 5; i++) {
+						int index = j * 5 + i;
+						if(index % 2 == 0) {
+							float v = bayer[k + (j - 2) * (width + 4) + i - 2];
+							float w = gaussian_kernel_G[index];
+							sum_green += v * w;
+							sum_w_green += w;
+						}
+						//
+						float wc = gaussian_kernel_C[index];
+						float m_red = 0.0;
+						float m_blue = 0.0;
+						if(s == p_green_r) {
+							m_red = ((i + 0) % 2) * ((j + 1) % 2);
+							m_blue = ((i + 1) % 2) * ((j + 0) % 2);
+						} else {
+							m_red = ((i + 1) % 2) * ((j + 0) % 2);
+							m_blue = ((i + 0) % 2) * ((j + 1) % 2);
+						}
+						sum_red += m_red * wc * bayer[k + (j - 2) * (width + 4) + i - 2];
+						sum_w_red += m_red * wc;
+						sum_blue += m_blue * wc * bayer[k + (j - 2) * (width + 4) + i - 2];
+						sum_w_blue += m_blue * wc;
+					}
+				}
+			} else {
+				for(int j = 0; j < 5; j++) {
+					for(int i = 0; i < 5; i++) {
+						int index = j * 5 + i;
+						if(index % 2 == 1) {
+							float v = bayer[k + (j - 2) * (width + 4) + i - 2];
+							float w = gaussian_kernel_G[index];
+							sum_green += w * v;
+							sum_w_green += w;
+						}
+						//--
+						float wc = gaussian_kernel_C[index];
+						float m_red = 0.0;
+						float m_blue = 0.0;
+						if(s == p_red) {
+							m_red = ((i + 1) % 2) * ((j + 1) % 2);
+							m_blue = ((i + 0) % 2) * ((j + 0) % 2);
+						} else {
+							m_red = ((i + 0) % 2) * ((j + 0) % 2);
+							m_blue = ((i + 1) % 2) * ((j + 1) % 2);
+						}
+						sum_red += m_red * wc * bayer[k + (j - 2) * (width + 4) + i - 2];
+						sum_w_red += m_red * wc;
+						sum_blue += m_blue * wc * bayer[k + (j - 2) * (width + 4) + i - 2];
+						sum_w_blue += m_blue * wc;
+					}
+				}
+			}
+			gaussian[k4 + 0] = (sum_w_red != 0.0f) ? sum_red / sum_w_red : 1.0f;
+			gaussian[k4 + 1] = (sum_w_green != 0.0f) ? sum_green / sum_w_green : 1.0f;
+			gaussian[k4 + 2] = (sum_w_blue != 0.0f) ? sum_blue / sum_w_blue : 1.0f;
+		}
+	}
 }
 
 //------------------------------------------------------------------------------

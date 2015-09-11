@@ -1729,7 +1729,7 @@ cerr << "  px_size_y == " << d->position.px_size_y << endl;
 	update_image_to_zoom();
 	normalize_offset();	// 1:1 image size can be changed - like with 'F_Distortion' and 'clip'
 	image->lock.unlock();
-cerr << "View::register_forward_dimensions(), size == " << image->size_scaled.width() << "x" << image->size_scaled.height() << endl;
+//cerr << "View::register_forward_dimensions(), size == " << image->size_scaled.width() << "x" << image->size_scaled.height() << endl;
 }
 
 //------------------------------------------------------------------------------
@@ -1738,15 +1738,12 @@ class TilesDescriptor_t *View::get_tiles(Area::t_dimensions *d, int cw_rotation,
 		cw_rotation = photo->cw_rotation;
 /*
 cerr << "VIEW::GET_TILES              is_thumb == " << is_thumb << endl;
-cerr << "VIEW::GET_TILES              is_thumb == " << is_thumb << endl;
-cerr << "VIEW::GET_TILES              is_thumb == " << is_thumb << endl;
 cerr << "View::get_tiles():           rotation == " << rotation << endl;
 cerr << "View::get_tiles():    image->rotation == " << image->rotation << endl;
 cerr << "View::get_tiles(): photo->cw_rotation == " << photo->cw_rotation << endl;
 */
 //cerr << "View::get_tiles(): is_thumb == " << is_thumb << " d->position.px_size == " << d->position.px_size << endl;
 	tiles_descriptor.reset();
-cerr << "tiles_descriptor.reset()" << endl;
 	TilesDescriptor_t *t = &tiles_descriptor;
 	float scale_factor_x = image->scale_x;
 	float scale_factor_y = image->scale_y;

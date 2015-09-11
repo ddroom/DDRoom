@@ -56,6 +56,7 @@ protected:
 	void process_denoise_wrapper(class SubFlow *);
 	float *process_denoise_(class SubFlow *);
 	float *process_denoise(class SubFlow *);
+	void process_gaussian(class SubFlow *);
 	void fuji_45_rotate(class SubFlow *);
 	void process_xtrans(class SubFlow *);
 
