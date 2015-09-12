@@ -112,19 +112,19 @@ void PS_Unsharp::reset(void) {
 	// default settings
 	enabled = true;
 	scaled = true;
-	amount = 1.3;
-	radius = 2.0;
-	threshold = 0.015;
-	s_amount[0] = 2.0;	// 1.0
-	s_radius[0] = 3.0;
-	s_amount[1] = 0.8;	// > 2.0
-	s_radius[1] = 2.0;	// better to avoid big radius here to avoid halo
+	amount = 1.3f;
+	radius = 2.0f;
+	threshold = 0.015f;
+	s_amount[0] = 2.0f;	// 1.0
+	s_radius[0] = 2.5f;
+	s_amount[1] = 0.8f;	// > 2.0
+	s_radius[1] = 2.0f;	// better to avoid big radius here to avoid halo
 	for(int i = 0; i < 2; i++)
-		s_threshold[i] = 0.015;
+		s_threshold[i] = 0.015f;
 	// local contrast
 	lc_enabled = false;
-	lc_amount = 0.25;
-	lc_radius = 10.0;
+	lc_amount = 0.25f;
+	lc_radius = 10.0f;
 }
 
 bool PS_Unsharp::load(DataSet *dataset) {
