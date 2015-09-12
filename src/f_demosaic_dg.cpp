@@ -212,7 +212,7 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 
 	float *_rgba = rgba;
 	struct rgba_t *_m = (struct rgba_t *)_rgba;
-	int w4 = (width + 4) * 4;
+	const int w4 = (width + 4) * 4;
 	int32_t *d_ptr = (int32_t *)rgba;
 
 	int p_red = __bayer_red(bayer_pattern);
@@ -416,6 +416,8 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 			}
 //#ifdef DIRECTIONS_SMOOTH
 #if 0
+			// use 'L' from CIELab instead of GREEN
+			// seems like profit margin is too low
 			const float *gaussian = task->gaussian;
 			const float gr = gaussian[k + 0];
 			const float gg = gaussian[k + 1];
@@ -451,37 +453,38 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 	subflow->sync_point_post();
 
 	//--==--
-	// smooth reconstructed signals to improve direction detection
-	// low-pass filter signal, and extract high-freq component
-//	float *sm_in = v_signal;
+	// use high-freq component of signal to improve direction detection
+	// do direction-wise low-pass filter, and then use delta with  to obtain h.f.
 	float *sm_in = _rgba;
 	float *sm_out = sm_temp;
 	for(int y = y_min; y < y_max; y++) {
 		for(int x = x_min; x < x_max; x++) {
 			const int k = ((width + 4) * (y + 2) + x + 2) * 4;
-			// looks like a good compromise - code should be optimized
-			sm_out[k + 0]  = sm_in[((width + 4) * (y + 2 + 0) + x + 2 - 1) * 4 + 0];
-			sm_out[k + 0] += sm_in[((width + 4) * (y + 2 + 0) + x + 2 + 0) * 4 + 0];
-			sm_out[k + 0] += sm_in[((width + 4) * (y + 2 + 0) + x + 2 + 1) * 4 + 0];
-			sm_out[k + 0] *= 2.0;
-
-			sm_out[k + 1]  = sm_in[((width + 4) * (y + 2 - 1) + x + 2 - 1) * 4 + 1];
-			sm_out[k + 1] += sm_in[((width + 4) * (y + 2 + 0) + x + 2 + 0) * 4 + 1];
-			sm_out[k + 1] += sm_in[((width + 4) * (y + 2 + 1) + x + 2 + 1) * 4 + 1];
-			sm_out[k + 1] *= 2.0;
-
-			sm_out[k + 2]  = sm_in[((width + 4) * (y + 2 - 1) + x + 2 + 0) * 4 + 2];
-			sm_out[k + 2] += sm_in[((width + 4) * (y + 2 + 0) + x + 2 + 0) * 4 + 2];
-			sm_out[k + 2] += sm_in[((width + 4) * (y + 2 + 1) + x + 2 + 0) * 4 + 2];
-			sm_out[k + 2] *= 2.0;
-
-			sm_out[k + 3]  = sm_in[((width + 4) * (y + 2 - 1) + x + 2 + 1) * 4 + 3];
-			sm_out[k + 3] += sm_in[((width + 4) * (y + 2 + 0) + x + 2 + 0) * 4 + 3];
-			sm_out[k + 3] += sm_in[((width + 4) * (y + 2 + 1) + x + 2 - 1) * 4 + 3];
-			sm_out[k + 3] *= 2.0;
-
+			// looks like a good compromise
+			float t[4];
+			// '-'
+			t[0]  = sm_in[((width + 4) * (y + 2 + 0) + x + 2 - 1) * 4 + 0];
+			t[0] += sm_in[((width + 4) * (y + 2 + 0) + x + 2 + 0) * 4 + 0];
+			t[0] += sm_in[((width + 4) * (y + 2 + 0) + x + 2 + 1) * 4 + 0];
+			t[0] *= 2.5f;
+			// '\'
+			t[1]  = sm_in[((width + 4) * (y + 2 - 1) + x + 2 - 1) * 4 + 1];
+			t[1] += sm_in[((width + 4) * (y + 2 + 0) + x + 2 + 0) * 4 + 1];
+			t[1] += sm_in[((width + 4) * (y + 2 + 1) + x + 2 + 1) * 4 + 1];
+			t[1] *= 2.5f;
+			// '|'
+			t[2]  = sm_in[((width + 4) * (y + 2 - 1) + x + 2 + 0) * 4 + 2];
+			t[2] += sm_in[((width + 4) * (y + 2 + 0) + x + 2 + 0) * 4 + 2];
+			t[2] += sm_in[((width + 4) * (y + 2 + 1) + x + 2 + 0) * 4 + 2];
+			t[2] *= 2.5f;
+			// '/'
+			t[3]  = sm_in[((width + 4) * (y + 2 - 1) + x + 2 + 1) * 4 + 3];
+			t[3] += sm_in[((width + 4) * (y + 2 + 0) + x + 2 + 0) * 4 + 3];
+			t[3] += sm_in[((width + 4) * (y + 2 + 1) + x + 2 - 1) * 4 + 3];
+			t[3] *= 2.5f;
+			// 3x3
 			for(int m = 0; m < 4; m++) {
-				float v = 0.0;
+				float v = 0.0f;
 				v += sm_in[((width + 4) * (y + 2 + 0) + x + 2 + 0) * 4 + m];
 				v += sm_in[((width + 4) * (y + 2 + 0) + x + 2 - 1) * 4 + m];
 				v += sm_in[((width + 4) * (y + 2 + 0) + x + 2 + 1) * 4 + m];
@@ -491,11 +494,7 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 				v += sm_in[((width + 4) * (y + 2 + 1) + x + 2 + 0) * 4 + m];
 				v += sm_in[((width + 4) * (y + 2 + 1) + x + 2 - 1) * 4 + m];
 				v += sm_in[((width + 4) * (y + 2 + 1) + x + 2 + 1) * 4 + m];
-//				v /= 9.0;
-				sm_out[k + m] += v;
-				sm_out[k + m] /= 9.0 + 6.0;
-//				sm_out[k + m] = sm_out[k + m] - sm_in[k + m];
-				sm_out[k + m] = sm_in[k + m] - sm_out[k + m];
+				sm_out[k + m] = sm_in[k + m] - (t[m] + v) / (9.0f + 7.5f);
 			}
 		}
 	}
