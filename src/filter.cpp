@@ -39,6 +39,7 @@ TODO:
 #include "f_crgb_to_cm.h"
 #include "f_cm_lightness.h"
 #include "f_cm_rainbow.h"
+#include "f_cm_sepia.h"
 #include "f_cm_colors.h"
 #include "f_unsharp.h"
 #include "f_cm_to_rgb.h"
@@ -240,6 +241,7 @@ Filter_Store::Filter_Store(void) {
 	f_crgb_to_cm = new F_cRGB_to_CM(ProcessSource::s_crgb_to_cm);
 	f_cm_lightness = new F_CM_Lightness(ProcessSource::s_cm_lightness);
 	f_cm_rainbow = new F_CM_Rainbow(ProcessSource::s_cm_rainbow);
+	f_cm_sepia = new F_CM_Sepia(ProcessSource::s_cm_sepia);
 	f_cm_colors = new F_CM_Colors(ProcessSource::s_cm_colors);
 	f_unsharp = new F_Unsharp(ProcessSource::s_unsharp);
 	f_cm_to_rgb = new F_CM_to_RGB(ProcessSource::s_cm_to_rgb);
@@ -270,6 +272,7 @@ Filter_Store::Filter_Store(void) {
 	filters_list_offline.push_back(f_cm_lightness);
 	filters_list_offline.push_back(f_cm_colors);
 	filters_list_offline.push_back(f_cm_rainbow);
+	filters_list_offline.push_back(f_cm_sepia);
 	filters_list_offline.push_back(f_unsharp);
 	filters_list_offline.push_back(f_cm_to_rgb);
 	//--
@@ -293,6 +296,7 @@ Filter_Store::Filter_Store(void) {
 	filters_list_online.push_back(f_cm_lightness);
 	filters_list_online.push_back(f_cm_colors);
 	filters_list_online.push_back(f_cm_rainbow);
+	filters_list_online.push_back(f_cm_sepia);
 	filters_list_online.push_back(f_unsharp);
 	filters_list_online.push_back(f_cm_to_rgb);
 */

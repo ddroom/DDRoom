@@ -53,6 +53,7 @@
 #include "f_crgb_to_cm.h"
 #include "f_cm_lightness.h"
 #include "f_cm_rainbow.h"
+#include "f_cm_sepia.h"
 #include "f_cm_colors.h"
 #include "f_unsharp.h"
 #include "f_cm_to_rgb.h"
@@ -966,6 +967,7 @@ QWidget *Edit::get_controls_widget(QWidget *parent) {
 	page_widgets[4].push_back(fstore->f_cm_colors->controls());
 	page_widgets[5].push_back(fstore->f_cm_lightness->controls());
 	page_widgets[6].push_back(fstore->f_cm_rainbow->controls());
+	page_widgets[6].push_back(fstore->f_cm_sepia->controls());
 //	page_widgets[6].push_back(fstore->f_curve->controls());
 //	page_widgets[7].push_back(fstore->f_cm_rainbow->controls());
 

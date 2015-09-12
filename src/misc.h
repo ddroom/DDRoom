@@ -39,6 +39,7 @@ public:
 		s_crgb_to_cm,
 		s_cm_lightness,
 		s_cm_rainbow,
+		s_cm_sepia,
 		s_cm_colors,
 		s_unsharp,
 		s_cm_to_rgb,

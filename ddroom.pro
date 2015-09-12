@@ -46,12 +46,12 @@ HEADERS	= \
 	src/f_projection.h \
 	src/f_rotation.h \
 	src/f_crop.h \
-\#	src/f_scale.h \
 \
 	src/f_wb.h \
 	src/f_crgb_to_cm.h \
 	src/f_cm_lightness.h \
 	src/f_cm_rainbow.h \
+	src/f_cm_sepia.h \
 	src/f_cm_colors.h \
 	src/f_unsharp.h \
 	src/f_cm_to_rgb.h \
@@ -131,12 +131,12 @@ SOURCES	= \
 	src/f_projection.cpp \
 	src/f_rotation.cpp \
 	src/f_crop.cpp \
-\#	src/f_scale.cpp \
 \
 	src/f_wb.cpp \
 	src/f_crgb_to_cm.cpp \
 	src/f_cm_lightness.cpp \
 	src/f_cm_rainbow.cpp \
+	src/f_cm_sepia.cpp \
 	src/f_cm_colors.cpp \
 	src/f_unsharp.cpp \
 	src/f_cm_to_rgb.cpp \

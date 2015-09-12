@@ -280,7 +280,7 @@ QWidget *F_Projection::controls(QWidget *parent) {
 	hl->addWidget(checkbox_enable);
 	l->addLayout(hl, 0, 0, 1, -1);
 
-	QLabel *label_strength = new QLabel(tr("Strength:"));
+	QLabel *label_strength = new QLabel(tr("Strength"));
 	l->addWidget(label_strength, 1, 0);
 	slider_strength = new GuiSlider(0.0, 1.2, 1.0, 100, 100, 100);
 	l->addWidget(slider_strength, 1, 1);

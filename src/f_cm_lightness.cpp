@@ -30,9 +30,10 @@
 #include "cm.h"
 #include "cms_matrix.h"
 #include "sgt.h"
-#define DEFAULT_OUTPUT_COLOR_SPACE  "HDTV"
 
 using namespace std;
+
+#define DEFAULT_OUTPUT_COLOR_SPACE  "HDTV"
 
 //#define HIST_SIZE 1024
 #define HIST_SIZE 256

@@ -350,6 +350,7 @@ public:
 	class F_Unsharp *f_unsharp;
 	class F_CM_Lightness *f_cm_lightness;
 	class F_CM_Rainbow *f_cm_rainbow;
+	class F_CM_Sepia *f_cm_sepia;
 	class F_CM_Colors *f_cm_colors;
 	class F_CM_to_RGB *f_cm_to_rgb;
 //	class F_Curve *f_curve;

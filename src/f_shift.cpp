@@ -327,19 +327,19 @@ QWidget *F_Shift::controls(QWidget *parent) {
 	hl->addWidget(checkbox_enable);
 	l->addLayout(hl, 0, 0, 1, -1);
 
-	QLabel *label_angle_v = new QLabel(tr("Vertical:"));
+	QLabel *label_angle_v = new QLabel(tr("Vertical"));
 	l->addWidget(label_angle_v, 1, 0);
 	slider_angle_v = new GuiSlider(-60.0, 60.0, 0.0, 100, 2, 20);
 	slider_angle_v->getSpinBox()->setSingleStep(0.5);
 	l->addWidget(slider_angle_v, 1, 1);
 
-	QLabel *label_angle_h = new QLabel(tr("Horizontal:"));
+	QLabel *label_angle_h = new QLabel(tr("Horizontal"));
 	l->addWidget(label_angle_h, 2, 0);
 	slider_angle_h = new GuiSlider(-60.0, 60.0, 0.0, 100, 2, 20);
 	slider_angle_h->getSpinBox()->setSingleStep(0.5);
 	l->addWidget(slider_angle_h, 2, 1);
 
-	QLabel *label_angle_r = new QLabel(tr("Rotation:"));
+	QLabel *label_angle_r = new QLabel(tr("Rotation"));
 	l->addWidget(label_angle_r, 3, 0);
 //	slider_angle_r = new GuiSlider(-45.0, 45.0, 0.0, 100, 1, 10);
 	slider_angle_r = new GuiSlider(-45.0, 45.0, 0.0, 100, 10, 50);

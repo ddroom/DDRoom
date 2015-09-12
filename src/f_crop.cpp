@@ -380,7 +380,7 @@ QWidget *F_Crop::controls(QWidget *parent) {
 	gl->addWidget(scale_label, row++, 1);
 */
 	//--
-	checkbox_scale = new QCheckBox(tr("Scale to size:"));
+	checkbox_scale = new QCheckBox(tr("Scale to size"));
 	gl->addWidget(checkbox_scale, row, 0);
 
 	le_scale = new QLineEdit("");
