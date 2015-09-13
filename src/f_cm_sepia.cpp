@@ -27,7 +27,7 @@ using namespace std;
 
 #define HIST_SIZE 256
 
-#define SEPIA_CENTER_DEFAULT 0.29
+#define SEPIA_CENTER_DEFAULT 0.20
 #define SEPIA_STRENGTH_DEFAULT 0.9
 #define SEPIA_SATURATION_DEFAULT 0.7
 
