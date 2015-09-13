@@ -551,6 +551,8 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 //	const float n_s0 = task->noise_std_dev_min;
 //	float n_s1 = 1.0;
 //	float *noise_data = task->noise_data;
+	float delta_min = 100.0f;
+	float delta_max = 0.0f;
 	for(int y = y_min; y < y_max; y++) {
 		for(int x = x_min; x < x_max; x++) {
 			const int k = ((width + 4) * (y + 2) + x + 2) * 4;
@@ -598,6 +600,19 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 				_rgba[k + 1] = _rgba[k + 2];
 			if(C[0] == C[2])
 				_rgba[k + 1] = (_rgba[k + 2] + _rgba[k + 0]) * 0.5;
+			// TODO: somehow measure limit and use that value instead of '0.06f'.
+			// build histogram and check it - could be a peak at the start for a noise...
+			float dd = _abs(C[0] - C[2]);
+			if(dd < 0.06f) {
+				float g1 = _rgba[k + 1];
+				float g2 = (_rgba[k + 2] + _rgba[k + 0]) * 0.5;
+				dd *= 1.0f / 0.06f;
+				_rgba[k + 1] = g1 * dd + g2 * (1.0f - dd);
+			}
+/*
+			if(dd < delta_min)	delta_min = dd;
+			if(dd > delta_max)	delta_max = dd;
+*/
 /*
 			const int s = __bayer_pos_to_c(x, y);
 			if(s == p_red || s == p_blue)
@@ -651,6 +666,7 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 	if(subflow->sync_point_pre())
 		mirror_2(width, height, _m);
 	subflow->sync_point_post();
+cerr << "delta_min == " << delta_min << "; delta_max == " << delta_max << endl;
 
 #if 1
 	//------------
