@@ -330,7 +330,7 @@ QWidget *F_Unsharp::controls(QWidget *parent) {
 	hb_l_threshold->setSpacing(0);
 	hb_l_threshold->setContentsMargins(0, 0, 0, 0);
 	hb_l_threshold->setSizeConstraint(QLayout::SetMinimumSize);
-	slider_threshold = new GuiSlider(0.0, 4.0, 0.0, 10, 10, 10);
+	slider_threshold = new GuiSlider(0.0, 8.0, 0.0, 10, 10, 10);
 	hb_l_threshold->addWidget(slider_threshold);
 	QLabel *l_threshold_percent = new QLabel(tr("%"));
 	hb_l_threshold->addWidget(l_threshold_percent);
@@ -371,7 +371,7 @@ QWidget *F_Unsharp::controls(QWidget *parent) {
 		hb_pl_threshold->setSpacing(0);
 		hb_pl_threshold->setContentsMargins(0, 0, 0, 0);
 		hb_pl_threshold->setSizeConstraint(QLayout::SetMinimumSize);
-		slider_s_threshold[i] = new GuiSlider(0.0, 4.0, 0.0, 10, 10, 10);
+		slider_s_threshold[i] = new GuiSlider(0.0, 8.0, 0.0, 10, 10, 10);
 		hb_pl_threshold->addWidget(slider_s_threshold[i]);
 		QLabel *l_threshold_percent = new QLabel(tr("%"));
 		hb_pl_threshold->addWidget(l_threshold_percent);

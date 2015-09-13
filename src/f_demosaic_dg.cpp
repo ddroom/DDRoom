@@ -282,7 +282,7 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 				gH = _reconstruct((g2 + g3) * 0.5, c, (c2 + c3) * 0.2 + c * 0.6);
 //				gH = (g2 + g3) * 0.5;
 #endif
-				clip_smooth(gH, g2, g3);
+//				clip_smooth(gH, g2, g3); // MARK2, especially diagonals
 //				clip(gH, g2, g3);
 				//-------------
 				// '|' vertical
@@ -303,7 +303,7 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 				gV = _reconstruct((g1 + g4) * 0.5, c, (c1 + c4) * 0.2 + c * 0.6);
 //				gV = (g1 + g4) * 0.5;
 #endif
-				clip_smooth(gV, g1, g4);
+//				clip_smooth(gV, g1, g4); // MARK2, especially diagonals
 //				clip(gV, g1, g4);
 				//========================
 				// '\' North-West diagonal
@@ -598,6 +598,11 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 				_rgba[k + 1] = _rgba[k + 2];
 			if(C[0] == C[2])
 				_rgba[k + 1] = (_rgba[k + 2] + _rgba[k + 0]) * 0.5;
+/*
+			const int s = __bayer_pos_to_c(x, y);
+			if(s == p_red || s == p_blue)
+				_rgba[k + 1] = gaussian[k + 1];
+*/
 #endif
 #if 0
 			const int s = __bayer_pos_to_c(x, y);
@@ -1039,6 +1044,17 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 				_rgba[k + 2] = 0.0f;
 			}
 #endif
+/*
+			const int s = __bayer_pos_to_c(x, y);
+			if(s == p_red || s == p_blue) {
+				_rgba[k + 0] = 0.0f;
+				_rgba[k + 1] = 0.0f;
+				_rgba[k + 2] = 0.0f;
+			} else {
+				_rgba[k + 0] = _rgba[k + 1];
+				_rgba[k + 2] = _rgba[k + 1];
+			}
+*/
 			//--
 //			_rgba[k + 0] = gaussian[k + 0];
 //			_rgba[k + 1] = gaussian[k + 1];
@@ -1073,12 +1089,8 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 			if(gg != 0.0)
 				scale = _rgba[k + 1] / gg;
 			_rgba[k + 0] = gr * scale;
-//			_rgba[k + 1] = gaussian[k + 1];
 			_rgba[k + 2] = gb * scale;
 #endif
-			_rgba[k + 0] /= task->c_scale[0];
-			_rgba[k + 1] /= task->c_scale[1];
-			_rgba[k + 2] /= task->c_scale[2];
 /*
 			_clip(_rgba[k + 0], 0.0f, 1.0f);
 			_clip(_rgba[k + 1], 0.0f, 1.0f);
@@ -1097,6 +1109,9 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 			_rgba[k + 0] = _rgba[k + 2];
 #endif
 			_rgba[k + 3] = 1.0;
+			_rgba[k + 0] /= task->c_scale[0];
+			_rgba[k + 1] /= task->c_scale[1];
+			_rgba[k + 2] /= task->c_scale[2];
 		}
 	}
 	if(subflow->sync_point_pre())
