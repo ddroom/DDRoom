@@ -1,4 +1,5 @@
 
+1.0.1.7 - DG - reduced directional noise.
 1.0.1.6 - 'Sepia' filter added. Rearranged labels in filters UI.
 1.0.1.5 - F_Crop - added 'scale' functionality.
 1.0.1.4 - View - disabled zoom with mouse double click when photo is loading.

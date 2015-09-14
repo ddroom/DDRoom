@@ -113,6 +113,10 @@ public:
 	// DG
 	float *D; // 4 planes, with green reconstructed in 4 directions
 	float *sm_temp;
+	long *dd_hist;
+	long dd_hist_size;
+	float dd_hist_scale;
+	float dd_limit;
 
 	// AHD
 	float *fH;

@@ -254,18 +254,21 @@ Exif.Photo.PixelYDimension                   Short       1  1536
 	// write EXIF
 	Exiv2::Image::AutoPtr exif_image = Exiv2::ImageFactory::open(file_name);
 	exif_image->readMetadata();
-	exif_image->setExifData(metadata->_exif_image->exifData());
+	if(metadata != NULL)
+		exif_image->setExifData(metadata->_exif_image->exifData());
 	Exiv2::ExifData& exif_data = exif_image->exifData();
 	// reset thumbnail
-	Exiv2::ExifThumb exif_thumb(exif_data);
-	exif_thumb.erase();
-	QImage thumb_image = area_thumb->to_qimage();
-	QByteArray ba;
-	QBuffer buffer(&ba);
-	buffer.open(QIODevice::WriteOnly);
-	thumb_image.save(&buffer, "JPEG", 85);
-	Exiv2::URational r(72, 1);
-	exif_thumb.setJpegThumbnail((const Exiv2::byte *)buffer.data().data(), buffer.size(), r, r, RESUNIT_INCH);
+	if(area_thumb != NULL) {
+		Exiv2::ExifThumb exif_thumb(exif_data);
+		exif_thumb.erase();
+		QImage thumb_image = area_thumb->to_qimage();
+		QByteArray ba;
+		QBuffer buffer(&ba);
+		buffer.open(QIODevice::WriteOnly);
+		thumb_image.save(&buffer, "JPEG", 85);
+		Exiv2::URational r(72, 1);
+		exif_thumb.setJpegThumbnail((const Exiv2::byte *)buffer.data().data(), buffer.size(), r, r, RESUNIT_INCH);
+	}
 
 	string software = APP_NAME;
 	software += " ";
@@ -513,19 +516,22 @@ void Export::write_exif(string fname, int rotation, Metadata *metadata, int widt
 	// NOTE: rewrite fields with real values - width and height, possibly other too...
 	Exiv2::Image::AutoPtr exif_image = Exiv2::ImageFactory::open(fname);
 	exif_image->readMetadata();
-	exif_image->setExifData(metadata->_exif_image->exifData());
+	if(metadata != NULL)
+		exif_image->setExifData(metadata->_exif_image->exifData());
 	Exiv2::ExifData& exif_data = exif_image->exifData();
 
 	// store thumbnail
-	Exiv2::ExifThumb exif_thumb(exif_data);
-	exif_thumb.erase();
-	QImage image = area_thumb->to_qimage();
-	QByteArray ba;
-	QBuffer buffer(&ba);
-	buffer.open(QIODevice::WriteOnly);
-	image.save(&buffer, "JPEG", 85);
-	Exiv2::URational r(72, 1);
-	exif_thumb.setJpegThumbnail((const Exiv2::byte *)buffer.data().data(), buffer.size(), r, r, RESUNIT_INCH);
+	if(area_thumb != NULL) {
+		Exiv2::ExifThumb exif_thumb(exif_data);
+		exif_thumb.erase();
+		QImage image = area_thumb->to_qimage();
+		QByteArray ba;
+		QBuffer buffer(&ba);
+		buffer.open(QIODevice::WriteOnly);
+		image.save(&buffer, "JPEG", 85);
+		Exiv2::URational r(72, 1);
+		exif_thumb.setJpegThumbnail((const Exiv2::byte *)buffer.data().data(), buffer.size(), r, r, RESUNIT_INCH);
+	}
 
 	string software = APP_NAME;
 	software += " ";

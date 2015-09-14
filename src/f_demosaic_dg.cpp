@@ -401,9 +401,6 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 //					gNE = ((g1 + g3) * 0.25 + (g2 + g4) * 0.75) / 2.0;
 				}
 #endif
-
-//				noise_data[k2 + 0] = middle(g1, g2, g3, g4);
-
 				// store reconstructed directional-depended GREEN values, at clockwise order from 15 minutes
 				// usually set of (gH / gV) are the best, but sometimes, with yellow flowers for example,
 				// set (_gH / _gV) are better
@@ -414,37 +411,6 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 				_rgba[k + 2] = gV;
 				_rgba[k + 3] = gNE;
 			}
-//#ifdef DIRECTIONS_SMOOTH
-#if 0
-			// use 'L' from CIELab instead of GREEN
-			// seems like profit margin is too low
-			const float *gaussian = task->gaussian;
-			const float gr = gaussian[k + 0];
-			const float gg = gaussian[k + 1];
-			const float gb = gaussian[k + 2];
-			for(int m = 0; m < 4; m++) {
-				float rgb[3];
-				rgb[1] = _rgba[k + m];
-				float scale = 1.0;
-				if(gg != 0.0)
-					scale = rgb[1] / gg;
-				rgb[0] = gr * scale;
-				rgb[2] = gb * scale;
-
-				float XYZ[3];
-				m3_v3_mult(XYZ, task->cRGB_to_XYZ, rgb);
-				v_signal[k + m] = XYZ[1];
-//				v_signal[k + m] = rgb[1];
-
-//				v_signal[k + m] = tf_cielab(XYZ[1]);
-//				v_signal[k + m] = (1.16f * tf_cielab(XYZ[1]) - 0.16f); // use 'L' from 'CIELab'
-//				v_signal[k + m] = _max(_max(XYZ[0], XYZ[1]), XYZ[2]);
-
-//				v_signal[k + m] = _max(_max(rgb[0], rgb[1]), rgb[2]);
-//				v_signal[k + m] = tf_cielab(_max(_max(rgb[0], rgb[1]), rgb[2]));
-//				_rgba[k + m] = v_signal[k + m];
-			}
-#endif
 		}
 	}
 	//------------
@@ -507,7 +473,6 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 	const float w = 1.0;
 //	const float w = 1.0 / 1.41421356;
 #ifdef DIRECTIONS_SMOOTH
-//	float *v_green = v_signal;
 	float *v_green = sm_temp;
 #else
 	float *v_green = _rgba;
@@ -547,12 +512,6 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 //	float *gaussian = task->gaussian;
 	//------------
 	// pass III: determine directions of green plane, reconstruct GREEN by direction, copy known RED and BLUE
-//	float noise_std_dev_min = task->noise_std_dev_min * 2.0;
-//	const float n_s0 = task->noise_std_dev_min;
-//	float n_s1 = 1.0;
-//	float *noise_data = task->noise_data;
-	float delta_min = 100.0f;
-	float delta_max = 0.0f;
 	for(int y = y_min; y < y_max; y++) {
 		for(int x = x_min; x < x_max; x++) {
 			const int k = ((width + 4) * (y + 2) + x + 2) * 4;
@@ -573,26 +532,6 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 				}
 			}
 #if 0
-			// use 4 directions for GREEN channel
-			// actually, usage of 4 directions for GREEN worse than 2 directions
-			_rgba[k + 1] = _rgba[k + d];
-/*
-			if(d == 1 || d == 3)
-//				_rgba[k + 1] = gaussian[k + 1];
-				_rgba[k + 1] = 0.0;
-*/
-/*
-			// TODO: put that detection into noise analyzing code
-			bool flag = false;
-			for(int j = 0; j < 5; j++) {
-				for(int i = 0; i < 5; i++) {
-					flag |= value_bayer(width, height, x + i - 2, y + j - 2, bayer) >= 0.99;
-				}
-			}
-			if(flag)
-				_rgba[k + 1];
-*/
-#else
 			// use horizontal and vertical directions for GREEN channel
 			if(C[0] < C[2])
 				_rgba[k + 1] = _rgba[k + 0];
@@ -600,47 +539,15 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 				_rgba[k + 1] = _rgba[k + 2];
 			if(C[0] == C[2])
 				_rgba[k + 1] = (_rgba[k + 2] + _rgba[k + 0]) * 0.5;
-			// TODO: somehow measure limit and use that value instead of '0.06f'.
-			// build histogram and check it - could be a peak at the start for a noise...
-			float dd = _abs(C[0] - C[2]);
-			if(dd < 0.06f) {
-				float g1 = _rgba[k + 1];
-				float g2 = (_rgba[k + 2] + _rgba[k + 0]) * 0.5;
-				dd *= 1.0f / 0.06f;
-				_rgba[k + 1] = g1 * dd + g2 * (1.0f - dd);
-			}
-/*
-			if(dd < delta_min)	delta_min = dd;
-			if(dd > delta_max)	delta_max = dd;
-*/
-/*
-			const int s = __bayer_pos_to_c(x, y);
-			if(s == p_red || s == p_blue)
-				_rgba[k + 1] = gaussian[k + 1];
-*/
-#endif
-#if 0
-			const int s = __bayer_pos_to_c(x, y);
-			const int k2 = ((width + 4) * (y + 2) + x + 2) * 2;
-			// use Gaussian blur instead of directional interpolation in places with high noise;
-			if(s == p_red || s == p_blue)
-				n_s1 = n_s0 * 3.0;
-			else
-				n_s1 = n_s0;
-			float n_s3 = n_s1 * 3.0;
-			if(noise_data[k2 + 1] < n_s3) {
-				float smooth = noise_data[k2 + 0];
-				float value = _rgba[k + 1];
-				if(noise_data[k2 + 1] < n_s1) {
-					value = smooth;
-				} else {
-					if(value > smooth)
-						value = smooth + ((value - smooth) - n_s1) * 1.5;
-					else
-						value = smooth - ((smooth - value) - n_s1) * 1.5;
-				}
-				_rgba[k + 1] = value;
-			}
+#else
+//			const int s = __bayer_pos_to_c(x, y);
+//			if(s == p_red || s == p_blue) {
+				float dd = _abs(C[0] - C[2]);
+				_rgba[k + 1] = dd;
+				long dd_index = (dd * task->dd_hist_scale) * task->dd_hist_size;
+				if(dd_index > 0 && dd_index < task->dd_hist_size)
+					task->dd_hist[dd_index]++;
+//			}
 #endif
 			// store directions - in alpha channel
 			// '-' '\' '|' '/' - 0, 1, 2, 3
@@ -666,7 +573,67 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 	if(subflow->sync_point_pre())
 		mirror_2(width, height, _m);
 	subflow->sync_point_post();
-cerr << "delta_min == " << delta_min << "; delta_max == " << delta_max << endl;
+
+#if 1
+	//------------
+	// fill missed GREEN with refined from directional noise values
+	// TODO: use a more appropriate noise analysis for 'dd_limit' value,
+	//       and pprobably not a linear shift function (?)
+	if(subflow->sync_point_pre()) {
+		long *dd_hist = task->dd_hist;
+		long dd_hist_size = task->dd_hist_size;
+		for(int i = 1; i < subflow->cores(); i++) {
+			task_t *_task = ((task_t **)task->_tasks)[i];
+			for(int k = 0; k < dd_hist_size; k++)
+				dd_hist[k] += _task->dd_hist[k];
+		}
+		long dd_max = 0;
+		for(int k = 0; k < dd_hist_size; k++)
+			if(dd_hist[k] > dd_max) dd_max = dd_hist[k];
+		float dd_limit = task->dd_limit;
+		for(int k = dd_hist_size - 1; k >= 0; k--)
+			if(dd_hist[k] > dd_max / 10) {
+				dd_limit = ((float(k + 1) / dd_hist_size) * task->dd_hist_scale) / 0.9f;
+				break;
+			}
+		dd_limit *= 9.0f;
+//		dd_limit = 0.06f;
+		for(int i = 0; i < subflow->cores(); i++) {
+			task_t *_task = ((task_t **)task->_tasks)[i];
+			_task->dd_limit = dd_limit;
+		}
+//		cerr << "dd_limit == " << dd_limit << endl;
+	}
+	subflow->sync_point_post();
+
+	for(int y = y_min; y < y_max; y++) {
+		for(int x = x_min; x < x_max; x++) {
+			const int k = w4 * (y + 2) + (x + 2) * 4;
+			const int s = __bayer_pos_to_c(x, y);
+			if(s == p_red || s == p_blue) {
+				float dd = _rgba[k + 1];
+				const int d4 = d_ptr[k + 3] & D2_MASK;
+				float g1;
+				if(d4 == D2_H)
+					g1 = _rgba[k + 0];
+				else
+					g1 = _rgba[k + 2];
+				if(dd < task->dd_limit) {
+					float g2 = (_rgba[k + 0] + _rgba[k + 2]) * 0.5;
+					dd *= 1.0f / task->dd_limit;
+					g1 = g1 * dd + g2 * (1.0f - dd);
+				}
+				_rgba[k + 1] = g1;
+			} else {
+				_rgba[k + 1] = _rgba[k + 0];
+			}
+		}
+	}
+	//---------------------------
+	if(subflow->sync_point_pre())
+		mirror_2(width, height, _m);
+	subflow->sync_point_post();
+#endif
 
 #if 1
 	//------------

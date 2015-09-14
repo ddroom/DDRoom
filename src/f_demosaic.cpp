@@ -805,7 +805,8 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 			bayer = (float *)area_in->ptr();
 			mirror_2(width, height, bayer);
 
-			area_D = new Area(d_out.size.w, d_out.size.h, Area::type_float_p4);
+			if(flag_process_DG)
+				area_D = new Area(d_out.size.w, d_out.size.h, Area::type_float_p4);
 			if(flag_process_denoise) {
 				area_gaussian = new Area(area_in->mem_width(), area_in->mem_height(), Area::type_float_p4);
 				area_noise_data = new Area(d_out.size.w, d_out.size.h, Area::type_float_p2);
@@ -821,7 +822,8 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 #ifdef DIRECTIONS_SMOOTH
 //			if(area_gaussian == NULL)
 //				area_gaussian = new Area(area_in->mem_width(), area_in->mem_height(), Area::type_float_p4);
-			area_sm_temp = new Area(area_in->mem_width(), area_in->mem_height(), Area::type_float_p4);
+			if(flag_process_DG)
+				area_sm_temp = new Area(area_in->mem_width(), area_in->mem_height(), Area::type_float_p4);
 //			area_v_signal = new Area(width + 4, height + 4, Area::type_float_p4);
 #endif
 		}
@@ -837,6 +839,8 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 			fuji_45_flow = new QAtomicInt(0);
 		}
 		fuji_45 = new Fuji_45(metadata->sensor_fuji_45_width, width + 4, height + 4, true);
+		long dd_hist_size = 0x400;
+		float dd_hist_scale = 0.25f;
 		for(int i = 0; i < cores; i++) {
 			tasks[i] = new task_t;
 			tasks[i]->area_in = area_in;
@@ -867,6 +871,15 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 			tasks[i]->max_blue = max_blue;
 			tasks[i]->_tasks = (void *)tasks;
 			tasks[i]->D = area_D ? (float *)area_D->ptr() : NULL;
+			tasks[i]->dd_hist = NULL;
+			if(flag_process_DG) {
+				tasks[i]->dd_hist = new long[dd_hist_size];
+				for(int k = 0; k < dd_hist_size; k++)
+					tasks[i]->dd_hist[k] = 0;
+				tasks[i]->dd_hist_size = dd_hist_size;
+				tasks[i]->dd_hist_scale = dd_hist_scale;
+				tasks[i]->dd_limit = 0.06f;
+			}
 			tasks[i]->dn1 = area_dn1 ? (float *)area_dn1->ptr() : NULL;
 			tasks[i]->dn2 = area_dn2 ? (float *)area_dn2->ptr() : NULL;
 			tasks[i]->sm_temp = area_sm_temp ? (float *)area_sm_temp->ptr() : NULL;
@@ -974,8 +987,10 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 		if(area_v_signal) delete area_v_signal;
 
 //		for(int i = 0; i < subflow->cores(); i++)
-		for(int i = 0; i < cores; i++)
+		for(int i = 0; i < cores; i++) {
+			if(tasks[i]->dd_hist) delete tasks[i]->dd_hist;
 			delete tasks[i];
+		}
 		delete[] tasks;
 		if(not_cached_bayer != NULL)
 			delete[] not_cached_bayer;
