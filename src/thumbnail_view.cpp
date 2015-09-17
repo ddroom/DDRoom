@@ -1026,18 +1026,15 @@ void PhotoList::slot_version_add(void) {
 		Photo_ID _key = (*it).first;
 		class thumbnail_desc_t _value = (*it).second;
 		if(_value.folder_id == current_folder_id) {
-			if(_value.index > context_menu_index) {
+			if(_value.index > context_menu_index)
 				_value.index++;
-				// update IDs
-				string record_file_name = _value.photo_id.get_file_name();
-				if(file_name == record_file_name) {
-					photo_ids.append(_value.photo_id);
-					int index = _value.photo_id.get_version_index();
-					index++;
-					_key = Photo_ID(record_file_name, index);
-					_value.photo_id = _key;
-					photo_ids.append(_key);
-				}
+			// update IDs
+			string record_file_name = _value.photo_id.get_file_name();
+			if(file_name == record_file_name) {
+				photo_ids.append(_value.photo_id);
+				_key = Photo_ID(record_file_name, _value.index);
+				_value.photo_id = _key;
+				photo_ids.append(_key);
 			}
 		}
 		thumbnails_cache_new[_key] = _value;
@@ -1092,18 +1089,15 @@ void PhotoList::slot_version_remove(void) {
 		Photo_ID _key = (*it).first;
 		class thumbnail_desc_t _value = (*it).second;
 		if(_value.folder_id == current_folder_id) {
-			if(_value.index > context_menu_index) {
+			if(_value.index > context_menu_index)
 				_value.index--;
-				// update IDs
-				string record_file_name = _value.photo_id.get_file_name();
-				if(file_name == record_file_name) {
-					photo_ids.append(_value.photo_id);
-					int index = _value.photo_id.get_version_index();
-					index--;
-					_key = Photo_ID(record_file_name, index);
-					_value.photo_id = _key;
-					photo_ids.append(_key);
-				}
+			// update IDs
+			string record_file_name = _value.photo_id.get_file_name();
+			if(file_name == record_file_name) {
+				photo_ids.append(_value.photo_id);
+				_key = Photo_ID(record_file_name, _value.index);
+				_value.photo_id = _key;
+				photo_ids.append(_key);
 			}
 		}
 		thumbnails_cache_new[_key] = _value;

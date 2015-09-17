@@ -621,7 +621,7 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 				if(dd < task->dd_limit) {
 					float g2 = (_rgba[k + 0] + _rgba[k + 2]) * 0.5;
 					dd *= 1.0f / task->dd_limit;
-					g1 = g1 * dd + g2 * (1.0f - dd);
+					g1 = g1 + (g2 - g1) * (1.0f - dd);
 				}
 				_rgba[k + 1] = g1;
 			} else {
