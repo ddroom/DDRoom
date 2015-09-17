@@ -537,7 +537,7 @@ void PhotoList::slot_item_clicked(const QModelIndex &_index) {
 	QImage image;
 	int index = _index.row();
 	items_lock.lock();
-	if(index >= items.size()) {
+	if(index >= items.size() || edit->version_is_open(items[index].photo_id)) {
 		items_lock.unlock();
 		return;
 	}
