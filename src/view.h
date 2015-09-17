@@ -89,10 +89,12 @@ public slots:
 signals:
 	void signal_view_close(void *);	// void * == View *
 	void signal_view_active(void *);	// void * == View *
+	void signal_view_browser_reopen(void *);	// void * == View *
 
 protected slots:
 	void slot_view_header_close(void);
 	void slot_view_header_active(bool);
+	void slot_view_header_double_click(void);
 	void slot_config_changed(void);
 
 	//--

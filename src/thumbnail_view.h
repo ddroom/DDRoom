@@ -132,7 +132,7 @@ public:
 
 	// use pointer is safe - draw and list clean can called be only from the same (main) thread
 	PhotoList_Item_t *item_from_index(const QModelIndex &index);
-	void set_folder(QString id);
+	void set_folder(QString id, std::string scroll_to_file = std::string(""));
 	void set_folder_f(void);
 	void set_item_scheduled(struct thumbnail_record_t *record);
 	bool is_item_to_skip(const struct thumbnail_record_t *record);

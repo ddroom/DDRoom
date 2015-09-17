@@ -88,6 +88,9 @@ Window::Window(void) {
 	// update processed thumbnail in browser
 	connect(edit, SIGNAL(signal_update_thumbnail(Photo_ID, QImage)), browser, SLOT(slot_update_thumbnail(Photo_ID, QImage)));
 
+	// 'center' browser on already open photo
+	connect(edit, SIGNAL(signal_browse_to_photo(Photo_ID)), browser, SLOT(slot_browse_to_photo(Photo_ID)));
+
 	// reset photos selection
 	connect(batch, SIGNAL(signal_batch_accepted(void)), browser, SLOT(slot_selection_clear(void)));
 	// context menu 'save as'

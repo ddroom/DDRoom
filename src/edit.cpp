@@ -243,6 +243,7 @@ Edit::Edit(Process *process, Browser *_browser) {
 		sessions.push_back(session);
 		connect(session->view, SIGNAL(signal_view_active(void *)), this, SLOT(slot_view_active(void *)));
 		connect(session->view, SIGNAL(signal_view_close(void *)), this, SLOT(slot_view_close(void *)));
+		connect(session->view, SIGNAL(signal_view_browser_reopen(void *)), this, SLOT(slot_view_browser_reopen(void *)));
 		connect(session->view, SIGNAL(signal_process_update(void *, int)), this, SLOT(slot_view_update(void *, int)));
 		connect(session->view, SIGNAL(signal_zoom_ui_update(void)), this, SLOT(slot_view_zoom_ui_update(void)));
 	}
@@ -585,6 +586,20 @@ void Edit::slot_view_close(void *data) {
 	}
 }
 
+void Edit::slot_view_browser_reopen(void *data) {
+	View *view = (View *)data;
+	QSharedPointer<Photo_t> open_photo;
+	for(int i = 0; i < sessions.size(); i++) {
+		if(sessions[i]->view == view) {
+			open_photo = sessions[i]->photo;
+			break;
+		}
+	}
+	if(open_photo.isNull())
+		return;
+	emit signal_browse_to_photo(open_photo->photo_id);
+}
+
 // switch filter controls from one view to another
 void Edit::slot_view_active(void *data) {
 //cerr << "Edit::slot_view_active()" << endl;
@@ -667,8 +682,8 @@ void Edit::slot_update_opened_photo_ids(QList<Photo_ID> ids_list) {
 	for(int i = 0; i < c; i++) {
 		Photo_ID id_before = ids_list.at(i * 2 + 0);
 		Photo_ID id_after = ids_list.at(i * 2 + 1);
-cerr << "id_before == " << id_before.get_export_file_name() << endl;
-cerr << " id_after == " << id_after.get_export_file_name() << endl;
+//cerr << "id_before == " << id_before.get_export_file_name() << endl;
+//cerr << " id_after == " << id_after.get_export_file_name() << endl;
 		for(int j = 0; j < 4; j++) {
 			if(!sessions[j]->photo.isNull()) {
 				if(sessions[j]->photo->photo_id == id_before) {
@@ -1037,7 +1052,7 @@ void Edit::slot_update(void *session_id, int process_id, void *_filter, void *_p
 		}
 	}
 	if(skip) {
-		cerr << "skipped, area_raw == NULL" << endl;
+//		cerr << "skipped, area_raw == NULL" << endl;
 		if(ps_base != NULL)
 			delete ps_base;
 		return;

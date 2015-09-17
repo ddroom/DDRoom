@@ -265,10 +265,11 @@ void Browser::slot_br_home(void) {
 	set_current_folder(System::env_home());
 }
 
-void Browser::set_current_folder(string folder, bool center) {
+void Browser::set_current_folder(string folder, bool center, std::string scroll_to) {
 	QModelIndex index = fs_model->index(QString::fromLocal8Bit(folder.c_str()));
 	if(index.isValid() == false)
 		photo_list->set_folder(QString(""));
+	photo_list_scroll_to = scroll_to;
 	tree->setCurrentIndex(index);
 	tree->setExpanded(index, true);
 	tree->scrollTo(index, (center) ? QAbstractItemView::PositionAtCenter : QAbstractItemView::EnsureVisible);
@@ -337,7 +338,9 @@ void Browser::folder_current(const QModelIndex &current, const QModelIndex &prev
 	if(n == _folder)
 		return;
 	// update thumbnails to new folder content
-	photo_list->set_folder(qs_folder);
+cerr << "folder_current..." << endl;
+	photo_list->set_folder(qs_folder, photo_list_scroll_to);
+	photo_list_scroll_to = "";
 	history_push(_folder);
 	_folder = n;
 //cerr << "Browser::folder_current: " << _folder << endl;
@@ -373,6 +376,22 @@ void Browser::photo_loaded(Photo_ID photo_id, bool is_loaded) {
 void Browser::slot_update_thumbnail(Photo_ID photo_id, QImage thumbnail) {
 //cerr << "slot_update_thumbnail for " << photo_id << endl;
 	photo_list->update_thumbnail(photo_id, thumbnail);
+}
+
+void Browser::slot_browse_to_photo(Photo_ID photo_id) {
+	std::string photo_id_str = photo_id.get_file_name();
+//cerr << "browse to photo: " << photo_id_str << endl;
+	QString separator = QDir::toNativeSeparators("/");
+	QString photo = QDir::toNativeSeparators(QString::fromLocal8Bit(photo_id_str.c_str()));
+	QStringList f_list = photo.split(separator);
+	QString photo_file = f_list.takeLast();
+	string photo_file_str = photo_file.toLocal8Bit().constData();
+	QString photo_folder = f_list.join(separator);
+	string photo_folder_str = photo_folder.toLocal8Bit().constData();
+//cerr << "	photo_file_str == " << photo_file_str << endl;
+//	photo_list->set_folder(photo_folder, photo_file_str);
+//	set_current_folder(photo_folder_str, false, photo_file_str);
+	set_current_folder(photo_folder_str, false, photo_id_str);
 }
 
 void Browser::photo_close(Photo_ID photo_id, bool was_changed) {

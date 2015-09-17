@@ -58,6 +58,7 @@ public slots:
 	void folder_collapsed(const QModelIndex &index);
 	void folder_expanded(const QModelIndex &index);
 	void slot_update_thumbnail(Photo_ID, QImage);
+	void slot_browse_to_photo(Photo_ID photo_id);
 
 	void slot_item_clicked(Photo_ID, QString, QImage);
 	void slot_selection_clear(void);
@@ -104,7 +105,8 @@ protected:
 	// block open new photo while current at loading stage
 //	volatile bool image_is_loading;	// TODO: remove volatile
 
-	void set_current_folder(std::string folder, bool center = true);
+	void set_current_folder(std::string folder, bool center = true, std::string scroll_to = std::string(""));
+	std::string photo_list_scroll_to;
 
 	std::list<std::string> history_left;
 	std::list<std::string> history_right;

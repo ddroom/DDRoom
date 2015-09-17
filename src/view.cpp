@@ -397,6 +397,7 @@ View::View(ViewHeader *_view_header, QScrollBar *_sb_x, QScrollBar *_sb_y, Edit 
 	view_header = _view_header;
 	connect(view_header, SIGNAL(signal_button_close(void)), this, SLOT(slot_view_header_close(void)));
 	connect(view_header, SIGNAL(signal_active(bool)), this, SLOT(slot_view_header_active(bool)));
+	connect(view_header, SIGNAL(signal_double_click(void)), this, SLOT(slot_view_header_double_click(void)));
 
 	// delay to emit photo update on resize
 	resize_update_timer = new QTimer();
@@ -439,6 +440,10 @@ void View::slot_view_header_active(bool active) {
 //cerr << "slot_view_header_active(): " << active << endl;
 	if(active)
 		emit signal_view_active((void *)this);
+}
+
+void View::slot_view_header_double_click(void) {
+	emit signal_view_browser_reopen((void *)this);
 }
 
 QWidget *View::widget(void) {

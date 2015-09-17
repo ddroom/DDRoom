@@ -76,6 +76,7 @@ public:
 	Photo_ID active_photo(void);
 signals:
 	void signal_active_photo_changed(void);
+	void signal_browse_to_photo(Photo_ID);
 protected:
 	void set_session_active(int); // change 'session_active' index and emit signal
 	void connect_view_grid(bool to_connect);
@@ -162,6 +163,7 @@ protected:
 protected slots:
 	void slot_view_close(void *);
 	void slot_view_active(void *);
+	void slot_view_browser_reopen(void *);
 
 	//-----------------
 	// FilterEdit proxy

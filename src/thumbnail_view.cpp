@@ -612,11 +612,13 @@ bool PhotoList::is_item_to_skip(const struct thumbnail_record_t *record) {
 	return rez;
 }
 
-void PhotoList::set_folder(QString id) {
+void PhotoList::set_folder(QString id, std::string scroll_to_file) {
 //cerr << "... - set_folder()" << endl;
 	view->clearSelection();
 	setup_folder_lock.lock();
 	setup_folder_id = id;
+	if(scroll_to_file != "")
+		scroll_list_to = scroll_to_file;
 	thumbnail_loader->stop();
 	thumbnail_loader->wait();
 	thumbnail_loader->list_whole_reset();
@@ -644,6 +646,7 @@ void PhotoList::set_folder(QString id) {
 // run in thread
 void PhotoList::set_folder_f(void) {
 //cerr << "set_folder_f thread id: " << (unsigned long)QThread::currentThreadId() << endl;
+//cerr << "scroll_list_to == " << scroll_list_to << endl;
 	const static string separator = QDir::toNativeSeparators("/").toLocal8Bit().constData();
 	std::list<thumbnail_record_t> *list_whole = NULL;
 	bool folder_not_empty = false;

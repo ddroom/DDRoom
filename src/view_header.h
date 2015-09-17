@@ -36,6 +36,7 @@ public:
 signals:
 	void signal_button_close(void);
 	void signal_active(bool);
+	void signal_double_click(void);
 
 protected slots:
 	void slot_button_close(void);
@@ -48,6 +49,7 @@ protected:
 	bool active;
 
 	void mousePressEvent(QMouseEvent *event);
+	void mouseDoubleClickEvent(QMouseEvent *event);
 	void paintEvent(QPaintEvent *event);
 
 	static std::list<ViewHeader *> vh_list;
