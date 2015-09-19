@@ -511,16 +511,17 @@ void Window::keyPressEvent(QKeyEvent *event) {
 void Window::switch_full_screen(void) {
 	if(is_full_screen) {
 		if(is_full_screen_from_maximized) {
-			// becfause of glitches on some managers, first call will act as showNormal()
-			showNormal();
+			setVisible(false);
 			showMaximized();
+			setVisible(true);
 		} else {
 			showNormal();
 		}
-		cerr << endl;
 	} else {
 		is_full_screen_from_maximized = windowState() & Qt::WindowMaximized;
+		setVisible(false);
 		showFullScreen();
+		setVisible(true);
 	}
 	is_full_screen = !is_full_screen;
 }
