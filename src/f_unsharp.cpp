@@ -66,6 +66,8 @@ public:
 	bool lc_enabled;
 	double lc_amount;
 	double lc_radius;
+	bool lc_brighten;
+	bool lc_darken;
 };
 
 class FP_params_t {
@@ -123,8 +125,10 @@ void PS_Unsharp::reset(void) {
 		s_threshold[i] = 0.015f;
 	// local contrast
 	lc_enabled = false;
-	lc_amount = 0.25f;
+	lc_amount = 0.3f;
 	lc_radius = 10.0f;
+	lc_brighten = false;
+	lc_darken = true;
 }
 
 bool PS_Unsharp::load(DataSet *dataset) {
@@ -145,6 +149,8 @@ bool PS_Unsharp::load(DataSet *dataset) {
 	dataset->get("local_contrast_enabled", lc_enabled);
 	dataset->get("local_contrast_amount", lc_amount);
 	dataset->get("local_contrast_radius", lc_radius);
+	dataset->get("local_contrast_brighten", lc_brighten);
+	dataset->get("local_contrast_darken", lc_darken);
 	return true;
 }
 
@@ -166,6 +172,8 @@ bool PS_Unsharp::save(DataSet *dataset) {
 	dataset->set("local_contrast_enabled", lc_enabled);
 	dataset->set("local_contrast_amount", lc_amount);
 	dataset->set("local_contrast_radius", lc_radius);
+	dataset->set("local_contrast_brighten", lc_brighten);
+	dataset->set("local_contrast_darken", lc_darken);
 	return true;
 }
 
@@ -270,6 +278,8 @@ void F_Unsharp::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_
 	checkbox_lc_enable->setCheckState(ps->lc_enabled ? Qt::Checked : Qt::Unchecked);
 	slider_lc_amount->setValue(ps->lc_amount);
 	slider_lc_radius->setValue(ps->lc_radius);
+	checkbox_lc_brighten->setCheckState(ps->lc_brighten ? Qt::Checked : Qt::Unchecked);
+	checkbox_lc_darken->setCheckState(ps->lc_darken ? Qt::Checked : Qt::Unchecked);
 
 	reconnect(true);
 }
@@ -409,6 +419,8 @@ void F_Unsharp::reconnect(bool to_connect) {
 		connect(checkbox_lc_enable, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_lc_enable(int)));
 		connect(slider_lc_amount, SIGNAL(signal_changed(double)), this, SLOT(slot_changed_lc_amount(double)));
 		connect(slider_lc_radius, SIGNAL(signal_changed(double)), this, SLOT(slot_changed_lc_radius(double)));
+		connect(checkbox_lc_brighten, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_lc_brighten(int)));
+		connect(checkbox_lc_darken, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_lc_darken(int)));
 	} else {
 		disconnect(slider_amount, SIGNAL(signal_changed(double)), this, SLOT(slot_changed_amount(double)));
 		disconnect(slider_radius, SIGNAL(signal_changed(double)), this, SLOT(slot_changed_radius(double)));
@@ -425,6 +437,8 @@ void F_Unsharp::reconnect(bool to_connect) {
 		disconnect(checkbox_lc_enable, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_lc_enable(int)));
 		disconnect(slider_lc_amount, SIGNAL(signal_changed(double)), this, SLOT(slot_changed_lc_amount(double)));
 		disconnect(slider_lc_radius, SIGNAL(signal_changed(double)), this, SLOT(slot_changed_lc_radius(double)));
+		disconnect(checkbox_lc_brighten, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_lc_brighten(int)));
+		disconnect(checkbox_lc_darken, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_lc_darken(int)));
 	}
 }
 
@@ -448,9 +462,7 @@ void F_Unsharp::slot_tab_scaled(int index) {
 }
 
 void F_Unsharp::slot_checkbox_enable(int state) {
-	bool value = false;
-	if(state == Qt::Checked)
-		value = true;
+	bool value = (state == Qt::Checked);
 	bool update = (ps->enabled != value);
 	if(update) {
 		ps->enabled = value;
@@ -520,28 +532,57 @@ QWidget *F_Unsharp::gui_local_contrast(void) {
 	gl->setSizeConstraint(QLayout::SetMinimumSize);
 
 	checkbox_lc_enable = new QCheckBox(tr("Enable"));
-	gl->addWidget(checkbox_lc_enable, 0, 0, 1, 1);
+//	gl->addWidget(checkbox_lc_enable, 0, 0, 1, 1);
+	gl->addWidget(checkbox_lc_enable, 0, 0);
+	QHBoxLayout *hb = new QHBoxLayout();
+	checkbox_lc_brighten = new QCheckBox(tr("Brighten"));
+	hb->addWidget(checkbox_lc_brighten, 0, Qt::AlignRight);
+	checkbox_lc_darken = new QCheckBox(tr("Darken"));
+	hb->addWidget(checkbox_lc_darken, 0, Qt::AlignRight);
+	gl->addLayout(hb, 0, 1);
 
 	QLabel *lc_amount = new QLabel(tr("Amount"));
 	gl->addWidget(lc_amount, 1, 0);
-	slider_lc_amount = new GuiSlider(0.0, 1.0, 0.25, 100, 100, 10);
+	slider_lc_amount = new GuiSlider(0.0, 1.0, 0.3, 100, 100, 10);
 	gl->addWidget(slider_lc_amount, 1, 1);
 
 	QLabel *lc_radius = new QLabel(tr("Radius"));
 	gl->addWidget(lc_radius, 2, 0);
-	slider_lc_radius = new GuiSlider(0.0, 100.0, 20.0, 10, 10, 100);
+//	slider_lc_radius = new GuiSlider(0.0, 100.0, 20.0, 10, 10, 100);
+	slider_lc_radius = new GuiSlider(0.0, 100.0, 20.0, 10, 1, 10);
 	gl->addWidget(slider_lc_radius, 2, 1);
 
 	return g;
 }
 
 void F_Unsharp::slot_checkbox_lc_enable(int state) {
-	bool value = false;
-	if(state == Qt::Checked)
-		value = true;
+	bool value = (state == Qt::Checked);
 	bool update = (ps->lc_enabled != value);
 	if(update) {
 		ps->lc_enabled = value;
+		emit_signal_update();
+	}
+}
+
+void F_Unsharp::slot_checkbox_lc_brighten(int state) {
+	slot_checkbox_lc_do(ps->lc_brighten, state);
+}
+
+void F_Unsharp::slot_checkbox_lc_darken(int state) {
+	slot_checkbox_lc_do(ps->lc_darken, state);
+}
+
+void F_Unsharp::slot_checkbox_lc_do(bool &ps_value, int state) {
+	bool value = (state == Qt::Checked);
+	bool update = (ps_value != value);
+	if(update && !ps->lc_enabled) {
+		reconnect(false);
+		ps->lc_enabled = true;
+		checkbox_lc_enable->setCheckState(Qt::Checked);
+		reconnect(true);
+	}
+	if(update) {
+		ps_value = value;
 		emit_signal_update();
 	}
 }
@@ -558,8 +599,10 @@ void F_Unsharp::changed_lc_slider(double value, double &ps_value) {
 	double _value = ps_value;
 	bool update = (_value != value);
 	if(value != 0.0 && (!ps->lc_enabled)) {
+		reconnect(false);
 		ps->lc_enabled = true;
 		checkbox_lc_enable->setCheckState(Qt::Checked);
+		reconnect(true);
 		update = true;
 	}
 	if(update && ps->lc_enabled) {
@@ -693,6 +736,8 @@ public:
 	float amount;
 	float threshold;
 //	float radius;
+	bool lc_brighten;
+	bool lc_darken;
 
 	int in_x_offset;
 	int in_y_offset;
@@ -808,6 +853,8 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 				tasks[i]->kernel_offset = kernel_offset;
 				tasks[i]->amount = params.amount;
 				tasks[i]->threshold = params.threshold;
+				tasks[i]->lc_brighten = ps->lc_brighten;
+				tasks[i]->lc_darken = ps->lc_darken;
 
 //				tasks[i]->radius = params.radius;
 
@@ -970,6 +1017,12 @@ void FP_Unsharp::process_square(class SubFlow *subflow) {
 			v_out = v_in + v_out;
 			if(v_out < 0.0f)	v_out = 0.0f;
 			if(v_out > 1.0f)	v_out = 1.0f;
+			// darken only alike
+			if(!task->lc_brighten && v_out > v_in)
+				v_out = v_in;
+			// brighten only alike
+			if(!task->lc_darken && v_out < v_in)
+				v_out = v_in;
 			out[i_out + 0] = v_out;
 		}
 	}
@@ -1072,6 +1125,8 @@ void FP_Unsharp::process_round(class SubFlow *subflow) {
 				v_out *= v_in / (v_in + v_out);
 			//--
 			v_out = v_in + v_out;
+//			if(v_out > v_in)
+//				v_out = v_in;
 			_clip(v_out, 0.0f, 1.0f);
 			out[k + 0] = v_out;
 		}

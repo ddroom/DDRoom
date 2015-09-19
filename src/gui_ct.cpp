@@ -63,12 +63,16 @@ GUI_CT::GUI_CT(GUI_CT_config _config, QWidget *parent) : QWidget(parent) {
 	t_grid->addWidget(new QLabel(tr("Temp")), 0, 0);
 	slider_cct = new GuiSlider(config.cct_min, config.cct_max, v_cct, 1, 1, 1000);
 	slider_cct->enable_spinbox_stepBy_update(true);
+	slider_cct->getSlider()->setSingleStep(25.0);;
+	slider_cct->getSlider()->setPageStep(25.0);;
 	slider_cct->getSpinBox()->setSingleStep(50.0);;
 	t_grid->addWidget(slider_cct, 0, 1);
 
 	t_grid->addWidget(new QLabel(tr("Tint")), 1, 0);
 	slider_duv = new GuiSlider(config.duv_min, config.duv_max, v_duv, 1, 1, 50);
 	slider_duv->enable_spinbox_stepBy_update(true);
+	slider_duv->getSlider()->setSingleStep(5.0);;
+	slider_duv->getSlider()->setPageStep(5.0);;
 	slider_duv->getSpinBox()->setSingleStep(5.0);;
 	t_grid->addWidget(slider_duv, 1, 1);
 

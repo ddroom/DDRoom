@@ -338,7 +338,6 @@ void Browser::folder_current(const QModelIndex &current, const QModelIndex &prev
 	if(n == _folder)
 		return;
 	// update thumbnails to new folder content
-cerr << "folder_current..." << endl;
 	photo_list->set_folder(qs_folder, photo_list_scroll_to);
 	photo_list_scroll_to = "";
 	history_push(_folder);

@@ -75,13 +75,18 @@ protected slots:
 	void slot_checkbox_lc_enable(int state);
 	void slot_changed_lc_amount(double value);
 	void slot_changed_lc_radius(double value);
+	void slot_checkbox_lc_brighten(int state);
+	void slot_checkbox_lc_darken(int state);
 
 protected:
 	QWidget *gui_local_contrast(void);
 	void changed_lc_slider(double value, double &ps_value);
 	QCheckBox *checkbox_lc_enable;
+	QCheckBox *checkbox_lc_brighten;
+	QCheckBox *checkbox_lc_darken;
 	class GuiSlider *slider_lc_amount;
 	class GuiSlider *slider_lc_radius;
+	void slot_checkbox_lc_do(bool &ps_value, int state);
 
 };
 

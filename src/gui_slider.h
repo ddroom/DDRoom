@@ -72,6 +72,7 @@ public:
 	~GuiSlider();
 	void setLimits(double limit_min, double limit_max);
 	void setMappingFunction(MappingFunction *);
+	QSlider *getSlider(void);
 	QDoubleSpinBox *getSpinBox(void);
 	virtual void setValue(double value);
 	double value(void);

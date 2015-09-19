@@ -162,6 +162,10 @@ void GuiSlider::setLimits(double limit_min, double limit_max) {
 	_spinbox->setRange(limit_min, limit_max);
 }
 
+QSlider *GuiSlider::getSlider(void) {
+	return _slider;
+}
+
 QDoubleSpinBox *GuiSlider::getSpinBox(void) {
 	return _spinbox;
 }
