@@ -254,6 +254,7 @@ void F_CM_Sepia::slot_slider(double value, double &ps_value) {
 		if(ps->enabled == false) {
 			reconnect(false);
 			checkbox_enable->setCheckState(Qt::Checked);
+			ps->enabled = true;
 			reconnect(true);
 		}
 		ps_value = value;

@@ -125,9 +125,9 @@ void PS_Unsharp::reset(void) {
 		s_threshold[i] = 0.015f;
 	// local contrast
 	lc_enabled = false;
-	lc_amount = 0.3f;
+	lc_amount = 0.25f;
 	lc_radius = 10.0f;
-	lc_brighten = false;
+	lc_brighten = true;
 	lc_darken = true;
 }
 
@@ -543,7 +543,7 @@ QWidget *F_Unsharp::gui_local_contrast(void) {
 
 	QLabel *lc_amount = new QLabel(tr("Amount"));
 	gl->addWidget(lc_amount, 1, 0);
-	slider_lc_amount = new GuiSlider(0.0, 1.0, 0.3, 100, 100, 10);
+	slider_lc_amount = new GuiSlider(0.0, 1.0, 0.25, 100, 100, 10);
 	gl->addWidget(slider_lc_amount, 1, 1);
 
 	QLabel *lc_radius = new QLabel(tr("Radius"));
