@@ -1,7 +1,7 @@
 #ifndef __H_F_CM_SEPIA__
 #define __H_F_CM_SEPIA__
 /*
- * f_cm_rainbow.h
+ * f_cm_sepia.h
  *
  * This source code is a part of 'DDRoom' project.
  * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
