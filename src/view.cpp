@@ -408,6 +408,7 @@ View::View(ViewHeader *_view_header, QScrollBar *_sb_x, QScrollBar *_sb_y, Edit 
 	// clock timer on load
 	clock = new ViewClock();
 	connect(clock, SIGNAL(signal_update(void)), this, SLOT(update(void)));
+	connect(this, SIGNAL(signal_clock_stop(void)), this, SLOT(slot_clock_stop(void)));
 	connect(this, SIGNAL(signal_long_wait(bool)), this, SLOT(slot_long_wait(bool)));
 	clock_long_wait = false;
 	show_helper_grid = false;
@@ -1682,10 +1683,18 @@ cerr << "ERROR: receive_tile(): image->thumb_area stil not empty" << endl;
 }
 
 void View::process_done(bool is_thumb) {
-/*
-	if(!is_thumb)
+	if(image->is_empty && is_thumb) {
+		emit signal_clock_stop();
+		// OOM at photo open, stop loading clock and close photo
+		slot_view_header_close();
+	}
+}
+
+void View::slot_clock_stop(void) {
+	if(clock->is_active()) {
+		clock->stop();
 		emit update();
-*/
+	}
 }
 
 void View::long_wait(bool set) {

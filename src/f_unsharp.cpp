@@ -753,7 +753,7 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 	Area *area_out = NULL;
 	Area *area_to_delete = NULL;
 
-	for(int type = 0; type < 2; type++) {
+	for(int type = 0; type < 2 && !process_obj->OOM; type++) {
 		if(type == 0 && ps->lc_enabled == false) // type == 0 - local contrast, square blur
 			continue;
 		if(type == 1 && ps->enabled == false)    // type == 1 - sharpness, round blur
@@ -832,8 +832,11 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 			}
 			//--
 			area_out = new Area(&d_out);
-			if(type == 0)
+			process_obj->OOM |= !area_out->valid();
+			if(type == 0) {
 				area_temp = new Area(area_in->dimensions(), Area::type_float_p1);
+				process_obj->OOM |= !area_temp->valid();
+			}
 			//--
 			int in_x_offset = (d_out.position.x - area_in->dimensions()->position.x) / px_size_x + 0.5 + area_in->dimensions()->edges.x1;
 			int in_y_offset = (d_out.position.y - area_in->dimensions()->position.y) / px_size_y + 0.5 + area_in->dimensions()->edges.y1;
@@ -865,10 +868,12 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 		}
 		subflow->sync_point_post();
 
-		if(type == 0)
-			process_square(subflow);
-		else
-			process_round(subflow);
+		if(!process_obj->OOM) {
+			if(type == 0)
+				process_square(subflow);
+			else
+				process_round(subflow);
+		}
 
 		subflow->sync_point();
 		if(subflow->is_master()) {

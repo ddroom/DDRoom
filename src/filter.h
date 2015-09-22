@@ -134,6 +134,7 @@ public:
 	class Area *area_in;
 	class Tile_t::t_position position;	// desired dimensions of result
 	bool allow_destructive;
+	volatile bool OOM;	// should be set up at filter if OOM happen
 };
 
 // used only for process, not for edit

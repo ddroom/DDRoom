@@ -161,10 +161,11 @@ Filter_t::Filter_t(void) {
 //------------------------------------------------------------------------------
 Process_t::Process_t(void) {
 	metadata = NULL;
-	area_in = NULL;
-	allow_destructive = false;
 	mutators = NULL;
 	mutators_mpass = NULL;
+	area_in = NULL;
+	allow_destructive = false;
+	OOM = false;
 }
 
 //------------------------------------------------------------------------------

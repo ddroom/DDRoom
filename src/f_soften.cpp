@@ -320,6 +320,7 @@ Area *FP_Soften::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_
 		int in_x_offset = (tp.x - area_in->dimensions()->position.x) / px_size_x + 0.5 + area_in->dimensions()->edges.x1;
 		int in_y_offset = (tp.y - area_in->dimensions()->position.y) / px_size_y + 0.5 + area_in->dimensions()->edges.y1;
 		area_out = new Area(&d_out);
+		process_obj->OOM |= !area_out->valid();
 
 		y_flow = new QAtomicInt(0);
 		for(int i = 0; i < cores; i++) {
@@ -341,7 +342,8 @@ Area *FP_Soften::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_
 	}
 	subflow->sync_point_post();
 
-	process(subflow);
+	if(!process_obj->OOM)
+		process(subflow);
 
 	if(subflow->sync_point_pre()) {
 		delete y_flow;

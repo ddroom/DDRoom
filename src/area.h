@@ -19,6 +19,7 @@
 #include "memory.h"
 
 //------------------------------------------------------------------------------
+// in the case 'Out Of Memory' 'ptr() == NULL', or 'valid() == false';
 class Area {
 public:
 	class t_position {
@@ -109,6 +110,7 @@ public:
 	static Area *real_copy(Area *other);
 
 	void *ptr(void);
+	bool valid(void) {return ptr() != NULL;}
 	inline int32_t mem_width(void) { return _dimensions.size.w; }
 	inline int32_t mem_height(void) { return _dimensions.size.h; }
 

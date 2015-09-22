@@ -165,8 +165,10 @@ signals:
 	//== resize update queue
 protected slots:
 	void slot_resize_update_timeout(void);
+	void slot_clock_stop(void);
 	void slot_long_wait(bool);
 signals:
+	void signal_clock_stop(void);
 	void signal_long_wait(bool);
 protected:
 	QTimer *resize_update_timer;

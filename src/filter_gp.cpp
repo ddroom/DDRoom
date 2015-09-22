@@ -505,6 +505,7 @@ Area *FilterProcess_GP_Wrapper::process_copy(MT_t *mt_obj, Process_t *process_ob
 		d_out.edges.y1 = 0;
 		d_out.edges.y2 = 0;
 		area_out = new Area(&d_out);
+		process_obj->OOM |= !area_out->valid();
 
 		int offset_x = tp.x - area_in->dimensions()->position.x;
 		int offset_y = tp.y - area_in->dimensions()->position.y;
@@ -543,7 +544,8 @@ Area *FilterProcess_GP_Wrapper::process_copy(MT_t *mt_obj, Process_t *process_ob
 	}
 	subflow->sync_point_post();
 
-	process_copy(subflow);
+	if(!process_obj->OOM)
+		process_copy(subflow);
 	//--==--
 	if(subflow->sync_point_pre()) {
 		for(int i = 0; i < cores; i++)
@@ -748,6 +750,7 @@ cerr << endl;
 		d_out.edges.y1 = 0;
 		d_out.edges.y2 = 0;
 		area_coordinates_prep = new Area(&d_out, Area::type_float_p2);
+		process_obj->OOM |= !area_coordinates_prep->valid();
 
 		float start_x = d_out.position.x;
 		float start_y = d_out.position.y;
@@ -771,7 +774,8 @@ cerr << endl;
 	}
 	subflow->sync_point_post();
 
-	prepare_coordinates(subflow);
+	if(!process_obj->OOM)
+		prepare_coordinates(subflow);
 
 	// --==--
 	// process coordinates
@@ -799,6 +803,7 @@ cerr << endl;
 				area_out_coordinates = new Area(&d_out, Area::type_float_p6);
 			else
 				area_out_coordinates = new Area(&d_out, Area::type_float_p2);
+			process_obj->OOM |= !area_out_coordinates->valid();
 
 			int cores = subflow->cores();
 			tasks_coordinates = new task_coordinates_t *[cores];
@@ -814,7 +819,8 @@ cerr << endl;
 		}
 		subflow->sync_point_post();
 
-		process_coordinates(subflow);
+		if(!process_obj->OOM)
+			process_coordinates(subflow);
 	}
 
 	// --==--
@@ -836,6 +842,7 @@ cerr << endl;
 		d_out.edges.y1 = 0;
 		d_out.edges.y2 = 0;
 		area_out_sampling = new Area(&d_out);
+		process_obj->OOM |= !area_out_sampling->valid();
 		float offset_x = area_in->dimensions()->position.x - 0.5 * px_size_in_x;
 		float offset_y = area_in->dimensions()->position.y - 0.5 * px_size_in_y;
 		float px_size_x = px_size_in_x;
@@ -885,7 +892,8 @@ cerr << endl;
 	}
 	subflow->sync_point_post();
 
-	process_sampling(subflow);
+	if(!process_obj->OOM)
+		process_sampling(subflow);
 
 	//--==--
 	if(subflow->sync_point_pre()) {

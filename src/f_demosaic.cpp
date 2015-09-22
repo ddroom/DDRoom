@@ -697,6 +697,7 @@ Area *FP_Demosaic::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filte
 			dims.size.w -= edge_x * 2;
 			dims.size.h -= edge_y * 2;
 			bayer_ca = new Area(&dims, Area::type_float_p1);
+			process_obj->OOM |= !bayer_ca->valid();
 			//--
 //			long double w = (long double)(bayer_ca->mem_width() - 4) / 2.0;
 //			long double h = (long double)(bayer_ca->mem_height() - 4) / 2.0;
@@ -746,9 +747,11 @@ Area *FP_Demosaic::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filte
 		}
 		subflow->sync_point_post();
 
-//		process_bayer_CA(subflow);
-//		process_bayer_CA_sinc1(subflow);
-		process_bayer_CA_sinc2(subflow);
+		if(!process_obj->OOM) {
+//			process_bayer_CA(subflow);
+//			process_bayer_CA_sinc1(subflow);
+			process_bayer_CA_sinc2(subflow);
+		}
 
 		subflow->sync_point();
 		if(subflow->is_master()) {
@@ -798,33 +801,46 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 		float *bayer = NULL;
 		if(flag_process_xtrans) {
 			area_out = new Area(area_in->dimensions()->width(), area_in->dimensions()->height(), Area::type_float_p4);
+			process_obj->OOM |= !area_out->valid();
 		} else {
 			size_forward(&fp_size, area_in->dimensions(), &d_out);
 			area_out = new Area(&d_out);
+			process_obj->OOM |= !area_out->valid();
 
 			bayer = (float *)area_in->ptr();
 			mirror_2(width, height, bayer);
 
-			if(flag_process_DG)
+			if(flag_process_DG) {
 				area_D = new Area(d_out.size.w, d_out.size.h, Area::type_float_p4);
+				process_obj->OOM |= !area_D->valid();
+			}
 			if(flag_process_denoise) {
 				area_gaussian = new Area(area_in->mem_width(), area_in->mem_height(), Area::type_float_p4);
 				area_noise_data = new Area(d_out.size.w, d_out.size.h, Area::type_float_p2);
 				area_dn1 = new Area(area_in->mem_width(), area_in->mem_height(), Area::type_float_p1);
 				area_dn2 = new Area(area_in->mem_width(), area_in->mem_height(), Area::type_float_p1);
+				process_obj->OOM |= !area_gaussian->valid() || !area_noise_data->valid() || !area_dn1->valid() || !area_dn2->valid();
 			}
 			if(flag_process_AHD) {
 				area_fH = new Area(width + 4, height + 4, Area::type_float_p4);
 				area_fV = new Area(width + 4, height + 4, Area::type_float_p4);
 				area_lH = new Area(width + 4, height + 4, Area::type_float_p3);
 				area_lV = new Area(width + 4, height + 4, Area::type_float_p3);
+				process_obj->OOM |= !area_fH->valid() || !area_fV->valid() || !area_lH->valid() || !area_lV->valid();
 			}
 #ifdef DIRECTIONS_SMOOTH
-//			if(area_gaussian == NULL)
-//				area_gaussian = new Area(area_in->mem_width(), area_in->mem_height(), Area::type_float_p4);
-			if(flag_process_DG)
+/*
+			if(area_gaussian == NULL) {
+				area_gaussian = new Area(area_in->mem_width(), area_in->mem_height(), Area::type_float_p4);
+				process_obj->OOM |= !area_gaussian->valid();
+			}
+*/
+			if(flag_process_DG) {
 				area_sm_temp = new Area(area_in->mem_width(), area_in->mem_height(), Area::type_float_p4);
+				process_obj->OOM |= !area_sm_temp->valid();
+			}
 //			area_v_signal = new Area(width + 4, height + 4, Area::type_float_p4);
+//			process_obj->OOM |= !area_v_signal->valid();
 #endif
 		}
 
@@ -836,6 +852,7 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 		const float max_blue = metadata->demosaic_signal_max[2];
 		if(metadata->sensor_fuji_45) {
 			fuji_45_area = new Area(metadata->width, metadata->height, Area::type_float_p4);
+			process_obj->OOM |= !fuji_45_area->valid();
 			fuji_45_flow = new QAtomicInt(0);
 		}
 		fuji_45 = new Fuji_45(metadata->sensor_fuji_45_width, width + 4, height + 4, true);
@@ -930,42 +947,44 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 	}
 	subflow->sync_point_post();
 
-	// analyse noise
-	if(flag_process_denoise) {
-		process_denoise_wrapper(subflow);
-		subflow->sync_point();
-	}
+	if(!process_obj->OOM) {
+		// analyse noise
+		if(flag_process_denoise) {
+			process_denoise_wrapper(subflow);
+			subflow->sync_point();
+		}
 //#ifdef DIRECTIONS_SMOOTH
 #if 0
-	if(!flag_process_denoise) {
-		process_gaussian(subflow);
-		subflow->sync_point();
-	}
+		if(!flag_process_denoise) {
+			process_gaussian(subflow);
+			subflow->sync_point();
+		}
 #endif
 
-	// process demosaic
-//	process_DG(subflow);
-	if(flag_process_raw)
-		process_square(subflow);
-	if(flag_process_DG)
-		process_DG(subflow);
-	if(flag_process_AHD)
-		process_AHD(subflow);
-	if(flag_process_bilinear)
-		process_bilinear(subflow);
-	if(flag_process_xtrans)
-		process_xtrans(subflow);
+		// process demosaic
+//		process_DG(subflow);
+		if(flag_process_raw)
+			process_square(subflow);
+		if(flag_process_DG)
+			process_DG(subflow);
+		if(flag_process_AHD)
+			process_AHD(subflow);
+		if(flag_process_bilinear)
+			process_bilinear(subflow);
+		if(flag_process_xtrans)
+			process_xtrans(subflow);
 
-	// apply Fuji 45 degree rotation if necessary
-	if(metadata->sensor_fuji_45) {
-//		subflow->sync_point();
-		fuji_45_rotate(subflow);
-		if(subflow->sync_point_pre()) {
-			delete area_out;
-			area_out = fuji_45_area;
-			delete fuji_45_flow;
+		// apply Fuji 45 degree rotation if necessary
+		if(metadata->sensor_fuji_45) {
+//			subflow->sync_point();
+			fuji_45_rotate(subflow);
+			if(subflow->sync_point_pre()) {
+				delete area_out;
+				area_out = fuji_45_area;
+				delete fuji_45_flow;
+			}
+			subflow->sync_point_post();
 		}
-		subflow->sync_point_post();
 	}
 
 	// cleanup

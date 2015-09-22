@@ -13,7 +13,7 @@
 
 using namespace std;
 
-#define _FORCE_SILENT
+//#define _FORCE_SILENT
 
 //------------------------------------------------------------------------------
 // (heap) memory storage (that can be used with SSE2), incapsulate this:
@@ -59,12 +59,20 @@ Mem::Mem(int size) {
 	Mem::silent = true;
 	#endif
 //cerr << "Mem::Mem(): asked size: " << size << " bytes" << endl;
-	ptr_allocated = NULL;
+//	ptr_allocated = NULL;
 	ptr_aligned = NULL;
 	mem_c = NULL;
 	if(size != 0) {
 		// aligned memory for SSE2 compatibility
-		ptr_allocated = new char[size + 32];
+		try {
+			ptr_allocated = new char[size + 32];
+		} catch(...) {
+			// operator new failed, use NULL value instead
+			ptr_allocated = NULL;
+cerr << "failed to allocate memory with size: " << size << endl;
+		}
+	}
+	if(ptr_allocated != NULL) {
 		_mem_size = size + 32;
 		state_update(_mem_size);
 		ptr_set_lock.lock();
@@ -153,10 +161,12 @@ Mem::~Mem(void) {
 }
 
 void *Mem::ptr(void) {
+/*
 	if(ptr_aligned == NULL) {
 cerr << "Mem: request for pointer of empty Mem object" << endl;
 		throw("Mem: request for pointer of empty Mem object");
 	}
+*/
 	return ptr_aligned;
 }
 

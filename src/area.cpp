@@ -156,12 +156,15 @@ Area::~Area() {
 }
 
 void *Area::ptr(void) {
+	return (void *)mem.ptr();
+/*
 	void *ptr = mem.ptr();
 	if(ptr == NULL) {
 cerr << "FATAL: Area: access to empty Area object" << endl;
-		throw("Area: access to empty Area object");
+//		throw("Area: access to empty Area object");
 	}
 	return ptr;
+*/
 }
 
 Area *Area::real_copy(Area *other) {

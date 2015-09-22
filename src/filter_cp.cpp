@@ -88,6 +88,7 @@ Area *FilterProcess_CP_Wrapper::process(MT_t *mt_obj, Process_t *process_obj, Fi
 			area_out = new Area(*area_in);
 		} else {
 			area_out = new Area(area_in->dimensions());
+			process_obj->OOM |= !area_out->valid();
 		}
 		D_AREA_PTR(area_out);
 
@@ -126,7 +127,8 @@ Area *FilterProcess_CP_Wrapper::process(MT_t *mt_obj, Process_t *process_obj, Fi
 	subflow->sync_point_post();
 
 	// run fp_cp_list FP_CP::filter()
-	process(subflow);
+	if(!process_obj->OOM)
+		process(subflow);
 
 	subflow->sync_point();
 	if(subflow->is_master()) {

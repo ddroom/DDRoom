@@ -166,6 +166,8 @@ public:
 	int request_ID;	// ID of request
 	// can be used 'volatile' or pointer - 'volatile' is 'more correct'
 	volatile bool to_abort;	// shared flag of abortion
+	volatile bool OOM; // 'Out of Memory' case
+	Process_t *process_obj;
 
 	list<filter_record_t> filter_records[2];	// 0 - thumbnail, 1 - tiles
 	DataSet *mutators;
@@ -188,6 +190,7 @@ Process::task_run_t::task_run_t(void) {
 //	to_abort = new bool;
 //	*to_abort = false;
 	to_abort = false;
+	OOM = false;
 }
 
 Process::task_run_t::~task_run_t() {
@@ -392,7 +395,11 @@ void Process::process_online(void *ptr, QSharedPointer<Photo_t> photo, int reque
 		// TODO: move to the one place
 		photo->area_raw = Import::image(photo->photo_id.get_file_name(), photo->metadata);
 //cerr << "photo->area_raw == " << (unsigned long)photo->area_raw << endl;
-		if(photo->area_raw == NULL) {
+		if(photo->area_raw == NULL || !photo->area_raw->valid()) {
+			if(!photo->area_raw->valid()) {
+// TODO: add OOM notice
+				cerr << "OOM" << endl;
+			}
 cerr << "decline processing task, failed to import \"" << photo->photo_id.get_export_file_name() << "\"" << endl;
 			emit signal_process_complete(ptr, photo_processed);
 			return;
@@ -452,6 +459,7 @@ cerr << "decline processing task, failed to import \"" << photo->photo_id.get_ex
 void Process::process_export(Photo_ID photo_id, string fname_export, export_parameters_t *ep) {
 	if(photo_id.is_empty())
 		return;
+//Mem::state_reset();
 //cerr << "process_export() on " << photo_id << endl;
 	Process::task_run_t task;
 	task.is_offline = true;
@@ -540,11 +548,18 @@ prof.mark("filters");
 
 prof.mark("export");
 	// TODO: check Area geometry
-	Export::export_photo(fname_export, task.tiles_receiver->area_image, task.tiles_receiver->area_thumb, ep, photo->cw_rotation, photo->metadata);
+	if(!task.OOM)
+		Export::export_photo(fname_export, task.tiles_receiver->area_image, task.tiles_receiver->area_thumb, ep, photo->cw_rotation, photo->metadata);
+	else {
+		if(task.tiles_receiver->area_image) delete task.tiles_receiver->area_image;
+		if(task.tiles_receiver->area_thumb) delete task.tiles_receiver->area_thumb;
+	}
 
 prof.mark("");
 	ID_remove(task.request_ID);
 	delete task.tiles_receiver;
+//Mem::state_print();
+//Mem::state_reset(false);
 }
 
 //------------------------------------------------------------------------------
@@ -568,6 +583,7 @@ void Process::process_demosaic(SubFlow *subflow, void *data) {
 	Process::task_run_t *task = (Process::task_run_t *)data;
 	ProcessCache_t *process_cache = (ProcessCache_t *)task->photo->cache_process;
 
+	Process_t *process_obj = NULL;
 //	if(subflow->is_master()) {
 	if(subflow->sync_point_pre()) {
 		// offline, for thumbnail processing
@@ -577,6 +593,13 @@ void Process::process_demosaic(SubFlow *subflow, void *data) {
 		task->area_transfer = task->photo->area_raw;
 		task->mutators = new DataSet();
 		task->mutators->set("_s_raw_colors", task->_s_raw_colors);
+		//--
+		process_obj = new Process_t;
+		process_obj->area_in = task->area_transfer;
+		process_obj->metadata = task->photo->metadata;
+		process_obj->mutators = task->mutators;
+		process_obj->allow_destructive = false;
+		task->process_obj = process_obj;
 	}
 	subflow->sync_point_post();
 
@@ -596,23 +619,26 @@ void Process::process_demosaic(SubFlow *subflow, void *data) {
 
 	MT_t mt_obj;
 	mt_obj.subflow = subflow;
-
+/*
 	Process_t process_obj;
 	process_obj.area_in = task->area_transfer;
 	process_obj.metadata = task->photo->metadata;
 	process_obj.mutators = task->mutators;
 	process_obj.allow_destructive = false;
-
+*/
 	Filter_t filter_obj;
 	filter_obj.ps_base = ps_fr((Filter *)fstore->f_demosaic, task->filter_records[0]);
 	filter_obj.filter = fstore->f_demosaic;
 
-	Area *a_demosaic = fp_demosaic->process(&mt_obj, &process_obj, &filter_obj);
+//	process_obj = task->process_obj;
+	Area *a_demosaic = fp_demosaic->process(&mt_obj, task->process_obj, &filter_obj);
 
 	if(subflow->sync_point_pre()) {
 		process_cache->area_demosaic = a_demosaic;
 		delete task->mutators;
 //		cerr << "after demosaic size == " << a_demosaic->dimensions()->width() << " x " << a_demosaic->dimensions()->height() << endl;
+		task->OOM |= process_obj->OOM;
+		delete process_obj;
 	}
 	subflow->sync_point_post();
 }
@@ -1020,6 +1046,7 @@ void Process::process_filters(SubFlow *subflow, Process::task_run_t *task, std::
 				prof->mark((*it).fp->name());
 			MT_t mt_obj;
 			mt_obj.subflow = subflow;
+/*
 			Process_t process_obj;
 			process_obj.area_in = task->area_transfer;
 			if(subflow->is_master())
@@ -1030,21 +1057,35 @@ void Process::process_filters(SubFlow *subflow, Process::task_run_t *task, std::
 			process_obj.mutators_mpass = task->mutators_mpass;
 			// looks like map operator [] is not thread-safe... Do below only from master thread
 			process_obj.fp_cache = NULL;
+*/
+			Process_t *process_obj = NULL;
 			Filter_t filter_obj;
 			filter_obj.ps_base = ps;
 			filter_obj.fs_base = NULL;
 			if(subflow->sync_point_pre()) {
+				process_obj = new Process_t;
+				process_obj->area_in = task->area_transfer;
+				process_obj->position = tile->fp_position[(*it).fp_2d->name()];
+				process_obj->metadata = task->photo->metadata;
+				process_obj->allow_destructive = allow_destructive;
+				process_obj->mutators = task->mutators;
+				process_obj->mutators_mpass = task->mutators_mpass;
+				// looks like map operator [] is not thread-safe... Do below only from master thread
+				process_obj->fp_cache = NULL;
+				task->process_obj = process_obj;
+				//--
 				map<class FilterProcess *, class FP_Cache_t *>::iterator it_cache = process_cache->filters_cache.find((*it).fp);
 				if(it_cache != process_cache->filters_cache.end())
-					process_obj.fp_cache = (*it_cache).second;
+					process_obj->fp_cache = (*it_cache).second;
 				filter_obj.fs_base = task->photo->map_fs_base[filter];
 			}
 			subflow->sync_point_post();
+//			process_obj = task->process_obj;
 			filter_obj.filter = task->is_offline ? NULL : filter;
 			filter_obj.is_offline = task->is_offline;
 //			if(is_master)
 //				cerr << "process filter: \"" << (*it).fp_2d->name() << "\"" << endl;
-			Area *area_rez = (*it).fp_2d->process(&mt_obj, &process_obj, &filter_obj);
+			Area *area_rez = (*it).fp_2d->process(&mt_obj, task->process_obj, &filter_obj);
 			if(subflow->sync_point_pre()) {
 				// NOTE WB: cache area if result of WB filter
 				if(process_cache->area_wb == NULL && !task->is_offline) {
@@ -1057,32 +1098,43 @@ void Process::process_filters(SubFlow *subflow, Process::task_run_t *task, std::
 				task->area_transfer = area_rez;
 				delete area_in;
 				area_in = task->area_transfer;
+				task->OOM |= process_obj->OOM;
+				delete process_obj;
+//cerr << "task->OOM == " << task->OOM << endl;
 			}
 			subflow->sync_point_post();
+			if(task->OOM)
+				break;
 		}
 		// convert to asked format
-		if(is_master) {
+		if(is_master)
 			prof->mark("convert tiles");
-		}
-		Area *area_out = AreaHelper::convert_mt(subflow, area_in, task->out_format, task->photo->cw_rotation);
+		Area *area_out = NULL;
+		if(!task->OOM)
+			area_out = AreaHelper::convert_mt(subflow, area_in, task->out_format, task->photo->cw_rotation);
 		if(subflow->sync_point_pre()) {
 			// delete P4_FLOAT area
 			delete area_in;
-			// update thumbnail for PS_Loader
-			if(is_thumb) {
-				if(task->photo->thumbnail != NULL)
-					delete task->photo->thumbnail;
-				task->photo->thumbnail = new Area(*area_out);
-				D_AREA_PTR(task->photo->thumbnail);
+			if(!task->OOM) {
+				// update thumbnail for PS_Loader
+				if(is_thumb) {
+					if(task->photo->thumbnail != NULL)
+						delete task->photo->thumbnail;
+					task->photo->thumbnail = new Area(*area_out);
+					D_AREA_PTR(task->photo->thumbnail);
+				}
+				// send result
+				tile->area = area_out;
+				tile->request_ID = task->request_ID;
+				quit_lock.lock();
+				// there is no reason to clean up on quit
+				if(!to_quit)
+					tiles_request->receiver->receive_tile(tile, is_thumb);
+				quit_lock.unlock();
+			} else {
+				tiles_request->receiver->process_done(is_thumb);
+				task->to_abort = true;
 			}
-			// send result
-			tile->area = area_out;
-			tile->request_ID = task->request_ID;
-			quit_lock.lock();
-			// there is no reason to clean up on quit
-			if(!to_quit)
-				tiles_request->receiver->receive_tile(tile, is_thumb);
-			quit_lock.unlock();
 		}
 		subflow->sync_point_post();
 	}

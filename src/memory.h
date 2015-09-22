@@ -20,6 +20,7 @@
 
 //------------------------------------------------------------------------------
 // aligned memory smart container
+// in the case of 'Out of Memory' 'ptr() == NULL'
 class Mem {
 public:
 	Mem(void);

@@ -166,6 +166,7 @@ Area *Import_PNG::load_image(Metadata *metadata, bool is_thumb) {
 			area = new Area(width, height);
 		else
 			area = new Area(width, height, Area::type_uint8_p4);    // ARGB 32bit
+	if(area->valid()) {
 		float *ptr = (float *)area->ptr();
 		uint8_t *ptr_u = (uint8_t *)area->ptr();
 		int pos = 0;
@@ -227,6 +228,7 @@ Area *Import_PNG::load_image(Metadata *metadata, bool is_thumb) {
 		png_read_end(ptr_png_struct, ptr_png_info);
 		// clean up after the read, and free any memory allocated - REQUIRED
 		png_destroy_read_struct(&ptr_png_struct, &ptr_png_info, (png_infopp)NULL);
+	} // if(area->valid())
 	} catch(const char *msg) {
 		if(area != NULL)
 			delete area;
