@@ -121,6 +121,7 @@ Area *Import_TIFF::load_image(Metadata *metadata, bool is_thumb) {
 				area = new Area(width, height);
 			else
 				area = new Area(width, height, Area::type_uint8_p4);    // ARGB 32bit
+		if(area->valid()) {
 			float *ptr = (float *)area->ptr();
 			uint8_t *ptr_u = (uint8_t *)area->ptr();
 			int pos = 0;
@@ -182,6 +183,7 @@ Area *Import_TIFF::load_image(Metadata *metadata, bool is_thumb) {
 			metadata->height = height;
 			metadata->rotation = 0;
 //			metadata->c_histogram_count = metadata->width * metadata->height;
+		}
 		}
 		if(raster != NULL)
 			_TIFFfree(raster);

@@ -110,7 +110,7 @@ public:
 	static Area *real_copy(Area *other);
 
 	void *ptr(void);
-	bool valid(void) {return ptr() != NULL;}
+	bool valid(void) {return ptr() != NULL;} // check for 'Out Of Memory'
 	inline int32_t mem_width(void) { return _dimensions.size.w; }
 	inline int32_t mem_height(void) { return _dimensions.size.h; }
 

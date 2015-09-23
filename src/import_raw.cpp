@@ -190,6 +190,8 @@ Area *Import_Raw::load_xtrans(DCRaw *dcraw, Metadata *metadata, const uint16_t *
 //		scale[i] = 1.0f / maximum;
 //	Area *area_out = new Area(width, height, Area::type_float_p4);
 	Area *area_out = new Area(width, height, Area::type_uint16_p4);
+	if(!area_out->valid())
+		return area_out;
 	uint16_t *out = (uint16_t *)area_out->ptr();
 	for(int i = 0; i < 3; i++)
 		metadata->c_max[i] = 0.0f;
@@ -268,6 +270,8 @@ Area *Import_Raw::load_foveon(DCRaw *dcraw, Metadata *metadata, const uint16_t *
 	scale[2] = 1.0f / maximum;
 	scale[3] = 1.0f / maximum;
 	Area *area_out = new Area(width, height, Area::type_float_p4);
+	if(!area_out->valid())
+		return area_out;
 	float *out = (float *)area_out->ptr();
 	for(int y = 0; y < height; y++) {
 		for(int x = 0; x < width; x++) {
@@ -303,6 +307,8 @@ Area *Import_Raw::dcraw_to_area(DCRaw *dcraw, Metadata *metadata, const uint16_t
 //cerr << "metadata->demosaic_pattern == " << metadata->demosaic_pattern << endl;
 //	metadata->rotation = 0;
 	Area *area_out = new Area(width + 4, height + 4, Area::type_float_p1);
+	if(!area_out->valid())
+		return area_out;
 	D_AREA_PTR(area_out);
 /*
 	int mm = (width + 4) * (height + 4);

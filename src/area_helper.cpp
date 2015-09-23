@@ -37,6 +37,8 @@ Area *AreaHelper::convert(Area *area_in, Area::format_t out_format, int rotation
 	} else if(out_format == Area::format_rgb_8) {
 		area_out = new Area(&d_out, Area::type_uint8_p3);
 	}
+	if(!area_out->valid())
+		return area_out;
 	D_AREA_PTR(area_out)
 
 	// input format is FLOAT RGBA, and output - U8 ARGB
@@ -209,7 +211,9 @@ cerr << "area_out->dimensions()->height() == " << area_out->dimensions()->height
 	}
 	subflow->sync_point_post();
 
-	f_convert_mt(subflow);
+	AreaHelper::mt_task_t *task = (AreaHelper::mt_task_t *)subflow->get_private();
+	if(task->area_out->valid())
+		f_convert_mt(subflow);
 
 //	subflow->sync_point();
 //	if(subflow->is_master()) {
@@ -316,29 +320,31 @@ void AreaHelper::f_convert_mt(class SubFlow *subflow) {
 //------------------------------------------------------------------------------
 // use 'edges' for crop if any of them is not zero (for filters w/o geometry change)
 // use 'position.x|.y' otherwise (for filters like f_rotation, with geometry change)
-Area *AreaHelper::crop(Area *in, Area::t_dimensions crop) {
+Area *AreaHelper::crop(Area *area_in, Area::t_dimensions crop) {
 //cerr << "AreaHelper::crop()" << endl;
 //cerr << "asked crop: " << crop.width() << "x" << crop.height() << endl;
 	// can be asked from f_rotation etc
-	if(crop.width() > in->dimensions()->width() || crop.height() > in->dimensions()->height()) {
-//cerr << "AreaHelper::crop(): asked too big crop: input size is " << in->dimensions()->width() << "x" << in->dimensions()->height() << "; crop size is " << crop.width() << "x" << crop.height() << endl;
-//		return new Area(*in);
-cerr << "WARNING (\?\?): AreaHelper::crop(): asked too big crop: input size is " << in->dimensions()->width() << "x" << in->dimensions()->height() << "; crop size is " << crop.width() << "x" << crop.height() << endl;
+	if(crop.width() > area_in->dimensions()->width() || crop.height() > area_in->dimensions()->height()) {
+//cerr << "AreaHelper::crop(): asked too big crop: area_input size is " << area_in->dimensions()->width() << "x" << area_in->dimensions()->height() << "; crop size is " << crop.width() << "x" << crop.height() << endl;
+//		return new Area(*area_in);
+cerr << "WARNING (\?\?): AreaHelper::crop(): asked too big crop: input size is " << area_in->dimensions()->width() << "x" << area_in->dimensions()->height() << "; crop size is " << crop.width() << "x" << crop.height() << endl;
 	}
 	if(!crop.edges_are_OK()) {
 cerr << "AreaHelper::crop(): asked invalid crop: crop size == " << crop.size.w << "x" << crop.size.h << "; edges for x == " << crop.edges.x1 << " - " << crop.edges.x2;
 cerr << "; edges for y == " << crop.edges.y1 << " - " << crop.edges.y2 << endl;
-//		return new Area(*in);
-		Area *a = new Area(*in);
+//		return new Area(*area_in);
+		Area *a = new Area(*area_in);
 		D_AREA_PTR(a)
 		return a;
 	}
 //cerr << "crop(): asked size is " << crop.width() << "x" << crop.height() << endl;
 
-	Area *out = new Area(crop.width(), crop.height(), in->type());
-	D_AREA_PTR(out);
-	Area::t_dimensions *d_in = in->dimensions();
-	Area::t_dimensions *d = out->dimensions();
+	Area *area_out = new Area(crop.width(), crop.height(), area_in->type());
+	if(!area_out->valid())
+		return area_out;
+	D_AREA_PTR(area_out);
+	Area::t_dimensions *d_in = area_in->dimensions();
+	Area::t_dimensions *d = area_out->dimensions();
 	d->position = crop.position;
 //cerr << "AreaHelper::crop(): d->position == " << d->position.x << " - " << d->position.y << ", px_size == " << d->position.px_size << endl;
 //cerr << "AreaHelper::crop(): d->position._max == " << d->position._x_max << " - " << d->position._y_max << endl;
@@ -355,17 +361,17 @@ cerr << "area in size is " << in->dimensions()->width() << "x" << in->dimensions
 cerr << "desired size is " << crop.width() << "x" << crop.height() << endl;
 */
 
-	int in_width = in->dimensions()->width();
-	int in_height = in->dimensions()->height();
+	int in_width = area_in->dimensions()->width();
+	int in_height = area_in->dimensions()->height();
 	int x_min = crop.edges.x1;
 	int y_min = crop.edges.y1;
 	int x_max = crop.size.w - crop.edges.x2;
 	int y_max = crop.size.h - crop.edges.y2;
-	uint8_t *ptr_in = (uint8_t *)in->ptr();
-	uint8_t *ptr_out = (uint8_t *)out->ptr();
+	uint8_t *ptr_in = (uint8_t *)area_in->ptr();
+	uint8_t *ptr_out = (uint8_t *)area_out->ptr();
 	uint8_t *pi, *po;
 	uint8_t black = 0x7F;
-	int s = in->type_to_sizeof();
+	int s = area_in->type_to_sizeof();
 /*
 cerr << "s == " << s << endl;
 cerr << "edges x == " << crop.edges.x1 << " - " << crop.edges.x2 << endl;
@@ -435,20 +441,20 @@ cerr << "in_height == " << in_height << endl;
 		}
 	}
 //cerr << "crop - done" << endl;
-	return out;
+	return area_out;
 }
 
 //------------------------------------------------------------------------------
 // use it only with type_float_p4
-Area *AreaHelper::rotate(Area *in, int rotation) {
-	if(rotation == 0 || rotation % 90 != 0 || in->type() != Area::type_float_p4) {
-		Area *a = new Area(*in);
+Area *AreaHelper::rotate(Area *area_in, int rotation) {
+	if(rotation == 0 || rotation % 90 != 0 || area_in->type() != Area::type_float_p4) {
+		Area *a = new Area(*area_in);
 		D_AREA_PTR(a);
 		return a;
-//		return new Area(*in);
+//		return new Area(*area_in);
 	}
 
-	Area::t_dimensions dims = *in->dimensions();
+	Area::t_dimensions dims = *area_in->dimensions();
 	int r = rotation;
 	while(r != 0) {
 		r -= 90;
@@ -462,9 +468,11 @@ Area *AreaHelper::rotate(Area *in, int rotation) {
 		dims.edges.x2 = dims.edges.y1;
 		dims.edges.y1 = t;
 	}
-	Area *out = new Area(&dims, in->type());
-	D_AREA_PTR(out);
-	const Area::t_dimensions *in_dim = in->dimensions();
+	Area *area_out = new Area(&dims, area_in->type());
+	if(!area_out->valid())
+		return area_out;
+	D_AREA_PTR(area_out);
+	const Area::t_dimensions *in_dim = area_in->dimensions();
 	int width = dims.size.w;
 	int height = dims.size.h;
 
@@ -486,8 +494,8 @@ Area *AreaHelper::rotate(Area *in, int rotation) {
 		offset_x = -width;
 		offset_y = height * width + 1;
 	}
-	float *p_in = (float *)in->ptr();
-	float *p_out = (float *)out->ptr();
+	float *p_in = (float *)area_in->ptr();
+	float *p_out = (float *)area_out->ptr();
 	int x_max = in_dim->size.w;
 	int y_max = in_dim->size.h;
 	for(int y = 0; y < y_max; y++) {
@@ -499,7 +507,7 @@ Area *AreaHelper::rotate(Area *in, int rotation) {
 		}
 		offset += offset_y;
 	}
-	return out;
+	return area_out;
 }
 
 //------------------------------------------------------------------------------

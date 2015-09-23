@@ -492,7 +492,11 @@ prof.mark("load RAW");
 	photo->metadata = new Metadata;
 	photo->photo_id = photo_id;
 	photo->area_raw = Import::image(photo->photo_id.get_file_name(), photo->metadata);
-	if(photo->area_raw == NULL) {
+	if(photo->area_raw == NULL || !photo->area_raw->valid()) {
+		if(!photo->area_raw->valid()) {
+// TODO: add OOM notice
+			cerr << "OOM" << endl;
+		}
 		delete task.tiles_receiver;
 		return;
 	}
@@ -1113,6 +1117,8 @@ void Process::process_filters(SubFlow *subflow, Process::task_run_t *task, std::
 		if(!task->OOM)
 			area_out = AreaHelper::convert_mt(subflow, area_in, task->out_format, task->photo->cw_rotation);
 		if(subflow->sync_point_pre()) {
+			if(area_out != NULL)
+				task->OOM |= !area_out->valid();
 			// delete P4_FLOAT area
 			delete area_in;
 			if(!task->OOM) {

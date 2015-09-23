@@ -10134,8 +10134,11 @@ Area *DCRaw::demosaic_xtrans(const uint16_t *_image, int _width, int _height, co
 	image = (ushort (*)[4])image_ptr;
 	xtrans_interpolate(passes);
 	// convert and return result
-	if(area_out == NULL)
+	if(area_out == NULL) {
 		area_out = new Area(width, height, Area::type_float_p4);
+		if(!area_out->valid())
+			return area_out;
+	}
 	float *out = (float *)area_out->ptr();
 	for(int y = 0; y < height; y++) {
 		for(int x = 0; x < width; x++) {

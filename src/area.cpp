@@ -168,11 +168,13 @@ cerr << "FATAL: Area: access to empty Area object" << endl;
 }
 
 Area *Area::real_copy(Area *other) {
-	Area *r = new Area(other->_dimensions.size.w, other->_dimensions.size.h, other->_type);
-	D_AREA_PTR(r);
-	memcpy(r->ptr(), other->ptr(), r->_dimensions.size.w * r->_dimensions.size.h * type_to_sizeof(r->_type));
-	r->_dimensions = other->_dimensions;
-	return r;
+	Area *copy = new Area(other->_dimensions.size.w, other->_dimensions.size.h, other->_type);
+	if(!copy->valid())
+		return copy;
+	D_AREA_PTR(copy);
+	memcpy(copy->ptr(), other->ptr(), copy->_dimensions.size.w * copy->_dimensions.size.h * type_to_sizeof(copy->_type));
+	copy->_dimensions = other->_dimensions;
+	return copy;
 }
 
 //==============================================================================

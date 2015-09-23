@@ -200,6 +200,7 @@ Area *Import_J2K::load_image(Metadata *metadata, int reduce, bool is_thumb, bool
 		area = new Area(width, height);	// RGBA float
 	else
 		area = new Area(width, height, Area::type_uint8_p4);	// ARGB 32bit
+if(area->valid()) {
 //cerr << "Area size: " << width << "x" << height << endl;
 	float *out_f = (float *)area->ptr();
 	uint8_t *out_u = (uint8_t *)area->ptr();
@@ -236,6 +237,7 @@ Area *Import_J2K::load_image(Metadata *metadata, int reduce, bool is_thumb, bool
 			out_u[i * 4 + 3] = 0xFF;
 		}
 	}
+}
 //	if(!is_thumb)
 //		metadata->c_histogram_count = metadata->width * metadata->height;
 	opj_image_destroy(image);
