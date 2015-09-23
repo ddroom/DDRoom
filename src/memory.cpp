@@ -13,7 +13,7 @@
 
 using namespace std;
 
-//#define _FORCE_SILENT
+#define _FORCE_SILENT
 
 //------------------------------------------------------------------------------
 // (heap) memory storage (that can be used with SSE2), incapsulate this:

@@ -764,7 +764,9 @@ void PhotoList::slot_scroll_to(int index) {
 void PhotoList::slot_icons_creation_done(void) {
 	emit layoutChanged();
 	view->setSelectionMode(QAbstractItemView::ExtendedSelection);
-	thumbs_update();
+	thumbs_update_timer->setInterval(0);
+	thumbs_update_timer->start();
+//	thumbs_update();
 }
 
 void PhotoList::update_item(PhotoList_Item_t *item, int index, std::string folder_id) {
@@ -950,6 +952,7 @@ void PhotoList::thumbs_update_timeout(void) {
 
 // called from PhotoList_View after resize or scroll, to initiate icons update after short delay
 void PhotoList::update_icons(void) {
+	thumbs_update_timer->setInterval(200);
 	thumbs_update_timer->start();
 }
 

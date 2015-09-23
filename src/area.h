@@ -142,16 +142,14 @@ public:
 		return 0;
 	}
 
+//	const t_dimensions *dimensions(void) {return &_dimensions;}
 	t_dimensions *dimensions(void) {return &_dimensions;}
 	static float scale_dimensions_to_factor(class Area::t_dimensions *d, float scaling_factor);
 	static float scale_dimensions_to_size_fit(class Area::t_dimensions *d, int limit_w, int limit_h);
 	static float scale_dimensions_to_size_fill(class Area::t_dimensions *d, int limit_w, int limit_h);
-//	const t_dimensions *dimensions(void) {return &_dimensions;}
 
 	Area *scale(class SubFlow *subflow, int width, int height, float scale_factor_x, float scale_factor_y);
-//	Area *scale(class SubFlow *subflow, int width, int height, float position_x, float position_y, float scale_factor);
-//	Area *scale(int width, int height, float position_x, float position_y);
-//	Area *scale(int width, int height);
+	Area *scale(int width, int height, bool to_fit = true);
 
 	QImage to_qimage(void);
 	QPixmap to_qpixmap(void);
@@ -171,7 +169,6 @@ protected:
 	static void scale_process_downscale(class SubFlow *subflow);
 	static void scale_process_upscale(class SubFlow *subflow);
 	static void scale_process_copy(class SubFlow *subflow);
-//	static void _scale_mt(void *obj, SubFlow *subflow, void *data);
 
 };
 

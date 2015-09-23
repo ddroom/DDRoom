@@ -85,12 +85,12 @@ QImage Import_J2K::thumb(Metadata *metadata, int thumb_width, int thumb_height) 
 		reduce--;
 		try_count++;
 	}
-	if(area == NULL)
-		return qimage;
-//	qimage = QImage((uchar *)area->ptr(), area->mem_width(), area->mem_height(), area->mem_width() * 4, QImage::Format_ARGB32);
-	qimage = QImage((uchar *)area->ptr(), area->mem_width(), area->mem_height(), QImage::Format_RGB32).copy();
-	//--
-	delete area;
+	if(area != NULL) {
+//		qimage = QImage((uchar *)area->ptr(), area->mem_width(), area->mem_height(), area->mem_width() * 4, QImage::Format_ARGB32);
+		if(area->valid())
+			qimage = QImage((uchar *)area->ptr(), area->mem_width(), area->mem_height(), QImage::Format_RGB32).copy();
+		delete area;
+	}
 	return qimage;
 }
 

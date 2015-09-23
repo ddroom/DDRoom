@@ -711,4 +711,144 @@ cerr << "	f_offset_y == " << f_offset_y << endl;
 }
 
 //------------------------------------------------------------------------------
-//==============================================================================
+// one thread smooth downscale with kept aspect ration, for thumbnails
+Area *Area::scale(int scale_width, int scale_height, bool to_fit) {
+	Area *area_out = NULL;
+	Area::t_dimensions d_out = this->_dimensions;
+	float scale = 1.0;
+	if(to_fit)
+		scale = scale_dimensions_to_size_fit(&d_out, scale_width, scale_height);
+	else
+		scale = scale_dimensions_to_size_fill(&d_out, scale_width, scale_height);
+	if(scale <= 1.0f) // upscale
+		return new Area(*this);
+
+	area_out = new Area(&d_out, this->_type);
+	if(!area_out->valid())
+		return area_out;
+
+	// perform downscale
+	float *_in = (float *)this->ptr();
+	float *_out = (float *)area_out->ptr();
+	uint8_t *u_in = (uint8_t *)this->ptr();
+	uint8_t *u_out = (uint8_t *)area_out->ptr();
+
+	int in_x_min = this->dimensions()->edges.x1;
+	int in_y_min = this->dimensions()->edges.y1;
+	int in_w = this->dimensions()->width();
+	int in_h = this->dimensions()->height();
+	int in_width = this->mem_width();
+
+	int out_x_min = area_out->dimensions()->edges.x1;
+	int out_y_min = area_out->dimensions()->edges.y1;
+	int out_width = area_out->mem_width();
+
+	float out_scale_x = scale;
+	float out_scale_y = scale;
+
+	Area::t_dimensions *d_in = this->dimensions();
+	float x_off = d_in->position.x - d_in->position.px_size_x * 0.5 + out_scale_x * 0.5;
+	float y_off = d_in->position.y - d_in->position.px_size_y * 0.5 + out_scale_y * 0.5;
+	int in_x_off = x_off;
+	int in_y_off = y_off;
+	float f_offset_x = x_off - in_x_off;
+	float f_offset_y = y_off - in_y_off;
+
+	int out_w = area_out->dimensions()->width();
+	int out_h = area_out->dimensions()->height();
+	int j_max = out_h;
+	int i_max = out_w;
+
+	/* used 'windowed' method:
+	 * | | | | | | - input,  pixels [0 - 4]
+	 * |    |    | - output, pixels [0 - 1]
+	 *  out[0] = (in[0] * 1.0 + in[1] * 1.0 + in[2] * 0.5) / 2.5
+	 *  out[1] = (in[2] * 0.5 + in[3] * 1.0 + in[4] * 1.0) / 2.5
+	 *	- for scale == 2.5; and so on
+	 */
+	bool flag_8b = (this->type() == Area::type_uint8_p4);
+	const float scale_x = out_scale_x;
+	const float scale_y = out_scale_y;
+	const float w_div = scale_x * scale_y;
+//	int j = 0;
+//	while((j = _mt_qatom_fetch_and_add(task->y_flow, 1)) < j_max) {
+	for(int j = 0; j < j_max; j++) {
+		int out_y = j;
+		const float f_in_y = f_offset_y + scale_y * j;
+		for(int i = 0; i < i_max; i++) {
+			int out_x = i;
+			const float f_in_x = f_offset_x + scale_x * i;
+			// accumulator
+			float px[4];
+			for(int k = 0; k < 4; k++)
+				px[k] = 0.0;
+			// process window
+			int in_y = floor(f_in_y);
+			float dy = scale_y;
+			float wy = 1.0 - (f_in_y - in_y);
+			while(dy > 0.0) {
+				int in_x = floor(f_in_x);
+				float dx = scale_x;
+				float wx = 1.0 - (f_in_x - in_x);
+				while(dx > 0.0) {
+					// sum pixels
+					float weight = wx * wy;
+/*
+					int x = in_x;
+					if(in_x < 0)		x = 0;
+					if(in_x >= in_w)	x = in_w - 1;
+					int y = in_y;
+					if(in_y < 0)		y = 0;
+					if(in_y >= in_h)	y = in_h - 1;
+*/
+					bool flag_out = false;
+					int x = in_x;
+					flag_out |= in_x < 0;
+					flag_out |= in_x >= in_w;
+					int y = in_y;
+					flag_out |= in_y < 0;
+					flag_out |= in_y >= in_h;
+					if(flag_out == false) {
+						if(flag_8b == false) {
+							px[0] += _in[(x + in_x_min + (y + in_y_min) * in_width) * 4 + 0] * weight;
+							px[1] += _in[(x + in_x_min + (y + in_y_min) * in_width) * 4 + 1] * weight;
+							px[2] += _in[(x + in_x_min + (y + in_y_min) * in_width) * 4 + 2] * weight;
+							px[3] += _in[(x + in_x_min + (y + in_y_min) * in_width) * 4 + 3] * weight;
+//							px[3] += weight;
+						} else {
+							px[0] += weight * u_in[(x + in_x_min + (y + in_y_min) * in_width) * 4 + 0] * 0xFF;
+							px[1] += weight * u_in[(x + in_x_min + (y + in_y_min) * in_width) * 4 + 1] * 0xFF;
+							px[2] += weight * u_in[(x + in_x_min + (y + in_y_min) * in_width) * 4 + 2] * 0xFF;
+							px[3] += weight * u_in[(x + in_x_min + (y + in_y_min) * in_width) * 4 + 3] * 0xFF;
+//							px[3] += weight;
+						}
+					} // else pixel is missing and replaced by black transparent pixel [0.0, 0.0, 0.0, 0.0] and can be ignored because of multiplication results
+					// X turnaround
+					dx -= wx;
+					if(dx >= 1.0)	wx = 1.0;
+					else			wx = dx;
+					in_x++;
+				}
+				// Y turnaround
+				dy -= wy;
+				if(dy >= 1.0)	wy = 1.0;
+				else			wy = dy;
+				in_y++;
+			}
+			if(flag_8b == false) {
+				_out[((out_y + out_y_min) * out_width + out_x + out_x_min) * 4 + 0] = px[0] / w_div;
+				_out[((out_y + out_y_min) * out_width + out_x + out_x_min) * 4 + 1] = px[1] / w_div;
+				_out[((out_y + out_y_min) * out_width + out_x + out_x_min) * 4 + 2] = px[2] / w_div;
+				_out[((out_y + out_y_min) * out_width + out_x + out_x_min) * 4 + 3] = px[3] / w_div;
+			} else {
+				u_out[((out_y + out_y_min) * out_width + out_x + out_x_min) * 4 + 0] = px[0] / w_div;
+				u_out[((out_y + out_y_min) * out_width + out_x + out_x_min) * 4 + 1] = px[1] / w_div;
+				u_out[((out_y + out_y_min) * out_width + out_x + out_x_min) * 4 + 2] = px[2] / w_div;
+				u_out[((out_y + out_y_min) * out_width + out_x + out_x_min) * 4 + 3] = px[3] / w_div;
+			}
+		}
+	}
+	return area_out;
+}
+
+//------------------------------------------------------------------------------

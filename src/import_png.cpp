@@ -65,8 +65,16 @@ QImage Import_PNG::thumb(Metadata *metadata, int thumb_width, int thumb_height) 
 		// decompress image
 		Area *area = load_image(metadata, true);
 		if(area != NULL) {
-			qimage = QImage((uchar *)area->ptr(), area->mem_width(), area->mem_height(), QImage::Format_RGB32).copy();
-			delete area;
+			if(area->valid()) {
+				Area *area_scaled = area->scale(thumb_width, thumb_height, true);
+//cerr << "area_scaled->size == " << area_scaled->mem_width() << "x" << area_scaled->mem_height() << endl;
+				delete area;
+				if(area_scaled->valid())
+					qimage = QImage((uchar *)area_scaled->ptr(), area_scaled->mem_width(), area_scaled->mem_height(), QImage::Format_RGB32).copy();
+				delete area_scaled;
+//				qimage = QImage((uchar *)area->ptr(), area->mem_width(), area->mem_height(), QImage::Format_RGB32).copy();
+//				delete area;
+			}
 		}
 	}
 	return qimage;

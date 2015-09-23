@@ -227,7 +227,7 @@ PhotoList_Item_t *ThumbnailThread::load(thumbnail_record_t &target, const string
 	PhotoList_Item_t *item = new PhotoList_Item_t(*(PhotoList_Item_t *)target.data);
 	// load thumbnail to QImage, and send it to a main thread by signal...
 	Metadata metadata;
-//cerr << "load thumb for: " << item->file_name.c_str() << endl;
+//cerr << "thread: " << (unsigned long)QThread::currentThreadId() << "load thumb for: " << item->file_name.c_str() << endl;
 	int rotation = 0;
 	QImage *thumb_image = Import::thumb(item->photo_id, &metadata, rotation, thumb_size.width(), thumb_size.height());
 	// check settings file
@@ -253,6 +253,7 @@ PhotoList_Item_t *ThumbnailThread::load(thumbnail_record_t &target, const string
 	}
 	item->image = qi;
 	return item;
+//cerr << "load thumb for: " << item->file_name.c_str() << " ...3" << endl;
 }
 
 //------------------------------------------------------------------------------

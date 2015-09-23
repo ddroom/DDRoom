@@ -51,7 +51,8 @@ QImage Import_TIFF::thumb(Metadata *metadata, int thumb_width, int thumb_height)
 		// decompress image
 		Area *area = load_image(metadata, true);
 		if(area != NULL) {
-			qimage = QImage((uchar *)area->ptr(), area->mem_width(), area->mem_height(), QImage::Format_RGB32).copy();
+			if(area->valid())
+				qimage = QImage((uchar *)area->ptr(), area->mem_width(), area->mem_height(), QImage::Format_RGB32).copy();
 			delete area;
 		}
 	}
