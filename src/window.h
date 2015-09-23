@@ -81,6 +81,7 @@ protected slots:
 	void menu_tools_vignetting_profiler(void);
 	void menu_help_about(void);
 	void slot_edit_preferences(void);
+	void slot_OOM_notification(void *);
 
 protected:
 	QAction *act_help_about;

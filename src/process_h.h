@@ -24,6 +24,13 @@
 #include "photo.h"
 
 //------------------------------------------------------------------------------
+class OOM_desc_t {
+public:
+	class Photo_ID photo_id;
+	bool at_export;
+	bool at_open_stage;
+};
+
 class Process : public QObject {
 	Q_OBJECT
 
@@ -48,7 +55,8 @@ public:
 	static void ID_request_abort(int ID);
 
 signals:
-	void signal_process_complete(void *ptr, class PhotoProcessed_t *);
+	void signal_process_complete(void *, class PhotoProcessed_t *);
+	void signal_OOM_notification(void *); // pointer to OOM_desc_t object
 
 protected:
 	static bool to_quit;

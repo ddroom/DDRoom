@@ -1,4 +1,5 @@
 
+1.0.3.0 - Added 'Out of memory' handler with user notification.
 1.0.2.0 - Version increase and release.
 1.0.1.8 - 'Local Contrast' now with checkbox to disable 'brighten' and 'darken' operations.
 1.0.1.7 - DG - reduced directional noise.

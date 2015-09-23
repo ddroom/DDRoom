@@ -74,6 +74,7 @@ Window::Window(void) {
 
 	browser = new Browser();
 	process = new Process();
+	connect(process, SIGNAL(signal_OOM_notification(void *)), this, SLOT(slot_OOM_notification(void *)));
 
 	edit = new Edit(process, browser);
 	QWidget *view_container = edit->get_views_widget(this);
@@ -531,4 +532,22 @@ void Window::slot_edit_preferences(void) {
 	Config::instance()->show_preferences_dialog(this);
 }
 
+void Window::slot_OOM_notification(void *data) {
+cerr << "slot OOM" << endl;
+	OOM_desc_t *desc = (OOM_desc_t *)data;
+	QString title = tr("Out of memory.");
+	QString photo_name = QString::fromLocal8Bit(desc->photo_id.get_export_file_name().c_str());
+	QString action = tr("export");
+	if(desc->at_export == false) {
+		photo_name = QString::fromLocal8Bit(desc->photo_id.get_file_name().c_str());
+		photo_name += QString(" (%1)").arg(desc->photo_id.get_version_index());
+		if(desc->at_open_stage)
+			action = tr("open");
+		else
+			action = tr("process");
+	}
+	QString text = tr("Out of memory.<br>Can't %1 photo \"%2\".").arg(action).arg(photo_name);
+	delete desc;
+	QMessageBox::critical(this, title, text);
+}
 //------------------------------------------------------------------------------

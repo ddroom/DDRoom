@@ -398,7 +398,12 @@ void Process::process_online(void *ptr, QSharedPointer<Photo_t> photo, int reque
 		if(photo->area_raw == NULL || !photo->area_raw->valid()) {
 			if(!photo->area_raw->valid()) {
 // TODO: add OOM notice
-				cerr << "OOM" << endl;
+//				cerr << "OOM" << endl;
+				OOM_desc_t *OOM_desc = new OOM_desc_t;
+				OOM_desc->photo_id = photo->photo_id;
+				OOM_desc->at_export = false;
+				OOM_desc->at_open_stage = (photo->process_source == ProcessSource::s_load);
+				emit signal_OOM_notification((void *)OOM_desc);
 			}
 cerr << "decline processing task, failed to import \"" << photo->photo_id.get_export_file_name() << "\"" << endl;
 			emit signal_process_complete(ptr, photo_processed);
@@ -453,6 +458,13 @@ cerr << "decline processing task, failed to import \"" << photo->photo_id.get_ex
 	emit signal_process_complete(ptr, photo_processed);
 	ID_remove(task.request_ID);
 //	delete task;
+	if(task.OOM) {
+		OOM_desc_t *OOM_desc = new OOM_desc_t;
+		OOM_desc->photo_id = photo->photo_id;
+		OOM_desc->at_export = false;
+		OOM_desc->at_open_stage = (photo->process_source == ProcessSource::s_load);
+		emit signal_OOM_notification((void *)OOM_desc);
+	}
 }
 
 //------------------------------------------------------------------------------
@@ -495,7 +507,11 @@ prof.mark("load RAW");
 	if(photo->area_raw == NULL || !photo->area_raw->valid()) {
 		if(!photo->area_raw->valid()) {
 // TODO: add OOM notice
-			cerr << "OOM" << endl;
+//			cerr << "OOM" << endl;
+			OOM_desc_t *OOM_desc = new OOM_desc_t;
+			OOM_desc->photo_id = photo->photo_id;
+			OOM_desc->at_export = true;
+			emit signal_OOM_notification((void *)OOM_desc);
 		}
 		delete task.tiles_receiver;
 		return;
@@ -564,6 +580,13 @@ prof.mark("");
 	delete task.tiles_receiver;
 //Mem::state_print();
 //Mem::state_reset(false);
+	if(task.OOM) {
+cerr << "task.OOM == " << task.OOM << endl;
+		OOM_desc_t *OOM_desc = new OOM_desc_t;
+		OOM_desc->photo_id = photo->photo_id;
+		OOM_desc->at_export = true;
+		emit signal_OOM_notification((void *)OOM_desc);
+	}
 }
 
 //------------------------------------------------------------------------------
