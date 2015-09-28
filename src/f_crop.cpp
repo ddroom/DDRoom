@@ -15,6 +15,9 @@ NOTE:
 	- this filter keep crop coordinates in inclusive form, w/o dependency on px_size
 		so when usually coordinate of image 4x4 with center at (0,0) coordinate of top right
 		pixel would be (1.5, 1.5), here top right corner would be (2.0, 2.0);
+	- on 'scale to size':
+		- disable scaling at the UI editing time;
+		- apply scaling only on the result of the crop operation;
 
 TODO:
 	- check correctness of 'inclusiveness' of coordinates in processing and editing chain
@@ -525,50 +528,33 @@ void FP_Crop::size_forward(FP_size_t *fp_size, const Area::t_dimensions *d_befor
 	*d_after = *d_before;
 //cerr << "FP_Crop::size_before()... 1" << endl;
 //d_after->dump();
-	bool enabled_scale = (ps->enabled_scale && ps->scale_str != "0x0");
-	if(fp_size->mutators != NULL)
-		fp_size->mutators->set("scale_to_size", enabled_scale);
-	if(enabled_scale) {
-		int width = 0;
-		int height = 0;
-		PS_Crop::scale_string_to_size(width, height, ps->scale_str);
-		if(fp_size->mutators != NULL) {
-			fp_size->mutators->set("scale_to_width", width);
-			fp_size->mutators->set("scale_to_height", height);
-			fp_size->mutators->set("scale_to_fit", ps->scale_to_fit);
-		}
-	}
-
-	if(!ps->enabled_crop)
-		return;
-
 	bool edit_mode = false;
 	if(fp_size->filter != NULL)
 		edit_mode = ((F_Crop *)fp_size->filter)->is_edit_mode_enabled();
 
-	double im_x1 = d_after->position.x + d_after->edges.x1;
-	double im_x2 = im_x1 + d_after->width();
-	double im_y1 = d_after->position.y + d_after->edges.y1;
-	double im_y2 = im_y1 + d_after->height();
-	if(fp_size->filter != NULL) {
-		// send to Filter (if any) for edit purposes
-		PS_Crop *_ps = (PS_Crop *)((F_Crop *)fp_size->filter)->_get_ps();
-		_ps->im_x1 = im_x1;
-		_ps->im_x2 = im_x2;
-		_ps->im_y1 = im_y1;
-		_ps->im_y2 = im_y2;
-		_ps->photo_aspect = d_before->position._x_max / d_before->position._y_max;
-		if(_ps->crop_x1 == 0.0 && _ps->crop_x2 == 0.0 && _ps->crop_y1 == 0.0 && _ps->crop_y2 == 0.0) {
-			double w = im_x2 - im_x1;
-			double h = im_y2 - im_y1;
-			_ps->crop_x1 = im_x1 + w * 0.1;
-			_ps->crop_x2 = im_x2 - w * 0.1;
-			_ps->crop_y1 = im_y1 + h * 0.1;
-			_ps->crop_y2 = im_y2 - h * 0.1;
+	if(ps->enabled_crop) {
+		double im_x1 = d_after->position.x + d_after->edges.x1;
+		double im_x2 = im_x1 + d_after->width();
+		double im_y1 = d_after->position.y + d_after->edges.y1;
+		double im_y2 = im_y1 + d_after->height();
+		if(fp_size->filter != NULL) {
+			// send to Filter (if any) for edit purposes
+			PS_Crop *_ps = (PS_Crop *)((F_Crop *)fp_size->filter)->_get_ps();
+			_ps->im_x1 = im_x1;
+			_ps->im_x2 = im_x2;
+			_ps->im_y1 = im_y1;
+			_ps->im_y2 = im_y2;
+			_ps->photo_aspect = d_before->position._x_max / d_before->position._y_max;
+			if(_ps->crop_x1 == 0.0 && _ps->crop_x2 == 0.0 && _ps->crop_y1 == 0.0 && _ps->crop_y2 == 0.0) {
+				double w = im_x2 - im_x1;
+				double h = im_y2 - im_y1;
+				_ps->crop_x1 = im_x1 + w * 0.1;
+				_ps->crop_x2 = im_x2 - w * 0.1;
+				_ps->crop_y1 = im_y1 + h * 0.1;
+				_ps->crop_y2 = im_y2 - h * 0.1;
+			}
 		}
-	}
-	if(ps->enabled_crop == false || edit_mode)
-		return;
+		if(edit_mode == false) {
 /*
 cerr << endl;
 cerr << "FP_Crop::size_forward()" << endl;
@@ -584,14 +570,14 @@ cerr << "....    size:   " << ps->crop_x2 - ps->crop_x1 << "x" << ps->crop_y2 - 
 cerr << "....    offset: " << float(ps->crop_x2 + ps->crop_x1) / 2.0 << "x" << float(ps->crop_y2 + ps->crop_y1) / 2.0 << endl;
 */
 /*
-	int x1 = ps->crop_x1 - im_x1;
-	int x2 = im_x2 - ps->crop_x2;
-	int y1 = ps->crop_y1 - im_y1;
-	int y2 = im_y2 - ps->crop_y2;
-	if(x1 < 0) x1 = 0;
-	if(x2 < 0) x2 = 0;
-	if(y1 < 0) y1 = 0;
-	if(y2 < 0) y2 = 0;
+			int x1 = ps->crop_x1 - im_x1;
+			int x2 = im_x2 - ps->crop_x2;
+			int y1 = ps->crop_y1 - im_y1;
+			int y2 = im_y2 - ps->crop_y2;
+			if(x1 < 0) x1 = 0;
+			if(x2 < 0) x2 = 0;
+			if(y1 < 0) y1 = 0;
+			if(y2 < 0) y2 = 0;
 */
 /*
 cerr << endl;
@@ -600,30 +586,30 @@ cerr << "  px_size: " << d_after->position.px_size << endl;
 cerr << "size_forward(): d_after->size.w == " << d_after->size.w << "; d_after->size.h == " << d_after->size.h << endl;
 cerr << "  position: " << d_after->position.x << " - " << d_after->position.y << endl;
 */
-	const float px_size_x = d_after->position.px_size_x;
-	const float px_size_y = d_after->position.px_size_y;
-	float x1 = d_after->position.x - px_size_x * 0.5;
-	float y1 = d_after->position.y - px_size_y * 0.5;
-	float x2 = x1 + px_size_x * (d_after->size.w + 1.0);
-	float y2 = y1 + px_size_y * (d_after->size.h + 1.0);
-	if(x1 < ps->crop_x1)
-		x1 = ps->crop_x1;
-	if(y1 < ps->crop_y1)
-		y1 = ps->crop_y1;
-	if(x2 > ps->crop_x2)
-		x2 = ps->crop_x2;
-	if(y2 > ps->crop_y2)
-		y2 = ps->crop_y2;
-	// correct
-	d_after->position.x = x1 + px_size_x * 0.5;
-	d_after->position.y = y1 + px_size_y * 0.5;
-	d_after->size.w = (x2 - x1 - px_size_x) / px_size_x;
-	d_after->size.h = (y2 - y1 - px_size_y) / px_size_y;
+			const float px_size_x = d_after->position.px_size_x;
+			const float px_size_y = d_after->position.px_size_y;
+			float x1 = d_after->position.x - px_size_x * 0.5;
+			float y1 = d_after->position.y - px_size_y * 0.5;
+			float x2 = x1 + px_size_x * (d_after->size.w + 1.0);
+			float y2 = y1 + px_size_y * (d_after->size.h + 1.0);
+			if(x1 < ps->crop_x1)
+				x1 = ps->crop_x1;
+			if(y1 < ps->crop_y1)
+				y1 = ps->crop_y1;
+			if(x2 > ps->crop_x2)
+				x2 = ps->crop_x2;
+			if(y2 > ps->crop_y2)
+				y2 = ps->crop_y2;
+			// correct
+			d_after->position.x = x1 + px_size_x * 0.5;
+			d_after->position.y = y1 + px_size_y * 0.5;
+			d_after->size.w = (x2 - x1 - px_size_x) / px_size_x;
+			d_after->size.h = (y2 - y1 - px_size_y) / px_size_y;
 /*
-	d_after->position.x = ps->crop_x1;
-	d_after->position.y = ps->crop_y1;
-	d_after->size.w = ps->crop_x2 - ps->crop_x1;
-	d_after->size.h = ps->crop_y2 - ps->crop_y1;
+			d_after->position.x = ps->crop_x1;
+			d_after->position.y = ps->crop_y1;
+			d_after->size.w = ps->crop_x2 - ps->crop_x1;
+			d_after->size.h = ps->crop_y2 - ps->crop_y1;
 */
 /*
 cerr << "size_forward(): d_after->size.w == " << d_after->size.w << "; d_after->size.h == " << d_after->size.h << endl;
@@ -635,7 +621,29 @@ cerr << endl;
 cerr << "FP_Crop::size_before()... 2" << endl;
 d_after->dump();
 */
-//	return true;
+		}
+	}
+	bool enabled_scale = (ps->enabled_scale && ps->scale_str != "0x0");
+	if(enabled_scale && !edit_mode) {
+		int width = 0;
+		int height = 0;
+		PS_Crop::scale_string_to_size(width, height, ps->scale_str);
+		if(ps->scale_to_fit)
+			Area::scale_dimensions_to_size_fit(d_after, width, height);
+		else
+			Area::scale_dimensions_to_size_fill(d_after, width, height);
+/*
+		int width = 0;
+		int height = 0;
+		PS_Crop::scale_string_to_size(width, height, ps->scale_str);
+		if(fp_size->mutators != NULL) {
+			fp_size->mutators->set("scale_to_size", enabled_scale);
+			fp_size->mutators->set("scale_to_width", width);
+			fp_size->mutators->set("scale_to_height", height);
+			fp_size->mutators->set("scale_to_fit", ps->scale_to_fit);
+		}
+*/
+	}
 }
 
 void FP_Crop::size_backward(FP_size_t *fp_size, Area::t_dimensions *d_before, const Area::t_dimensions *d_after) {
@@ -1084,9 +1092,12 @@ QRect F_Crop::view_crop_rect(const QRect &image, image_and_viewport_t transform)
 #endif
 }
 
-void F_Crop::draw(QPainter *painter, const QSize &viewport, const QRect &image, image_and_viewport_t transform) {
+void F_Crop::draw(QPainter *painter, FilterEdit_event_t *et) {
 	if(!edit_mode_enabled)
 		return;
+	QSize viewport = et->viewport;
+	QRect image = et->image;
+	image_and_viewport_t transform = et->transform;
 	int w = image.width();
 	int h = image.height();
 	long vw = viewport.width();

@@ -772,6 +772,7 @@ cerr << "after process_size_forward  px_size is " << d_full_forward.position.px_
 cerr << "after process_size_forward position is " << d_full_forward.position.x << ", " << d_full_forward.position.y << endl;
 cerr << "after process_size_forward     size is " << d_full_forward.width() << " x " << d_full_forward.height() << endl;
 */
+/*
 			bool scale_to_size = false;
 			int scale_to_width = 0;
 			int scale_to_height = 0;
@@ -787,6 +788,7 @@ cerr << "after process_size_forward     size is " << d_full_forward.width() << "
 				else
 					Area::scale_dimensions_to_size_fill(&d_full_forward, scale_to_width, scale_to_height);
 			}
+*/
 /*
 cerr << "after process_size_forward  px_size is " << d_full_forward.position.px_size_x << ", " << d_full_forward.position.px_size_y << endl;
 cerr << "after process_size_forward position is " << d_full_forward.position.x << ", " << d_full_forward.position.y << endl;
@@ -900,10 +902,8 @@ cerr << "     size is: " << target_dimensions.width() << " x " << target_dimensi
 }
 
 //------------------------------------------------------------------------------
-//void Process::process_size_forward(Process::task_run_t *task, const list<class filter_record_t> &pl_filters, Area::t_dimensions &d_out) {
 void Process::process_size_forward(Process::task_run_t *task, list<class filter_record_t> &pl_filters, Area::t_dimensions &d_out) {
 	Area::t_dimensions d_in = *task->area_transfer->dimensions();
-	// TODO: fix that nonsense situation with edges; and fix incorrect, as result of false offset, position, in appropriate way
 	d_in.size.w = d_in.width();
 	d_in.size.h = d_in.height();
 	d_in.edges.x1 = 0;
@@ -911,11 +911,9 @@ void Process::process_size_forward(Process::task_run_t *task, list<class filter_
 	d_in.edges.y1 = 0;
 	d_in.edges.y2 = 0;
 	d_out = d_in;	// forward geometry result
-
 //cerr << endl << "process_size_forward(): " << endl;
 //cerr << "process_size_forward, d_in.edges == " << d_in.edges.x1 << " - " << d_in.edges.x2 << endl;
 //cerr << "process_size_forward,  d_in-> size == " << d_in.width() << "x" << d_in.height() << endl;
-//	list<filter_record_t>::const_iterator it;
 	list<filter_record_t>::iterator it;
 	for(it = pl_filters.begin(); it != pl_filters.end(); it++) {
 		FP_size_t fp_size((*it).ps_base.data());
@@ -937,7 +935,6 @@ void Process::process_size_forward(Process::task_run_t *task, list<class filter_
 }
 
 //------------------------------------------------------------------------------
-//void Process::process_size_backward(Process::task_run_t *task, const list<class filter_record_t> &pl_filters, const Area::t_dimensions &target_dimensions) {
 void Process::process_size_backward(Process::task_run_t *task, list<class filter_record_t> &pl_filters, const Area::t_dimensions &target_dimensions) {
 //	int input_width = task->area_transfer->dimensions()->width();
 //	int input_height = task->area_transfer->dimensions()->height();
@@ -959,7 +956,6 @@ void Process::process_size_backward(Process::task_run_t *task, list<class filter
 			d_in = tiles_request->tiles[i - 1].dimensions_post;
 		}
 		// backward
-//		list<filter_record_t>::const_iterator it = pl_filters.end();
 		list<filter_record_t>::iterator it = pl_filters.end();
 		if(it != pl_filters.begin()) {
 			do {
