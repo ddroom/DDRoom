@@ -171,10 +171,12 @@ QDoubleSpinBox *GuiSlider::getSpinBox(void) {
 }
 
 int GuiSlider::value_to_slider(double value) {
-	return int(value * slider_step);
+//cerr << "value_to_slider(" << value << "), slider_step == " << slider_step << "; spin_step == " << spin_step << endl;
+	return int(value * slider_step + 0.5 * (1.0 / slider_step));
 }
 
 double GuiSlider::slider_to_value(int value) {
+cerr << "slider_to_value(" << value << ") == " << double(value) / slider_step << endl;
 	return double(value) / slider_step;
 }
 
@@ -217,6 +219,7 @@ void GuiSlider::update_from_spinbox(bool send_signal) {
 }
 
 void GuiSlider::slider_changed(int value) {
+//	cerr << "slider_changed(" << value << ")" << endl;
 	long val = value_to_slider(current_value);
 	if(val != value && current_value != slider_to_value(value)) {
 		current_value = slider_to_value(value);
