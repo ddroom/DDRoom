@@ -49,6 +49,17 @@ protected:
 
 //------------------------------------------------------------------------------
 // interface for filters that allow on-view interactive edit like guidelines for crop and rotation, color picking for white balance etc.
+
+// Object that could synchronously convert coordinates between Area at viewport level
+// to Area at desired filter level, back and forth
+// Area used in here with type Area::type_float_p2, for a 'green' color channel only
+class Coordinates_Tracer {
+public:
+	// If (filter_id == ""), use trace at start, before any geometry distortion filter.
+	virtual class Area *viewport_to_filter(class Area *viewport_coords, std::string filter_id);
+	virtual class Area *filter_to_viewport(class Area *filter_coords, std::string filter_id);
+};
+
 class FilterEdit_event_t {
 public:
 	FilterEdit_event_t(QEvent *_event);
@@ -60,6 +71,7 @@ public:
 
 	// object below to translate mouse coordinates at viewport to coordinates on unrotated image shown at viewport
 	image_and_viewport_t transform;
+	Coordinates_Tracer *tracer;
 
 	// data below is necessary to translate image (at viewport) coordinates into photo coordinates (processed at filter level)
 	QPointF image_start; // absolute coordinates of top left pixel at 1:1 scale
@@ -77,11 +89,13 @@ public:
 	virtual QList<QAction *> get_actions_list(void);
 
 	// edit mode interaction
-	virtual void draw(QPainter *painter, const QSize &viewport, const QRect &image, image_and_viewport_t transform) {}
+//	virtual void draw(QPainter *painter, const QSize &viewport, const QRect &image, image_and_viewport_t transform) {}
+	virtual void draw(QPainter *painter, FilterEdit_event_t *et) {} // valid in 'et' are ::viewport, ::image, ::transform
+//const QSize &viewport, const QRect &image, image_and_viewport_t transform) {}
 	virtual bool keyEvent(FilterEdit_event_t *et, Cursor::cursor &_cursor) {return false;}
+	virtual bool mouseMoveEvent(FilterEdit_event_t *mt, bool &accepted, Cursor::cursor &_cursor) {return false;}
 	virtual bool mousePressEvent(FilterEdit_event_t *mt, Cursor::cursor &_cursor) {return false;}
 	virtual bool mouseReleaseEvent(FilterEdit_event_t *mt, Cursor::cursor &_cursor) {return false;}
-	virtual bool mouseMoveEvent(FilterEdit_event_t *mt, bool &accepted, Cursor::cursor &_cursor) {return false;}
 	virtual bool enterEvent(QEvent *event) {return false;}
 	virtual bool leaveEvent(QEvent *event) {return false;}
 

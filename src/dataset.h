@@ -44,6 +44,7 @@ public:
 		type_int,
 		type_2int,
 		type_double,
+		type_2double,
 		type_string,
 		type_vector_float,
 		type_vector_qpointf
@@ -54,8 +55,12 @@ public:
 		struct {
 			int32_t value1;
 			int32_t value2;
-		} v2Int;
+		} v2int;
 		double vDouble;
+		struct {
+			double value1;
+			double value2;
+		} v2double;
 		void *v_ptr;
 	} value;
 	std::string vString;
@@ -66,6 +71,7 @@ public:
 	void to_int(const int32_t &_value);
 	void to_2int(const int32_t &value1, const int32_t &value2);
 	void to_double(const double &_value);
+	void to_2double(const double &value1, const double &value2);
 	void to_vector_float(const QVector<float> &_value);
 	void to_vector_qpointf(const QVector<QPointF> &_value);
 	std::string serialize(void) const;
@@ -100,6 +106,7 @@ public:
 	bool get(std::string name, int32_t &value);
 	bool get(std::string name, int32_t &value1, int32_t &value2);
 	bool get(std::string name, double &value);
+	bool get(std::string name, double &value1, double &value2);
 	bool get(std::string name, std::string &value);
 	bool get(std::string name, QVector<float> &value);
 	bool get(std::string name, QVector<QPointF> &value);
@@ -109,6 +116,7 @@ public:
 	void set(std::string name, const int32_t &value);
 	void set(std::string name, const int32_t &value1, const int32_t &value2);
 	void set(std::string name, const double &value);
+	void set(std::string name, const double &value1, const double &value2);
 	void set(std::string name, const char *value);
 	void set(std::string name, const std::string &value);
 	void set(std::string name, const QVector<float> &value);

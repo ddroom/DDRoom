@@ -9,8 +9,11 @@
 
 /*
 NOTE:
-	- this code 'QPixmap *pixmap = new QPixmap(QPixmap::fromImage(QImage((uchar *)area->ptr(), w, h, w * 4, QImage::Format_ARGB32)));'
+	- Code 'QPixmap *pixmap = new QPixmap(QPixmap::fromImage(QImage((uchar *)area->ptr(), w, h, w * 4, QImage::Format_ARGB32)));'
 		looks like a realy deep copying code so it's safe to delete 'area'.
+
+TODO:
+	- Check after photo open for possibly lost resize event, and do update if necessary.
 */
 
 #include <iostream>

@@ -47,7 +47,7 @@ protected:
 // transfer request from View to Process
 // reconnect filters GUI to active View and state of open Photo
 
-class Edit : public QObject {
+class Edit : public QObject, public Coordinates_Tracer {
 	Q_OBJECT
 
 public:
@@ -211,6 +211,10 @@ protected slots:
 	void slot_copy_paste_fine_copy(void);
 	void slot_copy_paste_fine_paste(void);
 
+// CoordinatesTracer
+public:
+	class Area *viewport_to_filter(class Area *viewport_coords, std::string filter_id);
+	class Area *filter_to_viewport(class Area *filter_coords, std::string filter_id);
 };
 
 //------------------------------------------------------------------------------

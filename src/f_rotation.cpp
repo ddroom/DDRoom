@@ -304,6 +304,7 @@ void F_Rotation::slot_checkbox_enable(int state) {
 		emit_signal_update();
 	}
 }
+
 /*
 void F_Rotation::slot_checkbox_fold(int state) {
 	// TODO: update cursor - change it to "cross" and back
@@ -314,9 +315,12 @@ void F_Rotation::slot_checkbox_fold(int state) {
 	}
 }
 */
-void F_Rotation::draw(QPainter *painter, const QSize &viewport, const QRect &image, image_and_viewport_t transform) {
+void F_Rotation::draw(QPainter *painter, FilterEdit_event_t *et) {
 	if(!edit_mode_enabled || !edit_active)
 		return;
+	QSize viewport = et->viewport;
+//	QRect image = et->image;
+//	image_and_viewport_t transform = et->transform;
 	// ignore viewport and image - we need just draw on the top of view area, not as a part of the image
 	bool aa = painter->testRenderHint(QPainter::Antialiasing);
 	if(!aa)

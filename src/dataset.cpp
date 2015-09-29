@@ -73,9 +73,11 @@ bool dataset_field_t::operator == (const dataset_field_t &other) {
 	if(type == type_int)
 		return (value.vInt == other.value.vInt);
 	if(type == type_2int)
-		return ((value.v2Int.value1 == other.value.v2Int.value1) && (value.v2Int.value2 == other.value.v2Int.value2));
+		return ((value.v2int.value1 == other.value.v2int.value1) && (value.v2int.value2 == other.value.v2int.value2));
 	if(type == type_double)
 		return (value.vDouble == other.value.vDouble);
+	if(type == type_2double)
+		return ((value.v2double.value1 == other.value.v2double.value1) && (value.v2double.value2 == other.value.v2double.value2));
 	if(type == type_vector_float)
 		return ((*((QVector<float> *)value.v_ptr)) == (*((QVector<float> *)other.value.v_ptr)));
 	if(type == type_vector_qpointf)
@@ -132,15 +134,22 @@ void dataset_field_t::to_2int(const int32_t &value1, const int32_t &value2) {
 		bool ok = false;
 		if(l.size() == 2) {
 			bool rez_ok = false;
-			value.v2Int.value1 = l[0].toInt(&rez_ok);
+			value.v2int.value1 = l[0].toInt(&rez_ok);
 			ok = rez_ok;
-			value.v2Int.value1 = l[1].toInt(&rez_ok);
+			value.v2int.value2 = l[1].toInt(&rez_ok);
 			ok = ok && rez_ok;
 		}
 		if(ok == false) {
-			value.v2Int.value1 = value1;
-			value.v2Int.value2 = value2;
+			value.v2int.value1 = value1;
+			value.v2int.value2 = value2;
 		}
+	}
+}
+
+void __normalize(double &value) {
+	if(value < 1.0) {
+		long long lv = (value + 0.00000005) * 10000000;
+		value = (double)lv / double(10000000.0);
 	}
 }
 
@@ -151,12 +160,39 @@ void dataset_field_t::to_double(const double &_value) {
 		bool rez_ok = false;
 		value.vDouble = str.toDouble(&rez_ok);
 		if(rez_ok) {
+			__normalize(value.vDouble);
+/*
 			if(value.vDouble < 1.0) {
 				long long lv = (value.vDouble + 0.00000005) * 10000000;
 				value.vDouble = (double)lv / double(10000000.0);
 			}
+*/
 		} else {
 			value.vDouble = _value;
+		}
+	}
+}
+
+void dataset_field_t::to_2double(const double &value1, const double &value2) {
+	if(type == type_serialized) {
+		type = type_2int;
+		QString str = vString.c_str();
+		QStringList l = str.split(",");
+		bool ok = false;
+		if(l.size() == 2) {
+			bool rez_ok = false;
+//			value.v2double.value1 = l[0].toInt(&rez_ok);
+			value.v2double.value1 = l[0].toDouble(&rez_ok);
+			__normalize(value.v2double.value1);
+			ok = rez_ok;
+//			value.v2double.value1 = l[1].toInt(&rez_ok);
+			value.v2double.value2 = l[1].toDouble(&rez_ok);
+			__normalize(value.v2double.value2);
+			ok = ok && rez_ok;
+		}
+		if(ok == false) {
+			value.v2double.value1 = value1;
+			value.v2double.value2 = value2;
 		}
 	}
 }
@@ -199,6 +235,25 @@ void dataset_field_t::to_vector_qpointf(const QVector<QPointF> &_value) {
 	}
 }
 
+QString __double_to_qstring(double v) {
+	QString str;
+	int precision = 10;
+	if(v <= 1.0 && v > -1.0) {
+		long long lv = (v + 0.00000005) * 10000000;
+		v = (double)lv / double(10000000.0);
+	} else {
+		precision = 8;
+		double v2 = (v > 0) ? v : -v;
+		while(v2 > 10.0) {
+			precision--;
+			v2 /= 10.0;
+		}
+		if(precision < 0)
+			precision = 0;
+	}
+	return str.setNum(v, 'g', 10);
+}
+
 string dataset_field_t::serialize(void) const {
 	if(type == type_empty)	return "";
 	if(type == type_serialized || type == type_string)	return vString;
@@ -211,10 +266,12 @@ string dataset_field_t::serialize(void) const {
 		return str.setNum(value.vInt).toLocal8Bit().constData();
 	}
 	if(type == type_2int) {
-		QString str = QString::number(value.v2Int.value1) + ", " + QString::number(value.v2Int.value2);
+		QString str = QString::number(value.v2int.value1) + ", " + QString::number(value.v2int.value2);
 		return str.toLocal8Bit().constData();
 	}
 	if(type == type_double) {
+		return __double_to_qstring(value.vDouble).toLocal8Bit().constData();
+/*
 		QString str;
 		double v = value.vDouble;
 		int precision = 10;
@@ -232,11 +289,16 @@ string dataset_field_t::serialize(void) const {
 				precision = 0;
 		}
 		return str.setNum(v, 'g', 10).toLocal8Bit().constData();
+*/
 /*
 		cerr << "convert of " << v << " to " << str.setNum(v, 'g', precision).toLocal8Bit().constData() << " with precision " << precision << endl;
 		QString str2;
 		return str2.setNum(v, 'g', precision).toLocal8Bit().constData();
 */
+	}
+	if(type == type_2double) {
+		QString str = __double_to_qstring(value.v2double.value1) + ", " + __double_to_qstring(value.v2double.value2);
+		return str.toLocal8Bit().constData();
 	}
 	if(type == type_vector_float) {
 		QVector<float> &ptr = *((QVector<float> *)value.v_ptr);
@@ -357,8 +419,8 @@ bool DataSet::get(string name, int32_t &value1, int32_t &value2) {
 	if(it == dataset_fields.end())	return false;
 	if((*it).second.type == dataset_field_t::type_serialized)	(*it).second.to_2int(value1, value2);
 	if((*it).second.type != dataset_field_t::type_2int)	return false;
-	value1 = (*it).second.value.v2Int.value1;
-	value2 = (*it).second.value.v2Int.value2;
+	value1 = (*it).second.value.v2int.value1;
+	value2 = (*it).second.value.v2int.value2;
 	return true;
 }
 
@@ -368,6 +430,16 @@ bool DataSet::get(string name, double &value) {
 	if((*it).second.type == dataset_field_t::type_serialized)	(*it).second.to_double(value);
 	if((*it).second.type != dataset_field_t::type_double)	return false;
 	value = (*it).second.value.vDouble;
+	return true;
+}
+
+bool DataSet::get(string name, double &value1, double &value2) {
+	map<string, dataset_field_t>::iterator it = dataset_fields.find(name);
+	if(it == dataset_fields.end())	return false;
+	if((*it).second.type == dataset_field_t::type_serialized)	(*it).second.to_2double(value1, value2);
+	if((*it).second.type != dataset_field_t::type_2double)	return false;
+	value1 = (*it).second.value.v2double.value1;
+	value2 = (*it).second.value.v2double.value2;
 	return true;
 }
 
@@ -430,8 +502,8 @@ void DataSet::set(string name, const int32_t &value) {
 void DataSet::set(string name, const int32_t &value1, const int32_t &value2) {
 	dataset_field_t t;
 	t.type = dataset_field_t::type_2int;
-	t.value.v2Int.value1 = value1;
-	t.value.v2Int.value2 = value2;
+	t.value.v2int.value1 = value1;
+	t.value.v2int.value2 = value2;
 	dataset_fields[name] = t;
 }
 
@@ -439,6 +511,14 @@ void DataSet::set(string name, const double &value) {
 	dataset_field_t t;
 	t.type = dataset_field_t::type_double;
 	t.value.vDouble = value;
+	dataset_fields[name] = t;
+}
+
+void DataSet::set(string name, const double &value1, const double &value2) {
+	dataset_field_t t;
+	t.type = dataset_field_t::type_2double;
+	t.value.v2double.value1 = value1;
+	t.value.v2double.value2 = value2;
 	dataset_fields[name] = t;
 }
 

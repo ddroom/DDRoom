@@ -176,7 +176,7 @@ int GuiSlider::value_to_slider(double value) {
 }
 
 double GuiSlider::slider_to_value(int value) {
-cerr << "slider_to_value(" << value << ") == " << double(value) / slider_step << endl;
+//cerr << "slider_to_value(" << value << ") == " << double(value) / slider_step << endl;
 	return double(value) / slider_step;
 }
 

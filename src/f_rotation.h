@@ -65,7 +65,7 @@ protected:
 
 // edit mode interaction
 public:
-	void draw(QPainter *painter, const QSize &viewport, const QRect &image, image_and_viewport_t transform);
+	void draw(QPainter *painter, FilterEdit_event_t *et);
 	bool mousePressEvent(FilterEdit_event_t *mt, Cursor::cursor &_cursor);
 	bool mouseReleaseEvent(FilterEdit_event_t *mt, Cursor::cursor &_cursor);
 	bool mouseMoveEvent(FilterEdit_event_t *mt, bool &accepted, Cursor::cursor &_cursor);

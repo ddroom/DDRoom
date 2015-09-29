@@ -1196,23 +1196,32 @@ bool Edit::leave_filter_edit(void) {
 }
 
 void Edit::draw(QPainter *painter, const QSize &viewport, const QRect &image, image_and_viewport_t transform) {
-	filter_edit->draw(painter, viewport, image, transform);
+	FilterEdit_event_t et(NULL);
+	et.viewport = viewport;
+	et.image = image;
+	et.transform = transform;
+	et.tracer = this;
+	filter_edit->draw(painter, &et);
 }
 
-bool Edit::keyEvent(FilterEdit_event_t *mt, Cursor::cursor &cursor) {
-	return filter_edit->keyEvent(mt, cursor);
+bool Edit::keyEvent(FilterEdit_event_t *et, Cursor::cursor &cursor) {
+	et->tracer = this;
+	return filter_edit->keyEvent(et, cursor);
 }
 
-bool Edit::mousePressEvent(FilterEdit_event_t *mt, Cursor::cursor &cursor) {
-	return filter_edit->mousePressEvent(mt, cursor);
+bool Edit::mouseMoveEvent(FilterEdit_event_t *et, bool &accepted, Cursor::cursor &cursor) {
+	et->tracer = this;
+	return filter_edit->mouseMoveEvent(et, accepted, cursor);
 }
 
-bool Edit::mouseReleaseEvent(FilterEdit_event_t *mt, Cursor::cursor &cursor) {
-	return filter_edit->mouseReleaseEvent(mt, cursor);
+bool Edit::mousePressEvent(FilterEdit_event_t *et, Cursor::cursor &cursor) {
+	et->tracer = this;
+	return filter_edit->mousePressEvent(et, cursor);
 }
 
-bool Edit::mouseMoveEvent(FilterEdit_event_t *mt, bool &accepted, Cursor::cursor &cursor) {
-	return filter_edit->mouseMoveEvent(mt, accepted, cursor);
+bool Edit::mouseReleaseEvent(FilterEdit_event_t *et, Cursor::cursor &cursor) {
+	et->tracer = this;
+	return filter_edit->mouseReleaseEvent(et, cursor);
 }
 
 bool Edit::enterEvent(QEvent *event) {
@@ -1382,6 +1391,14 @@ void Edit::do_paste(void) {
 	// TODO: add history (undo/redo) support
 }
 
+//------------------------------------------------------------------------------
+class Area *Edit::viewport_to_filter(class Area *viewport_coords, std::string filter_id) {
+	return new Area(*viewport_coords);
+}
+
+class Area *Edit::filter_to_viewport(class Area *filter_coords, std::string filter_id) {
+	return new Area(*filter_coords);
+}
 //------------------------------------------------------------------------------
 // NOTE: store list of filters to skip on copy/paste, but return IDs of allowed filters
 //

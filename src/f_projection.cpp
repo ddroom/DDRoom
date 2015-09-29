@@ -377,9 +377,12 @@ void F_Projection::slot_changed_strength(double value) {
 	}
 }
 
-void F_Projection::draw(QPainter *painter, const QSize &viewport, const QRect &image, image_and_viewport_t transform) {
+void F_Projection::draw(QPainter *painter, FilterEdit_event_t *et) {
 	if(!edit_mode_enabled || !edit_active)
 		return;
+	QSize viewport = et->viewport;
+//	QRect image = et->image;
+//	image_and_viewport_t transform = et->transform;
 	// ignore viewport and image - we need just draw on the top of view area, not as a part of the image
 	bool aa = painter->testRenderHint(QPainter::Antialiasing);
 	if(!aa)

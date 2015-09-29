@@ -264,7 +264,7 @@ F_Shift::F_Shift(int id) : Filter() {
 	ps = _ps;
 	ps_base = ps;
 	widget = NULL;
-	q_action_edit_vertical = NULL;
+	q_action_edit_shift = NULL;
 	reset();
 	guide_min_length = 100.0;
 }
@@ -307,8 +307,8 @@ cerr << "F_Shift::set_PS_and_FS(); args.cw_rotation == " << args.cw_rotation << 
 		slider_angle_r->setValue(ps->angle_r);
 		reconnect(true);
 	}
-	if(q_action_edit_vertical != NULL)
-		q_action_edit_vertical->setChecked(false);
+	if(q_action_edit_shift != NULL)
+		q_action_edit_shift->setChecked(false);
 }
 
 QWidget *F_Shift::controls(QWidget *parent) {
@@ -367,14 +367,14 @@ void F_Shift::reconnect(bool to_connect) {
 
 QList<QAction *> F_Shift::get_actions_list(void) {
 	QList<QAction *> l;
-	if(q_action_edit_vertical == NULL) {
-		q_action_edit_vertical = new QAction(QIcon(":/resources/shift_v.svg"), tr("Vertical shift"), this);
-//		q_action_edit_vertical->setShortcut(tr("Ctrl+R"));
-		q_action_edit_vertical->setStatusTip(tr("compensate verical tilt of camera at shoot time"));
-		q_action_edit_vertical->setCheckable(true);
-		connect(q_action_edit_vertical, SIGNAL(toggled(bool)), this, SLOT(slot_action_edit_vertical(bool)));
+	if(q_action_edit_shift == NULL) {
+		q_action_edit_shift = new QAction(QIcon(":/resources/shift_v.svg"), tr("Shift"), this);
+//		q_action_edit_shift->setShortcut(tr("Ctrl+R"));
+		q_action_edit_shift->setStatusTip(tr("Compensate shift of the camera at the shooting time"));
+		q_action_edit_shift->setCheckable(true);
+		connect(q_action_edit_shift, SIGNAL(toggled(bool)), this, SLOT(slot_action_edit_shift(bool)));
 	}
-	l.push_back(q_action_edit_vertical);
+	l.push_back(q_action_edit_shift);
 //	if(q_action_edit_... == NULL) {
 //		...
 //	}
@@ -384,7 +384,7 @@ QList<QAction *> F_Shift::get_actions_list(void) {
 
 void F_Shift::edit_mode_exit(void) {
 	edit_mode_enabled = false;
-	q_action_edit_vertical->setChecked(false);
+	q_action_edit_shift->setChecked(false);
 //	q_action_edit_...->setChecked(false);
 	if(ps->angle_v == 0.0 && ps->angle_h == 0.0 && ps->angle_r == 0.0) {
 		ps->enabled = false;
@@ -393,7 +393,7 @@ void F_Shift::edit_mode_exit(void) {
 }
 
 void F_Shift::edit_mode_forced_exit(void) {
-	slot_action_edit_vertical(false);
+	slot_action_edit_shift(false);
 //	slot_action_edit_...(false);
 }
 
@@ -412,10 +412,10 @@ void F_Shift::set_cw_rotation(int cw_rotation) {
 	reconnect(true);
 }
 
-void F_Shift::slot_action_edit_vertical(bool checked) {
+void F_Shift::slot_action_edit_shift(bool checked) {
 	if(checked == edit_mode_enabled)
 		return;
-	edit_mode_vertical = checked;
+//	edit_mode_shift = checked;
 //	edit_mode_horizontal = false;
 	fn_action_edit(checked);
 }
@@ -441,7 +441,7 @@ void F_Shift::slot_checkbox_enable(int state) {
 	bool update = (ps->enabled != value);
 	if(value == false && edit_mode_enabled) {
 		ps->enabled = false;
-		q_action_edit_vertical->setChecked(false);
+		q_action_edit_shift->setChecked(false);
 //		q_action_edit_...->setChecked(false);
 		update = false;
 	}
@@ -524,9 +524,12 @@ void F_Shift::slot_changed_angle_r(double value) {
 	}
 }
 
-void F_Shift::draw(QPainter *painter, const QSize &viewport, const QRect &image, image_and_viewport_t transform) {
+void F_Shift::draw(QPainter *painter, FilterEdit_event_t *et) {
 	if(!edit_mode_enabled || !edit_active)
 		return;
+	QSize viewport = et->viewport;
+//	QRect image = et->image;
+//	image_and_viewport_t transform = et->transform;
 	// ignore viewport and image - we need just draw on the top of view area, not as a part of the image
 	bool aa = painter->testRenderHint(QPainter::Antialiasing);
 	if(!aa)

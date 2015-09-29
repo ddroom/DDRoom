@@ -221,7 +221,7 @@
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:zoom="13.171429"
-     inkscape:cx="27.311952"
+     inkscape:cx="15.582017"
      inkscape:cy="21.60946"
      inkscape:current-layer="layer1"
      showgrid="true"
@@ -355,7 +355,7 @@
        transform="matrix(0.8660254,0.5,-0.5,0.8660254,0,0)" />
     <path
        style="fill:#000000;fill-opacity:1;fill-rule:nonzero;stroke:none"
-       d="m 0.10154107,58.249301 0,-4.859005 29.95119293,0 29.951192,0 0,4.859005 0,4.858999 -29.951192,0 -29.95119293,0 0,-4.858999 z"
+       d="m 0.10154107,59.577934 0,-3.530371 29.95119293,0 29.951192,0 0,3.530371 0,3.530366 -29.951192,0 -29.95119293,0 0,-3.530366 z"
        id="path3848"
        inkscape:connector-curvature="0" />
   </g>

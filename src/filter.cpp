@@ -142,11 +142,19 @@ void image_and_viewport_t::photo_to_image(int &im_x, int &im_y, float x, float y
 }
 
 //------------------------------------------------------------------------------
+class Area *Coordinates_Tracer::viewport_to_filter(class Area *viewport_coords, std::string filter_id) {
+	return new Area(*viewport_coords);
+}
+
+class Area *Coordinates_Tracer::filter_to_viewport(class Area *filter_coords, std::string filter_id) {
+	return new Area(*filter_coords);
+}
+
+//------------------------------------------------------------------------------
 FilterEdit_event_t::FilterEdit_event_t(QEvent *_event) {
 	event = _event;
 }
 
-//------------------------------------------------------------------------------
 QList<QAction *> FilterEdit::get_actions_list(void) {
 	return QList<QAction *>();
 }
@@ -305,7 +313,7 @@ Filter_Store::Filter_Store(void) {
 //	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_wb, f_wb));
 	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_projection, f_projection));
 	// should be implemented - UI helper for shift
-//	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_shift, f_shift));
+	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_shift, f_shift));
 	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_rotation, f_rotation));
 	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_crop, f_crop));
 }

@@ -36,7 +36,7 @@ public:
 	void set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t args);
 
 public slots:
-	void slot_action_edit_vertical(bool checked);
+	void slot_action_edit_shift(bool checked);
 	void slot_checkbox_enable(int state);
 	void slot_changed_angle_v(double value);
 	void slot_changed_angle_h(double value);
@@ -52,7 +52,7 @@ protected:
 
 	// controls
 	QWidget *widget;
-	QAction *q_action_edit_vertical;
+	QAction *q_action_edit_shift;
 	QCheckBox *checkbox_enable;
 	class GuiSlider *slider_angle_v;
 	class GuiSlider *slider_angle_h;
@@ -67,7 +67,7 @@ protected:
 
 // edit mode interaction
 public:
-	void draw(QPainter *painter, const QSize &viewport, const QRect &image, image_and_viewport_t transform);
+	void draw(QPainter *painter, FilterEdit_event_t *et);
 	bool mousePressEvent(FilterEdit_event_t *mt, Cursor::cursor &_cursor);
 	bool mouseReleaseEvent(FilterEdit_event_t *mt, Cursor::cursor &_cursor);
 	bool mouseMoveEvent(FilterEdit_event_t *mt, bool &accepted, Cursor::cursor &_cursor);
@@ -79,7 +79,7 @@ public:
 
 protected:
 	bool edit_mode_enabled;
-	bool edit_mode_vertical;
+	bool edit_mode_shift;
 	void fn_action_edit(bool checked);
 	double edit_angle_normalize(double _angle);
 
