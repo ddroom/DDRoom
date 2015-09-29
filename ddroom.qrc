@@ -35,6 +35,7 @@
 	<file>resources/wb_cloudy.svg</file>
 	<file>resources/wb_custom.svg</file>
 	<file>resources/wb_daylight.svg</file>
+	<file>resources/wb_evening.svg</file>
 	<file>resources/wb_picker.svg</file>
 	<file>resources/wb_shade.svg</file>
 	<file>resources/wb_tungsten.svg</file>

@@ -197,6 +197,7 @@ F_WB::F_WB(int id) : Filter() {
 
 	wb_presets.push_back(f_wb_preset(WB_ID_CUSTOM, false, 0));
 	wb_presets.push_back(f_wb_preset(WB_ID_CAMERA, false, 0));
+	wb_presets.push_back(f_wb_preset("evening", true, 4600.0));
 	wb_presets.push_back(f_wb_preset("daylight", true, 5200.0));
 	wb_presets.push_back(f_wb_preset("cloudy", true, 6000.0));
 	wb_presets.push_back(f_wb_preset("shade", true, 7000.0));
@@ -661,8 +662,9 @@ QWidget *F_WB::controls(QWidget *parent) {
 	std::map<std::string, _wb_tb_t> wb_tb;
 	wb_tb["custom"] = _wb_tb_t(":/resources/wb_custom.svg", tr("set with temperature and tint"), false);
 	wb_tb["camera"] = _wb_tb_t(":/resources/wb_camera.svg", tr("use WB as shoot"), true);
+	wb_tb["evening"] = _wb_tb_t(":/resources/wb_evening.svg", tr("Evening (~4600K)"), false);
 	wb_tb["daylight"] = _wb_tb_t(":/resources/wb_daylight.svg", tr("Daylight (~5200K)"), false);
-	wb_tb["cloudy"] = _wb_tb_t(":/resources/wb_cloudy.svg", tr("Cloudy, twilight or sunset (~6000K)"), false);
+	wb_tb["cloudy"] = _wb_tb_t(":/resources/wb_cloudy.svg", tr("Cloudy (~6000K)"), false);
 	wb_tb["shade"] = _wb_tb_t(":/resources/wb_shade.svg", tr("Shade (~7000K)"), true);
 	wb_tb["tungsten"] = _wb_tb_t(":/resources/wb_tungsten.svg", tr("Tungsten (~3200K)"), false);
 	wb_tb["fluorescent"] = _wb_tb_t(":/resources/wb_fluorescent.svg", tr("White fluorescent (~4000K)"), true);
