@@ -83,6 +83,9 @@ protected:
 	void fn_action_edit(bool checked);
 	double edit_angle_normalize(double _angle);
 
+	void edit_UI_process_guide(QLineF guide);
+	bool edit_mode_scratch;
+
 	// OSD
 	bool edit_draw_OSD;
 	double edit_OSD_angle;

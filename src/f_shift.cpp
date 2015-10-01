@@ -175,6 +175,11 @@ public:
 	double angle_h; // +/- 60 degree
 	double angle_r; // rotation
 	int cw_rotation;
+
+	void guide_reset(int guide_n);
+	bool guide_undefined(int guide_n);
+	float guide_first[4];
+	float guide_second[4];
 };
 
 //------------------------------------------------------------------------------
@@ -197,6 +202,10 @@ void PS_Shift::reset(void) {
 	angle_h = 0.0;
 	angle_r = 0.0;
 	cw_rotation = 0;
+	for(int i = 0; i < 4; i++) {
+		guide_first[i] = 0.0;
+		guide_second[i] = 0.0;
+	}
 }
 
 bool PS_Shift::load(DataSet *dataset) {
@@ -205,6 +214,16 @@ bool PS_Shift::load(DataSet *dataset) {
 	dataset->get("angle_v", angle_v);
 	dataset->get("angle_h", angle_h);
 	dataset->get("angle_r", angle_r);
+	//--
+	QVector<float> guide(4);
+	for(int i = 0; i < 4; i++)	guide[i] = 0.0;
+	dataset->get("guide_first", guide);
+	for(int i = 0; i < 4; i++)	guide_first[i] = guide[i];
+	
+	for(int i = 0; i < 4; i++)	guide[i] = 0.0;
+	dataset->get("guide_second", guide);
+	for(int i = 0; i < 4; i++)	guide_second[i] = guide[i];
+	//--
 	return true;
 }
 
@@ -213,7 +232,27 @@ bool PS_Shift::save(DataSet *dataset) {
 	dataset->set("angle_v", angle_v);
 	dataset->set("angle_h", angle_h);
 	dataset->set("angle_r", angle_r);
+	//--
+	QVector<float> guide(4);
+	for(int i = 0; i < 4; i++)	guide[i] = guide_first[i];
+	dataset->set("guide_first", guide);
+	for(int i = 0; i < 4; i++)	guide[i] = guide_second[i];
+	dataset->set("guide_second", guide);
 	return true;
+}
+
+void PS_Shift::guide_reset(int guide_n) {
+	float *g = (guide_n == 0) ? guide_first : guide_second;
+	for(int i = 0; i < 0; i++)
+		g[i] = 0.0;
+}
+
+bool PS_Shift::guide_undefined(int guide_n) {
+	float *g = (guide_n == 0) ? guide_first : guide_second;
+	bool rez = false;
+	for(int i = 0; i < 0; i++)
+		rez |= (g[i] != 0.0);
+	return !rez;
 }
 
 void PS_Shift::map_ps_to_ui(double &angle_ui_v, double &angle_ui_h) {
@@ -249,7 +288,6 @@ void PS_Shift::map_ui_to_ps(double angle_ui_v, double angle_ui_h) {
 		angle_h = angle_ui_v;
 	}
 }
-
 
 //------------------------------------------------------------------------------
 FP_Shift *F_Shift::fp = NULL;
@@ -397,11 +435,9 @@ void F_Shift::edit_mode_forced_exit(void) {
 //	slot_action_edit_...(false);
 }
 
+// update horizontal and vertical angles so result of operation would be unchanged
 void F_Shift::set_cw_rotation(int cw_rotation) {
-	cerr << "___________________________________" << endl;
-	cerr << "___________________________________" << endl;
-	cerr << "___________________________________" << endl;
-	cerr << "F_Shift::set_cw_rotation( " << cw_rotation << " );" << endl;
+//	cerr << "F_Shift::set_cw_rotation( " << cw_rotation << " );" << endl;
 	ps->cw_rotation = cw_rotation;
 	double angle_ui_v;
 	double angle_ui_h;
@@ -426,6 +462,9 @@ void F_Shift::fn_action_edit(bool checked) {
 	if(edit_mode_enabled && !ps->enabled) {
 		ps->enabled = true;
 		checkbox_enable->setCheckState(Qt::Checked);
+		edit_mode_scratch = true;
+		ps->guide_reset(0);
+		ps->guide_reset(1);
 	}
 	if(!edit_mode_enabled && ps->angle_v == 0.0 && ps->angle_h == 0.0 && ps->angle_r == 0.0) {
 		ps->enabled = false;
@@ -467,18 +506,6 @@ void F_Shift::slot_changed_angle_v(double value) {
 		ps->map_ui_to_ps(angle_ui_v, angle_ui_h);
 		emit_signal_update();
 	}
-/*
-	bool update = (ps->angle_v != value);
-	if(!ps->enabled) {
-		ps->enabled = true;
-		checkbox_enable->setCheckState(Qt::Checked);
-		update = true;
-	}
-	if(update) {
-		ps->angle_v = value;
-		emit_signal_update();
-	}
-*/
 }
 
 void F_Shift::slot_changed_angle_h(double value) {
@@ -497,18 +524,6 @@ void F_Shift::slot_changed_angle_h(double value) {
 		ps->map_ui_to_ps(angle_ui_v, angle_ui_h);
 		emit_signal_update();
 	}
-/*
-	bool update = (ps->angle_h != value);
-	if(!ps->enabled) {
-		ps->enabled = true;
-		checkbox_enable->setCheckState(Qt::Checked);
-		update = true;
-	}
-	if(update) {
-		ps->angle_h = value;
-		emit_signal_update();
-	}
-*/
 }
 
 void F_Shift::slot_changed_angle_r(double value) {
@@ -651,7 +666,6 @@ void F_Shift::draw(QPainter *painter, FilterEdit_event_t *et) {
 		painter->setRenderHint(QPainter::Antialiasing, false);
 }
 
-//bool F_Shift::mousePressEvent(QMouseEvent *event, Cursor::cursor &_cursor, const QSize &viewport, const QRect &image) {
 bool F_Shift::mousePressEvent(FilterEdit_event_t *mt, Cursor::cursor &_cursor) {
 	QMouseEvent *event = (QMouseEvent *)mt->event;
 //	const QSize &viewport = mt->viewport;
@@ -669,11 +683,16 @@ edit_OSD_angle = 0.0;
 		mouse_position = mouse_start;
 		_cursor = Cursor::cross;
 		rez = true;
+		if(event->modifiers() & Qt::ControlModifier) {
+			edit_mode_scratch = true;
+			// reset all exist guides to prevent draw of them
+			ps->guide_reset(0);
+			ps->guide_reset(1);
+		}
 	}
 	return rez;
 }
 
-//bool F_Shift::mouseReleaseEvent(QMouseEvent *event, Cursor::cursor &_cursor, const QSize &viewport, const QRect &image) {
 bool F_Shift::mouseReleaseEvent(FilterEdit_event_t *mt, Cursor::cursor &_cursor) {
 	// TODO: process only release of the left button
 	if(!edit_mode_enabled)
@@ -685,13 +704,19 @@ bool F_Shift::mouseReleaseEvent(FilterEdit_event_t *mt, Cursor::cursor &_cursor)
 	edit_active = false;
 	QLineF guide(mouse_start, mouse_position);
 	if(guide.length() >= guide_min_length) {
+//		if(event->modifiers() & Qt::ControlModifier) {
+		// process a new line
+		edit_UI_process_guide(guide);
 //		slider_angle->setValue(edit_angle_normalize(guide.angle() + ps->rotation_angle));
 	}
 	edit_draw_OSD = false;
 	return true;
 }
 
-//bool F_Shift::mouseMoveEvent(QMouseEvent *event, bool &accepted, Cursor::cursor &_cursor, const QSize &viewport, const QRect &image) {
+void F_Shift::edit_UI_process_guide(QLineF guide) {
+	
+}
+
 bool F_Shift::mouseMoveEvent(FilterEdit_event_t *mt, bool &accepted, Cursor::cursor &_cursor) {
 	QMouseEvent *event = (QMouseEvent *)mt->event;
 //	const QSize &viewport = mt->viewport;

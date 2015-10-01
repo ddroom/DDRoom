@@ -845,6 +845,12 @@ void F_Crop::slot_le_aspect(void) {
 	if(aspect <= _ASPECT_MAX && aspect >= _ASPECT_MIN) {
 		ps->crop_aspect_str = aspect_str;
 		aspect_normalize();
+		if(!ps->fixed_aspect) {
+			ps->fixed_aspect = true;
+			reconnect(false);
+			checkbox_aspect->setChecked(true);
+			reconnect(true);
+		}
 //		emit signal_view_refresh(session_id);
 		if(ps->enabled_crop) {
 			if(edit_mode_enabled)

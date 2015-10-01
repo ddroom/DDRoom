@@ -664,7 +664,7 @@ QWidget *F_WB::controls(QWidget *parent) {
 	wb_tb["camera"] = _wb_tb_t(":/resources/wb_camera.svg", tr("use WB as shoot"), true);
 	wb_tb["evening"] = _wb_tb_t(":/resources/wb_evening.svg", tr("Evening (~4600K)"), false);
 	wb_tb["daylight"] = _wb_tb_t(":/resources/wb_daylight.svg", tr("Daylight (~5200K)"), false);
-	wb_tb["cloudy"] = _wb_tb_t(":/resources/wb_cloudy.svg", tr("Cloudy (~6000K)"), false);
+	wb_tb["cloudy"] = _wb_tb_t(":/resources/wb_cloudy.svg", tr("Cloudy, twilight or sunset (~6000K)"), false);
 	wb_tb["shade"] = _wb_tb_t(":/resources/wb_shade.svg", tr("Shade (~7000K)"), true);
 	wb_tb["tungsten"] = _wb_tb_t(":/resources/wb_tungsten.svg", tr("Tungsten (~3200K)"), false);
 	wb_tb["fluorescent"] = _wb_tb_t(":/resources/wb_fluorescent.svg", tr("White fluorescent (~4000K)"), true);

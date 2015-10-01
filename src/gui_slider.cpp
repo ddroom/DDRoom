@@ -172,11 +172,19 @@ QDoubleSpinBox *GuiSlider::getSpinBox(void) {
 
 int GuiSlider::value_to_slider(double value) {
 //cerr << "value_to_slider(" << value << "), slider_step == " << slider_step << "; spin_step == " << spin_step << endl;
-	return int(value * slider_step + 0.5 * (1.0 / slider_step));
+/*
+	double new_value = value * slider_step;
+cerr << "______value == " << value << endl;
+cerr << "new_value 1 == " << new_value << endl;
+	new_value += 0.5 * (1.0 / slider_step);
+cerr << "new_value 2 == " << new_value << endl;
+	return floor(new_value);
+*/
+	return floor(value * slider_step + 0.5 * (1.0 / slider_step));
 }
 
 double GuiSlider::slider_to_value(int value) {
-//cerr << "slider_to_value(" << value << ") == " << double(value) / slider_step << endl;
+//cerr << "slider_to_value(" << value << ", slider_step == " << slider_step << ") == " << double(value) / slider_step << endl;
 	return double(value) / slider_step;
 }
 
@@ -220,9 +228,11 @@ void GuiSlider::update_from_spinbox(bool send_signal) {
 
 void GuiSlider::slider_changed(int value) {
 //	cerr << "slider_changed(" << value << ")" << endl;
-	long val = value_to_slider(current_value);
-	if(val != value && current_value != slider_to_value(value)) {
-		current_value = slider_to_value(value);
+	long slider_prev = value_to_slider(current_value);
+	double new_current_value = slider_to_value(value);
+//cerr << "slider_changed(" << value << "), slider_prev == " << slider_prev << "current_value == " << current_value << ", new_current_value == " << new_current_value << endl;
+	if(slider_prev != value && current_value != new_current_value) {
+		current_value = new_current_value;
 		reconnect_spinbox(false);
 		_spinbox->setValue(current_value);
 		reconnect_spinbox(true);
