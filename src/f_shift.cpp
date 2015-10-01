@@ -202,10 +202,8 @@ void PS_Shift::reset(void) {
 	angle_h = 0.0;
 	angle_r = 0.0;
 	cw_rotation = 0;
-	for(int i = 0; i < 4; i++) {
-		guide_first[i] = 0.0;
-		guide_second[i] = 0.0;
-	}
+	guide_reset(0);
+	guide_reset(1);
 }
 
 bool PS_Shift::load(DataSet *dataset) {
@@ -224,6 +222,12 @@ bool PS_Shift::load(DataSet *dataset) {
 	dataset->get("guide_second", guide);
 	for(int i = 0; i < 4; i++)	guide_second[i] = guide[i];
 	//--
+/*
+	for(int i = 0; i < 4; i++)	{
+cerr << guide_first[i] << endl;
+cerr << guide_second[i] << endl;
+	}
+*/
 	return true;
 }
 
@@ -243,14 +247,14 @@ bool PS_Shift::save(DataSet *dataset) {
 
 void PS_Shift::guide_reset(int guide_n) {
 	float *g = (guide_n == 0) ? guide_first : guide_second;
-	for(int i = 0; i < 0; i++)
+	for(int i = 0; i < 4; i++)
 		g[i] = 0.0;
 }
 
 bool PS_Shift::guide_undefined(int guide_n) {
 	float *g = (guide_n == 0) ? guide_first : guide_second;
 	bool rez = false;
-	for(int i = 0; i < 0; i++)
+	for(int i = 0; i < 4; i++)
 		rez |= (g[i] != 0.0);
 	return !rez;
 }
@@ -463,8 +467,8 @@ void F_Shift::fn_action_edit(bool checked) {
 		ps->enabled = true;
 		checkbox_enable->setCheckState(Qt::Checked);
 		edit_mode_scratch = true;
-		ps->guide_reset(0);
-		ps->guide_reset(1);
+//		ps->guide_reset(0);
+//		ps->guide_reset(1);
 	}
 	if(!edit_mode_enabled && ps->angle_v == 0.0 && ps->angle_h == 0.0 && ps->angle_r == 0.0) {
 		ps->enabled = false;
@@ -540,7 +544,8 @@ void F_Shift::slot_changed_angle_r(double value) {
 }
 
 void F_Shift::draw(QPainter *painter, FilterEdit_event_t *et) {
-	if(!edit_mode_enabled || !edit_active)
+//	if(!edit_mode_enabled || !edit_active)
+	if(!edit_mode_enabled)
 		return;
 	QSize viewport = et->viewport;
 //	QRect image = et->image;
@@ -550,12 +555,45 @@ void F_Shift::draw(QPainter *painter, FilterEdit_event_t *et) {
 	if(!aa)
 		painter->setRenderHint(QPainter::Antialiasing, true);
 //	painter->setPen(QPen(QColor(255, 63, 63, 255)));
-	painter->setPen(QPen(QColor(255, 63, 63, 127)));
+//	painter->setPen(QPen(QColor(255, 63, 63, 127)));
 	// reset world translation
 	QTransform tr_restore;
 	tr_restore.translate(0.5, 0.5);	// shift to fix AA artifacts
 	painter->setWorldTransform(tr_restore);
 
+	float *guides[2];
+	guides[0] = ps->guide_first;
+	guides[1] = ps->guide_second;
+	for(int i = 0; i < 2; i++) {
+		if(ps->guide_undefined(i))
+			continue;
+		float vp[4];
+		for(int j = 0; j < 2; j++) {
+			int off = j * 2;
+			float im[2];
+			et->transform.photo_to_image_f(im[0], im[1], guides[i][0 + off], guides[i][1 + off]);
+			et->transform.image_to_viewport_f(vp[0 + off], vp[1 + off], im[0], im[1]);
+		}
+/*
+		if(vp[0] != vp[2]) {
+			float a = (vp[3] - vp[1]) / (vp[2] - vp[0]);
+			float b = vp[1] - guide_a * vp[0];
+
+			painter->setPen(QPen(QColor(63, 127, 63, 127)));
+			painter->drawLine(QLineF(vp[0], vp[1], vp[2], vp[3]));
+		}
+*/
+		painter->setPen(QPen(QColor(63, 191, 63, 191)));
+		painter->drawLine(QLineF(vp[0], vp[1], vp[2], vp[3]));
+	}
+	// edit_active section
+	if(!edit_active) {
+		if(!aa)
+			painter->setRenderHint(QPainter::Antialiasing, false);
+		return;
+	}
+	// draw edit guide if any
+	painter->setPen(QPen(QColor(255, 63, 63, 127)));
 	QLineF guide(mouse_start, mouse_position);
 	if(guide.length() >= guide_min_length) {
 		QPen pens[2] = {
@@ -587,12 +625,12 @@ void F_Shift::draw(QPainter *painter, FilterEdit_event_t *et) {
 		}
 //		painter->setPen(QPen(QColor(63, 255, 63, 255)));
 		painter->setPen(QPen(QColor(63, 191, 63, 191)));
-
 		// TODO: update edit angle information ???
 	}
 	painter->drawLine(guide);
 	// draw text...
-	if(edit_draw_OSD) {
+//	if(edit_draw_OSD) {
+	if(false) {
 		int rx = 10;
 		int ry = 10;
 
@@ -666,10 +704,10 @@ void F_Shift::draw(QPainter *painter, FilterEdit_event_t *et) {
 		painter->setRenderHint(QPainter::Antialiasing, false);
 }
 
-bool F_Shift::mousePressEvent(FilterEdit_event_t *mt, Cursor::cursor &_cursor) {
-	QMouseEvent *event = (QMouseEvent *)mt->event;
-//	const QSize &viewport = mt->viewport;
-//	const QRect &image = mt->image;
+bool F_Shift::mousePressEvent(FilterEdit_event_t *et, Cursor::cursor &_cursor) {
+	QMouseEvent *event = (QMouseEvent *)et->event;
+//	const QSize &viewport = et->viewport;
+//	const QRect &image = et->image;
 	if(!edit_mode_enabled)
 		return false;
 	bool rez = false;
@@ -678,7 +716,7 @@ edit_OSD_offset = 0.0;
 edit_OSD_angle = 0.0;
 	if(event->button() == Qt::LeftButton) {
 		edit_active = true;
-		mouse_start = mt->cursor_pos;
+		mouse_start = et->cursor_pos;
 //		mouse_start = event->pos();
 		mouse_position = mouse_start;
 		_cursor = Cursor::cross;
@@ -688,12 +726,34 @@ edit_OSD_angle = 0.0;
 			// reset all exist guides to prevent draw of them
 			ps->guide_reset(0);
 			ps->guide_reset(1);
+		} else {
+			if(!ps->guide_undefined(0) && !ps->guide_undefined(1)) {
+				float distance[2];
+				float *guides[2];
+				guides[0] = ps->guide_first;
+				guides[1] = ps->guide_second;
+				const float x0 = et->cursor_pos.x();
+				const float y0 = et->cursor_pos.y();
+				QPointF mp(et->cursor_pos);
+				for(int i = 0; i < 2; i++) {
+					float x1, y1;
+					float x2, y2;
+					float im[2];
+					et->transform.photo_to_image_f(im[0], im[1], guides[i][0], guides[i][1]);
+					et->transform.image_to_viewport_f(x1, y1, im[0], im[1]);
+					et->transform.photo_to_image_f(im[0], im[1], guides[i][2], guides[i][3]);
+					et->transform.image_to_viewport_f(x2, y2, im[0], im[1]);
+					distance[i] = d_abs((y2 - y1) * x0 - (x2 - x1) * y0 + x2 * y1 - y2 * x1) / sqrtf((y2 - y1) * (y2 - y1) + (x2 - x1) * (x2 - x1));
+				}
+				int closest_guide = distance[0] < distance[1] ? 0 : 1;
+				ps->guide_reset(closest_guide);
+			}
 		}
 	}
 	return rez;
 }
 
-bool F_Shift::mouseReleaseEvent(FilterEdit_event_t *mt, Cursor::cursor &_cursor) {
+bool F_Shift::mouseReleaseEvent(FilterEdit_event_t *et, Cursor::cursor &_cursor) {
 	// TODO: process only release of the left button
 	if(!edit_mode_enabled)
 		return false;
@@ -706,28 +766,52 @@ bool F_Shift::mouseReleaseEvent(FilterEdit_event_t *mt, Cursor::cursor &_cursor)
 	if(guide.length() >= guide_min_length) {
 //		if(event->modifiers() & Qt::ControlModifier) {
 		// process a new line
-		edit_UI_process_guide(guide);
+		edit_UI_process_guide(guide, et);
 //		slider_angle->setValue(edit_angle_normalize(guide.angle() + ps->rotation_angle));
 	}
 	edit_draw_OSD = false;
 	return true;
 }
 
-void F_Shift::edit_UI_process_guide(QLineF guide) {
-	
+void F_Shift::edit_UI_process_guide(QLineF guide, FilterEdit_event_t *et) {
+	bool is_first_guide = ps->guide_undefined(0);
+//cerr << "is_first_guide == " << is_first_guide << endl;
+	float *ps_guide = is_first_guide ? ps->guide_first : ps->guide_second;
+	float vp[4];
+	vp[0] = guide.x1();
+	vp[1] = guide.y1();
+	vp[2] = guide.x2();
+	vp[3] = guide.y2();
+	for(int j = 0; j < 2; j++) {
+		int off = j * 2;
+		float im[2];
+		et->transform.viewport_to_image_f(im[0], im[1], vp[0 + off], vp[1 + off]);
+		et->transform.image_to_photo_f(ps_guide[0 + off], ps_guide[1 + off], im[0], im[1]);
+//cerr << "image[" << j << "] at " << im[0] << " - " << im[1] << endl;
+	}
+	if(!ps->guide_undefined(0) && !ps->guide_undefined(1)) {
+		cerr << "!!! process guides !!!" << endl;
+	}
+/*
+	cerr << "ps_guide[0] == " << ps_guide[0] << endl;
+	cerr << "ps_guide[1] == " << ps_guide[1] << endl;
+	cerr << "ps_guide[2] == " << ps_guide[2] << endl;
+	cerr << "ps_guide[3] == " << ps_guide[3] << endl;
+cerr << endl;
+*/
 }
 
-bool F_Shift::mouseMoveEvent(FilterEdit_event_t *mt, bool &accepted, Cursor::cursor &_cursor) {
-	QMouseEvent *event = (QMouseEvent *)mt->event;
-//	const QSize &viewport = mt->viewport;
-//	const QRect &image = mt->image;
+bool F_Shift::mouseMoveEvent(FilterEdit_event_t *et, bool &accepted, Cursor::cursor &_cursor) {
+	QMouseEvent *event = (QMouseEvent *)et->event;
+//	const QSize &viewport = et->viewport;
+//	const QRect &image = et->image;
 	accepted = true;
 	bool rez = false;
 	_cursor = Cursor::cross;
 	if(event->buttons() & Qt::LeftButton) {
-		mouse_position = mt->cursor_pos;
+		mouse_position = et->cursor_pos;
 //		int im_x, im_y;
-//		mt->transform.viewport_to_image(im_x, im_y, mouse_position.x(), mouse_position.y());
+//		et->transform.viewport_to_image(im_x, im_y, mouse_position.x(), mouse_position.y());
 //cerr << im_x << " - " << im_y << endl;
 //		mouse_position = event->pos();
 		// update current angle/offset for OSD helper

@@ -83,7 +83,7 @@ protected:
 	void fn_action_edit(bool checked);
 	double edit_angle_normalize(double _angle);
 
-	void edit_UI_process_guide(QLineF guide);
+	void edit_UI_process_guide(QLineF guide, FilterEdit_event_t *et);
 	bool edit_mode_scratch;
 
 	// OSD

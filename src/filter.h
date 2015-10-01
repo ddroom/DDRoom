@@ -36,6 +36,11 @@ public:
 	void image_to_photo(float &x, float &y, int im_x, int im_y);
 	void photo_to_image(int &im_x, int &im_y, float x, float y);
 
+	void image_to_viewport_f(float &vp_x, float &vp_y, float im_x, float im_y, bool apply_rotation = true);
+	void viewport_to_image_f(float &im_x, float &im_y, float vp_x, float vp_y, bool apply_rotation = true);
+	void image_to_photo_f(float &x, float &y, float im_x, float im_y);
+	void photo_to_image_f(float &im_x, float &im_y, float x, float y);
+
 protected:
 	QSize viewport;
 	QRect image;

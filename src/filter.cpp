@@ -79,8 +79,22 @@ void image_and_viewport_t::get_photo_params(float &_photo_x, float &_photo_y, fl
 }
 
 void image_and_viewport_t::image_to_viewport(int &vp_x, int &vp_y, int im_x, int im_y, bool apply_rotation) {
-	int offset_x = image.x();
-	int offset_y = image.y();
+	float vp_x_f, vp_y_f;
+	image_to_viewport_f(vp_x_f, vp_y_f, im_x, im_y, apply_rotation);
+	vp_x = vp_x_f;
+	vp_y = vp_y_f;
+}
+
+void image_and_viewport_t::viewport_to_image(int &im_x, int &im_y, int vp_x, int vp_y, bool apply_rotation) {
+	float im_x_f, im_y_f;
+	viewport_to_image_f(im_x_f, im_y_f, vp_x, vp_y, apply_rotation);
+	im_x = im_x_f;
+	im_y = im_y_f;
+}
+
+void image_and_viewport_t::image_to_viewport_f(float &vp_x, float &vp_y, float im_x, float im_y, bool apply_rotation) {
+	float offset_x = image.x();
+	float offset_y = image.y();
 /*
 cerr << "image_and_viewport_t::image_to_viewport(" << im_x << ", " << im_y << ")" << endl;
 cerr << "offset_x == " << offset_x << endl;
@@ -91,41 +105,41 @@ cerr << "cw_rotation == " << cw_rotation << endl;
 	vp_x = offset_x + im_x;
 	vp_y = offset_y + im_y;
 	if(apply_rotation) {
-		int image_w = image.width();
-		int image_h = image.height();
+		float image_w = image.width();
+		float image_h = image.height();
 		if(cw_rotation == 90) {
-			vp_x = offset_x + (image_w - im_y) - 1;
+			vp_x = offset_x + (image_w - im_y) - 1.0f;
 			vp_y = offset_y + im_x;
 		}
 		if(cw_rotation == 180) {
-			vp_x = offset_x + (image_w - im_x) - 1;
-			vp_y = offset_y + (image_h - im_y) - 1;
+			vp_x = offset_x + (image_w - im_x) - 1.0f;
+			vp_y = offset_y + (image_h - im_y) - 1.0f;
 		}
 		if(cw_rotation == 270) {
 			vp_x = offset_x + im_y;
-			vp_y = offset_y + (image_h - im_x) - 1;
+			vp_y = offset_y + (image_h - im_x) - 1.0f;
 		}
 	}
 }
 
-void image_and_viewport_t::viewport_to_image(int &im_x, int &im_y, int vp_x, int vp_y, bool apply_rotation) {
-	int offset_x = image.x();
-	int offset_y = image.y();
+void image_and_viewport_t::viewport_to_image_f(float &im_x, float &im_y, float vp_x, float vp_y, bool apply_rotation) {
+	float offset_x = image.x();
+	float offset_y = image.y();
 	im_x = vp_x - offset_x;
 	im_y = vp_y - offset_y;
 	if(apply_rotation) {
-		int image_w = image.width();
-		int image_h = image.height();
+		float image_w = image.width();
+		float image_h = image.height();
 		if(cw_rotation == 90) {
 			im_x = vp_y - offset_y;
-			im_y = image_w - (vp_x - offset_x) - 1;
+			im_y = image_w - (vp_x - offset_x) - 1.0f;
 		}
 		if(cw_rotation == 180) {
-			im_x = image_w - (vp_x - offset_x) - 1;
-			im_y = image_h - (vp_y - offset_y) - 1;
+			im_x = image_w - (vp_x - offset_x) - 1.0f;
+			im_y = image_h - (vp_y - offset_y) - 1.0f;
 		}
 		if(cw_rotation == 270) {
-			im_x = image_h - (vp_y - offset_y) - 1;
+			im_x = image_h - (vp_y - offset_y) - 1.0f;
 			im_y = vp_x - offset_x;
 		}
 	}
@@ -137,8 +151,18 @@ void image_and_viewport_t::image_to_photo(float &x, float &y, int im_x, int im_y
 }
 
 void image_and_viewport_t::photo_to_image(int &im_x, int &im_y, float x, float y) {
-	im_x = (x - photo_x) / px_size_x + 0.5;
-	im_y = (y - photo_y) / px_size_y + 0.5;
+	im_x = (x - photo_x) / px_size_x + 0.5f;
+	im_y = (y - photo_y) / px_size_y + 0.5f;
+}
+
+void image_and_viewport_t::image_to_photo_f(float &x, float &y, float im_x, float im_y) {
+	x = px_size_x * im_x + photo_x;
+	y = px_size_y * im_y + photo_y;
+}
+
+void image_and_viewport_t::photo_to_image_f(float &im_x, float &im_y, float x, float y) {
+	im_x = (x - photo_x) / px_size_x + 0.5f;
+	im_y = (y - photo_y) / px_size_y + 0.5f;
 }
 
 //------------------------------------------------------------------------------
@@ -313,7 +337,7 @@ Filter_Store::Filter_Store(void) {
 //	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_wb, f_wb));
 	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_projection, f_projection));
 	// should be implemented - UI helper for shift
-	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_shift, f_shift));
+//	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_shift, f_shift));
 	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_rotation, f_rotation));
 	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_crop, f_crop));
 }

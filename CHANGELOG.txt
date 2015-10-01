@@ -1,4 +1,5 @@
 
+1.0.3.2 - Fixed some UI glitches.
 1.0.3.1 - WB: added 'evening' preset, with CCT 4600K.
 1.0.3.0 - Added 'Out of memory' handler with user notification.
 1.0.2.0 - Version increase and release.
