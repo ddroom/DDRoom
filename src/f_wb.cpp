@@ -193,6 +193,7 @@ F_WB::F_WB(int id) : Filter() {
 	ps = _ps;
 	ps_base = ps;
 	connect(this, SIGNAL(signal_load_temp_ui(QVector<double>)), this, SLOT(slot_load_temp_ui(QVector<double>)));
+//	connect(this, SIGNAL(signal_load_temp_ui(void)), this, SLOT(slot_load_temp_ui(void)));
 	reset();
 
 	wb_presets.push_back(f_wb_preset(WB_ID_CUSTOM, false, 0));
@@ -320,6 +321,7 @@ cerr << "load_ui(), fs == " << long((void *)fs) << endl;
 		for(int i = 0; i < 9; i++)
 			cRGB_to_XYZ[i] = fs->cRGB_to_XYZ[i];
 		temp_initialized = fs->temp_initialized;
+cerr << "temp_initialized == " << temp_initialized << endl;
 	}
 
 	// load presets
@@ -343,6 +345,12 @@ cerr << "load_ui(), fs == " << long((void *)fs) << endl;
 	slider_auto_black_edge->setValue(ps->auto_black_edge);
 
 	checkbox_hl_clip->setCheckState(ps->hl_clip ? Qt::Checked : Qt::Unchecked);
+
+cerr << "ps->defined == " << ps->defined << endl;
+	if(temp_initialized)
+		update_CCT_to_PS();
+	else
+		load_temp_ui(args.metadata);
 
 	gui_ct_connect(true);
 	radio_wb_connect(true);
@@ -534,14 +542,20 @@ void F_WB::scale_to_correlated_temp(double &temp, double &tint, const double *sc
 
 //==============================================================================
 void F_WB::load_temp_ui(const Metadata *metadata) {
-	if(temp_initialized)
+	if(temp_initialized || metadata == NULL)
 		return;
-	temp_initialized = true;
-//cerr << "_____________________________________________________+++++++++++++++++++++++++++ load_temp_ui" << endl;
+cerr << "_____________________________________________________+++++++++++++++++++++++++++ load_temp_ui" << endl;
+	bool valid = false;
 	for(int i = 0; i < 3; i++) {
 		scale_ref[i] = metadata->c_scale_ref[i];
 		scale_camera[i] = metadata->c_scale_camera[i];
+		valid |= (scale_ref[i] != 1.0);
+		valid |= (scale_camera[i] != 1.0);
+//cerr << "   scale_ref == " << scale_ref[i] << endl;
+//cerr << "scale_camera == " << scale_camera[i] << endl;
 	}
+	if(!valid)
+		return;
 	for(int i = 0; i < 9; i++)
 		cRGB_to_XYZ[i] = metadata->cRGB_to_XYZ[i];
 	if(ps->defined == false) {
@@ -550,6 +564,7 @@ void F_WB::load_temp_ui(const Metadata *metadata) {
 			ps->scale_current[i] = scale_camera[i];
 		}
 	}
+	temp_initialized = true;
 	QVector<double> scale(3);
 	for(int i = 0; i < 3; i++) {
 		scale[i] = ps->scale_current[i];
@@ -561,18 +576,31 @@ void F_WB::load_temp_ui(const Metadata *metadata) {
 void F_WB::slot_load_temp_ui(QVector<double> scale) {
 	double s[3];
 	for(int i = 0; i < 3; i++)
+		s[i] = scale[i];
+	update_CCT_to_PS(s);
+}
+
+void F_WB::update_CCT_to_PS(double *s_current) {
+	if(s_current == NULL) s_current = ps->scale_current;
+	double s[3];
+	for(int i = 0; i < 3; i++)
+		s[i] = s_current[i] / scale_ref[i];
+	double temp, tint;
+	scale_to_correlated_temp(temp, tint, s);
+	wb_ui_set_temp(temp, tint);
+}
+
+/*
+void F_WB::slot_load_temp_ui(QVector<double> scale) {
+	double s[3];
+	for(int i = 0; i < 3; i++)
 		s[i] = scale[i] / scale_ref[i];
 	double temp, tint;
 	scale_to_correlated_temp(temp, tint, s);
-//cerr << "slot_load_temp_ui: temp == " << temp << "; tint == " << tint << endl;
-/*
-	for(int i = 0; i < 3; i++) {
-cerr << "___________________________ scale_current[" << i << "] == " << ps->scale_current[i] << endl;
-	}
-*/
 	// TODO: fix slider, and do "skip update" somehow
 	wb_ui_set_temp(temp, tint);
 }
+*/
 
 void F_WB::wb_ui_set_temp(double t_kelvin, double t_tint) {
 //cerr << "wb_ui_set_temp" << endl;
@@ -868,12 +896,15 @@ void F_WB::slot_radio_wb(int index) {
 		}
 	}
 	// set up new temp Kelvin and tint
+/*
 	double temp, tint;
 	double scale[3];
 	for(int i = 0; i < 3; i++)
 		scale[i] = ps->scale_current[i] / scale_ref[i];
 	scale_to_correlated_temp(temp, tint, scale);
 	wb_ui_set_temp(temp, tint);
+*/
+	update_CCT_to_PS();
 	emit_signal_update();
 }
 

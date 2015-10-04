@@ -1107,9 +1107,11 @@ void Edit::history_apply(list<eh_record_t> l, bool is_undo) {
 	// TODO: add support of cw_rotation
 	QSharedPointer<Photo_t> photo = sessions[session_active]->photo;
 	eh_record_t &record = l.front();
-	int filters_count = record.filter_records.size();
+//	int filters_count = record.filter_records.size();
 	PS_and_FS_args_t args(photo->metadata, photo->cw_rotation);
-	for(int i = 0; i < filters_count; i++) {
+//	for(int i = 0; i < filters_count; i++) {
+	int i = 0;
+//cerr << "filters_count == " << filters_count << endl;
 		eh_filter_record_t &f_record = record.filter_records[i];
 		Filter *filter = f_record.filter;
 //		for(list<eh_filter_record_t>::iterator it = f_record.begin(); it != l.end(); it++) {
@@ -1125,9 +1127,12 @@ void Edit::history_apply(list<eh_record_t> l, bool is_undo) {
 //		filter->setPS(photo->map_ps_base[filter]);
 //		filter->load_ui(photo->map_fs_base[filter], photo->metadata);
 		filter->set_PS_and_FS(photo->map_ps_base[filter], photo->map_fs_base[filter], args);
-	}
+//	}
 	// emit signal to update
-	slot_update(sessions[session_active], ProcessSource::s_undo_redo, NULL, NULL);
+cerr << "filter == " << (unsigned long)filter << endl;
+//	slot_update(sessions[session_active], (ProcessSource::process)filter->get_id(), filter, photo->map_ps_base[filter]);
+	slot_update(sessions[session_active], (ProcessSource::process)filter->get_id(), NULL, NULL);
+//	slot_update(sessions[session_active], ProcessSource::s_undo_redo, NULL, NULL);
 }
 
 Edit::EditSession_t *Edit::session_of_view(View *view) {
@@ -1317,7 +1322,7 @@ void Edit::do_copy_paste_fine(bool to_copy) {
 	if(skip)
 		return;
 	do_copy_paste(to_copy);
-	cerr << "process copy/paste (is copy == " << to_copy << ") action" << endl;
+//	cerr << "process copy/paste (is copy == " << to_copy << ") action" << endl;
 }
 
 void Edit::do_copy_paste(bool to_copy) {
@@ -1469,7 +1474,7 @@ void Copy_Paste_Dialog::slot_button_ok(void) {
 		else
 			copy_paste_set->erase(id);
 	}
-	cerr << "slot_button_ok" << endl;
+//	cerr << "slot_button_ok" << endl;
 	emit accept();
 }
 //------------------------------------------------------------------------------

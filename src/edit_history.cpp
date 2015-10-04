@@ -678,11 +678,17 @@ void EditHistory::add_eh_filter_records(const QVector<eh_filter_record_t> &filte
 	if(add_record) {
 		edit_history->h_after.clear();
 		edit_history->h_before.push_back(record);
-/*
-cerr << "add record, " << filter_records[0].deltas.front().field_name << endl;
-cerr << "            " << filter_records[0].deltas.front().field_before.serialize() << endl;
-cerr << "            " << filter_records[0].deltas.front().field_after.serialize() << endl;
-*/
+#if 0
+cerr << "add record" << endl;
+		for(int i = 0; i < filter_records.size(); i++) {
+			const std::list<class field_delta_t> &deltas = filter_records[i].deltas;
+			for(std::list<class field_delta_t>::const_iterator it = deltas.begin(); it != deltas.end(); it++) {
+cerr << "field: " << (*it).field_name << endl;
+cerr << "       " << (*it).field_before.serialize() << endl;
+cerr << "       " << (*it).field_after.serialize() << endl;
+			}
+		}
+#endif
 	}
 	//--
 	// TODO: how signal to ViewModel what was changed ?

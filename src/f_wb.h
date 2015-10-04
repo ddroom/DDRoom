@@ -88,6 +88,7 @@ protected:
 //	class GuiSlider *slider_temp_kelvin;
 //	class GuiSlider *slider_temp_tint;
 	class GUI_CT *gui_ct;
+	void update_CCT_to_PS(double *_scale = NULL);
 	void gui_ct_connect(bool flag);
 	void checkbox_auto_connect(bool flag);
 	QCheckBox *checkbox_hl_clip;

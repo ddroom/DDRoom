@@ -337,7 +337,7 @@ Filter_Store::Filter_Store(void) {
 //	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_wb, f_wb));
 	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_projection, f_projection));
 	// should be implemented - UI helper for shift
-//	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_shift, f_shift));
+	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_shift, f_shift));
 	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_rotation, f_rotation));
 	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_crop, f_crop));
 }

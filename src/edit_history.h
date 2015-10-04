@@ -9,6 +9,12 @@
  *
  */
 
+/*
+ TODO: 
+	- clean-up - actually each of the records belongs to only one filter, so remove excessive data - check 
+		'Edit::history_apply(list<eh_record_t> l, bool is_undo)' for example.
+*/
+
 
 #include <list>
 #include <QSharedPointer>
