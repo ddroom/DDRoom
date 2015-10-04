@@ -383,14 +383,14 @@ list<class field_delta_t> DataSet::get_fields_delta(DataSet *before, DataSet *af
 void DataSet::apply_fields_delta(const std::list<field_delta_t> *fields_delta, bool to_state_before) {
 	for(list<field_delta_t>::const_iterator it = fields_delta->begin(); it != fields_delta->end(); it++) {
 //		cerr << "to_state_before == " << to_state_before << endl;
-		cerr << "field: \"" << (*it).field_name << "\" == " << "\"" << dataset_fields[(*it).field_name].serialize() << endl;
+//		cerr << "field: \"" << (*it).field_name << "\" == " << "\"" << dataset_fields[(*it).field_name].serialize() << endl;
 //		cerr << "delta before == \"" << (*it).field_before.serialize() << "\"" << endl;
 //		cerr << "       after == \"" << (*it).field_after.serialize() << "\"" << endl;
 		if(to_state_before)
 			dataset_fields[(*it).field_name] = (*it).field_before;
 		else
 			dataset_fields[(*it).field_name] = (*it).field_after;
-		cerr << "       \"" << (*it).field_name << "\" == " << "\"" << dataset_fields[(*it).field_name].serialize() << endl;
+//		cerr << "       \"" << (*it).field_name << "\" == " << "\"" << dataset_fields[(*it).field_name].serialize() << endl;
 //cerr << endl;
 	}
 }

@@ -1107,10 +1107,10 @@ void Edit::history_apply(list<eh_record_t> l, bool is_undo) {
 	// TODO: add support of cw_rotation
 	QSharedPointer<Photo_t> photo = sessions[session_active]->photo;
 	eh_record_t &record = l.front();
-//	int filters_count = record.filter_records.size();
+	int filters_count = record.filter_records.size();
 	PS_and_FS_args_t args(photo->metadata, photo->cw_rotation);
-//	for(int i = 0; i < filters_count; i++) {
-	int i = 0;
+	ProcessSource::process s_id = ProcessSource::s_none;
+	for(int i = 0; i < filters_count; i++) {
 //cerr << "filters_count == " << filters_count << endl;
 		eh_filter_record_t &f_record = record.filter_records[i];
 		Filter *filter = f_record.filter;
@@ -1127,11 +1127,13 @@ void Edit::history_apply(list<eh_record_t> l, bool is_undo) {
 //		filter->setPS(photo->map_ps_base[filter]);
 //		filter->load_ui(photo->map_fs_base[filter], photo->metadata);
 		filter->set_PS_and_FS(photo->map_ps_base[filter], photo->map_fs_base[filter], args);
-//	}
+		if((ProcessSource::process)filter->get_id() < s_id)
+			s_id = (ProcessSource::process)filter->get_id();
+	}
 	// emit signal to update
-cerr << "filter == " << (unsigned long)filter << endl;
 //	slot_update(sessions[session_active], (ProcessSource::process)filter->get_id(), filter, photo->map_ps_base[filter]);
-	slot_update(sessions[session_active], (ProcessSource::process)filter->get_id(), NULL, NULL);
+//	slot_update(sessions[session_active], (ProcessSource::process)filter->get_id(), NULL, NULL);
+	slot_update(sessions[session_active], s_id, NULL, NULL);
 //	slot_update(sessions[session_active], ProcessSource::s_undo_redo, NULL, NULL);
 }
 
@@ -1459,7 +1461,6 @@ Copy_Paste_Dialog::Copy_Paste_Dialog(bool to_copy, std::set<std::string> *_copy_
 }
 
 Copy_Paste_Dialog::~Copy_Paste_Dialog(void) {
-//	cerr << 
 	for(int i = 0; i < flags.size(); i++)
 		if(flags[i].first != NULL)
 			delete flags[i].first;
