@@ -275,9 +275,11 @@ void F_WB::saveFS(FS_Base *fs_base) {
 void F_WB::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t args) {
 	// PS
 	if(new_ps != NULL) {
+cerr << "new_ps != NULL" << endl;
 		ps = (PS_WB *)new_ps;
 		ps_base = new_ps;
 	} else {
+cerr << "new_ps == NULL" << endl;
 		ps = _ps;
 		ps_base = ps;
 	}
@@ -291,7 +293,7 @@ void F_WB::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t arg
 
 //	bool wb_camera = true;
 	if(fs_base == NULL) {
-//cerr << "load_ui(), fs_base == NULL" << endl;
+cerr << "load_ui(), fs_base == NULL" << endl;
 //		if(metadata)
 //			wb_camera = metadata->c_scale_camera_valid;
 		QVector<long> hist_before_empty(0);
@@ -303,7 +305,7 @@ void F_WB::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t arg
 		point_wb_is_entered = false;
 	} else {
 		FS_WB *fs = (FS_WB *)fs_base;
-//cerr << "load_ui(), fs == " << long((void *)fs) << endl;
+cerr << "load_ui(), fs == " << long((void *)fs) << endl;
 //cerr << "fs->hist_before.size() == " << fs->hist_before.size() << endl;
 //		gui_histogram->set_histograms(fs->hist_before, fs->hist_after);
 		gui_histogram->set_data_object(&fs->histogram_data);
@@ -345,6 +347,7 @@ void F_WB::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t arg
 	gui_ct_connect(true);
 	radio_wb_connect(true);
 	checkbox_auto_connect(true);
+cerr << "set PS and FS: done" << endl;
 }
 
 //------------------------------------------------------------------------------
@@ -912,7 +915,7 @@ public:
 struct FP_WB_Cache_t : public FP_Cache_t {
 public:
 	FP_WB_Cache_t(void);
-	~FP_WB_Cache_t();
+	virtual ~FP_WB_Cache_t();
 	bool is_empty;
 	float scale[3];
 	float offset;

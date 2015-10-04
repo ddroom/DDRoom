@@ -35,7 +35,7 @@ public:
 	dataset_field_t(const dataset_field_t &);
 	dataset_field_t & operator = (const dataset_field_t &);
 	bool operator == (const dataset_field_t &);
-	~dataset_field_t();
+	virtual ~dataset_field_t();
 	enum type_en {
 		type_empty,
 		type_serialized,	// value is string at vString with unknown real type, should be converted on-fly as anyone ask that

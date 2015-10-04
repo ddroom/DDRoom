@@ -58,7 +58,7 @@ protected:
 class CIELab : public CM {
 public:
 	CIELab(CS_White white_in, CS_White white_out);
-	~CIELab(void);
+	virtual ~CIELab(void);
 	class CM_Convert *get_convert_XYZ_to_Jsh(void);
 	class CM_Convert *get_convert_Jsh_to_XYZ(void);
 
@@ -76,7 +76,7 @@ protected:
 class CIECAM02 : public CM {
 public:
 	CIECAM02(CS_White white_in, CS_White white_out);
-	~CIECAM02(void);
+	virtual ~CIECAM02(void);
 	class CM_Convert *get_convert_XYZ_to_Jsh(void);
 	class CM_Convert *get_convert_Jsh_to_XYZ(void);
 
@@ -96,7 +96,7 @@ protected:
 class CS_to_CM {
 public:
 	CS_to_CM(CM::cm_type_en _cm_type, std::string _cs_name);
-	~CS_to_CM();
+	virtual ~CS_to_CM();
 	void convert(float *Jsh, const float *RGB);
 	float get_C_from_Jsh(const float *Jsh);
 	float get_s_from_JCh(const float *JCh);
@@ -113,7 +113,7 @@ protected:
 class CM_to_CS {
 public:
 	CM_to_CS(CM::cm_type_en _cm_type, std::string _cs_name);
-	~CM_to_CS();
+	virtual ~CM_to_CS();
 	void convert(float *RGB, const float *Jsh, bool clip = true);
 	float get_C_from_Jsh(const float *Jsh);
 	float get_s_from_JCh(const float *JCh);

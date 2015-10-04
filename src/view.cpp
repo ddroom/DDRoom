@@ -1179,39 +1179,41 @@ cerr << "      pixmap size: " << tp.width() << "x" << tp.height() << endl;
 
 //------------------------------------------------------------------------------
 // for filters GUI - update
-void View::event_fill_mt(FilterEdit_event_t *mt) {
+void View::event_fill_mt(FilterEdit_event_t *et) {
 	image->lock.lock();
 /*
 cerr << "_________________________________________________________________________    View::event_fill_mt()" << endl;
 cerr << "    position: " << image->dimensions_scaled.position.x << "x" << image->dimensions_scaled.position.y << endl;
 cerr << "    px_size:  " << image->dimensions_scaled.position.px_size << endl;
 */
-	mt->viewport = QSize(viewport_w, viewport_h);
-	mt->image = QRect(image->offset_x, image->offset_y, image->size_scaled.width(), image->size_scaled.height());
+	et->viewport = QSize(viewport_w, viewport_h);
+	et->image = QRect(image->offset_x, image->offset_y, image->size_scaled.width(), image->size_scaled.height());
 	// TODO: tiles (???)
-	mt->image_pixels = QSize(image->dimensions_unscaled.width(), image->dimensions_unscaled.height());
-	if(mt->event->type() == QEvent::MouseMove || mt->event->type() == QEvent::MouseButtonPress || mt->event->type() == QEvent::MouseButtonRelease || mt->event->type() == QEvent::MouseButtonDblClick)
-		mt->cursor_pos = mapFromGlobal(((QMouseEvent *)mt->event)->globalPos());
+	et->image_pixels = QSize(image->dimensions_unscaled.width(), image->dimensions_unscaled.height());
+	if(et->event->type() == QEvent::MouseMove || et->event->type() == QEvent::MouseButtonPress || et->event->type() == QEvent::MouseButtonRelease || et->event->type() == QEvent::MouseButtonDblClick)
+		et->cursor_pos = mapFromGlobal(((QMouseEvent *)et->event)->globalPos());
 	else
-		mt->cursor_pos = QPoint(0, 0);
+		et->cursor_pos = QPoint(0, 0);
 	float photo_x = image->dimensions_scaled.position.x;
 	float photo_y = image->dimensions_scaled.position.y;
 	float px_size_x = image->dimensions_scaled.position.px_size_x;
 	float px_size_y = image->dimensions_scaled.position.px_size_y;
 	int rotation = 0;
-	if(!photo.isNull())
+	if(!photo.isNull()) {
 		rotation = photo->cw_rotation;
-	mt->transform = image_and_viewport_t(mt->viewport, mt->image, rotation, photo_x, photo_y, px_size_x, px_size_y);
+		et->metadata = photo->metadata;
+	}
+	et->transform = image_and_viewport_t(et->viewport, et->image, rotation, photo_x, photo_y, px_size_x, px_size_y);
 /*
-cerr << "cursor_pos == " << mt->cursor_pos.x() << " - " << mt->cursor_pos.y() << endl;
+cerr << "cursor_pos == " << et->cursor_pos.x() << " - " << et->cursor_pos.y() << endl;
 	int im_x, im_y;
-	mt->transform.viewport_to_image(im_x, im_y, mt->cursor_pos.x(), mt->cursor_pos.y(), true);
-	mt->transform.image_to_photo(photo_x, photo_y, im_x, im_y);
+	et->transform.viewport_to_image(im_x, im_y, et->cursor_pos.x(), et->cursor_pos.y(), true);
+	et->transform.image_to_photo(photo_x, photo_y, im_x, im_y);
 cerr << "on image   == " << vp.x() << " - " << vp.y() << endl;
 cerr << "on photo   == " << photo_x << " - " << photo_y << endl;
 */
-//	mt->image_start = QPointF();
-//	mt->image_dx_dy = QPointF();
+//	et->image_start = QPointF();
+//	et->image_dx_dy = QPointF();
 	image->lock.unlock();
 }
 

@@ -44,7 +44,7 @@ protected:
 class Spline_Calc {
 public:
 	Spline_Calc(const QVector<QPointF> &_points, float scale = 1.0, bool linear_2 = true, int type_left = 2, float df_left = 1.0, int type_right = 2, float df_right = 1.0);
-	~Spline_Calc();
+	virtual ~Spline_Calc();
 
 	float f(float x);
 

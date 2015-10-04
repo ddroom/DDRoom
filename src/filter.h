@@ -82,6 +82,8 @@ public:
 	QPointF image_start; // absolute coordinates of top left pixel at 1:1 scale
 	QPointF image_dx_dy; // absolute coordinates 1:1 increment on each image pixel shift
 
+	class Metadata *metadata;
+
 protected:
 	FilterEdit_event_t(void);
 };

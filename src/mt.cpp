@@ -17,18 +17,15 @@
 using namespace std;
 
 //------------------------------------------------------------------------------
-// Notes:
-// 1. don't try to use recursion between sync_point_pre()/sync_point_post()
-//		(will crash)
-// 2. Don't try to manipulate with any widget from the thread - that should be done only from the application main thread !
-
-Flow::Flow(void (*method)(void *, class SubFlow *, void *), void *object, void *method_data) {
+Flow::Flow(void (*method)(void *, class SubFlow *, void *), void *object, void *method_data, int force_cores_to) {
 	cores = System::instance()->cores();
+	if(force_cores_to != 0)
+		cores = force_cores_to;
 //cerr << "cores == " << cores << endl;
 //cerr << "Flow::Flow()" << endl;
 	subflows = new SubFlow *[cores];
 
-#ifdef MT_QSEMAPHORES
+#ifdef __MT_QSEMAPHORES
 	s_master = new QSemaphore *[SYNC_POINTS_COUNT];
 	s_slaves = new QSemaphore *[SYNC_POINTS_COUNT];
 	if(cores > 1) {
@@ -43,30 +40,30 @@ Flow::Flow(void (*method)(void *, class SubFlow *, void *), void *object, void *
 #endif
 
 	for(int i = 0; i < cores; i++) {
-		subflows[i] = new SubFlow(this, (i == 0), cores);
-		subflows[i]->method = method;
-		subflows[i]->object = object;
-		subflows[i]->method_data = method_data;
-#ifdef MT_QSEMAPHORES
-		subflows[i]->s_master = s_master;
-		subflows[i]->s_slaves = s_slaves;
+		SubFlow_Thread *subflow = new SubFlow_Thread(this, (i == 0), cores);
+		subflow->method = method;
+		subflow->object = object;
+		subflow->method_data = method_data;
+#ifdef __MT_QSEMAPHORES
+		subflow->s_master = s_master;
+		subflow->s_slaves = s_slaves;
 #else
-		subflows[i]->w_m_lock = &w_m_lock;
-		subflows[i]->w_s_lock = &w_s_lock;
-		subflows[i]->w_jobs = &w_jobs;
-		subflows[i]->m_lock = &m_lock;
-		subflows[i]->m_jobs = &m_jobs;
-		subflows[i]->c_lock = &c_lock;
-		subflows[i]->c_jobs = &c_jobs;
+		subflow->w_m_lock = &w_m_lock;
+		subflow->w_s_lock = &w_s_lock;
+		subflow->w_jobs = &w_jobs;
+		subflow->m_lock = &m_lock;
+		subflow->m_jobs = &m_jobs;
+		subflow->c_lock = &c_lock;
+		subflow->c_jobs = &c_jobs;
 #endif
-
+		subflows[i] = subflow;
 	}
 //cerr << "Flow::Flow()... done" << endl;
 }
 
 Flow::~Flow(void) {
 //cerr << "Flow::~Flow()" << endl;
-#ifdef MT_QSEMAPHORES
+#ifdef __MT_QSEMAPHORES
 	if(cores > 1) {
 		for(int i = 0; i < SYNC_POINTS_COUNT; i++) {
 			delete s_master[i];
@@ -97,20 +94,84 @@ void Flow::set_private(void **data) {
 	for(int i = 0; i < cores; i++)
 		subflows[i]->_target_private = data[i];
 }
+
 //------------------------------------------------------------------------------
+SubFlow::SubFlow(Flow *parent) {
+	_parent = parent;
+	_master = true;
+	_cores = 1;
+	_target_private = NULL;
+}
+
+SubFlow::~SubFlow() {
+}
+
+void *SubFlow::get_private(void) {
+	return _target_private;
+}
 
 void SubFlow::set_private(void **array) {
 	if(_master)
 		_parent->set_private(array);
 }
 
-void SubFlow::sync_point(void) {
+bool SubFlow::wait(void) {
+	return true;
+}
+
+void SubFlow::start(void) {
+	if(method)
+		method(object, this, method_data);
+}
+
+//------------------------------------------------------------------------------
+void SubFlow_Function::sync_point(void) {
+}
+
+bool SubFlow_Function::sync_point_pre(void) {
+	return true;
+}
+
+void SubFlow_Function::sync_point_post(void) {
+}
+
+SubFlow_Function::~SubFlow_Function() {
+}
+
+//------------------------------------------------------------------------------
+SubFlow_Thread::SubFlow_Thread(Flow *parent, bool master, int cores) : QThread(), SubFlow(parent) {
+//	_parent = parent;
+	_master = master;
+	_cores = cores;
+	_target_private = NULL;
+#ifdef __MT_QSEMAPHORES
+	_sync_point = 0;
+#endif
+}
+
+SubFlow_Thread::~SubFlow_Thread() {
+}
+
+bool SubFlow_Thread::wait(void) {
+	return QThread::wait();
+}
+
+void SubFlow_Thread::start(void) {
+	QThread::start();
+}
+
+void SubFlow_Thread::run(void) {
+	if(method)
+		method(object, this, method_data);
+}
+
+void SubFlow_Thread::sync_point(void) {
 	sync_point_pre();
 	sync_point_post();
 }
 
-#ifdef MT_QSEMAPHORES
-bool SubFlow::sync_point_pre(void) {
+#ifdef __MT_QSEMAPHORES
+bool SubFlow_Thread::sync_point_pre(void) {
 	if(_cores > 1) {
 		if(_master) {
 			s_master[_sync_point]->acquire(_cores - 1);
@@ -122,7 +183,7 @@ bool SubFlow::sync_point_pre(void) {
 	return true;
 }
 
-void SubFlow::sync_point_post(void) {
+void SubFlow_Thread::sync_point_post(void) {
 	int sp = _sync_point;
 	if(_cores > 1) {
 		if(_master) {
@@ -143,7 +204,7 @@ void SubFlow::sync_point_post(void) {
 // - master flow would be waiting for call of ::sync_point_pre() from a slave flows, and then - return back.
 // - slave flows would be in a waiting state inside of this call for a call of ::sync_point_post() from a master flow.
 // - the goal of this calls pair: thread-safe and synchronous manipulation of flow's private data from the master flow.
-bool SubFlow::sync_point_pre(void) {
+bool SubFlow_Thread::sync_point_pre(void) {
 	if(_cores > 1) {
 		if(_master) {
 			// wait till all slaves are done
@@ -196,7 +257,7 @@ bool SubFlow::sync_point_pre(void) {
 	return true;
 }
 
-void SubFlow::sync_point_post(void) {
+void SubFlow_Thread::sync_point_post(void) {
 	if(_cores > 1) {
 		if(_master) {
 			// slaves back to work
@@ -223,3 +284,4 @@ void SubFlow::sync_point_post(void) {
 	}
 }
 #endif
+//------------------------------------------------------------------------------

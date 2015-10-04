@@ -27,6 +27,9 @@
 
 using namespace std;
 //------------------------------------------------------------------------------
+CMS_Matrix::~CMS_Matrix() {
+}
+
 class CMS_Matrix::color_space_t {
 public:
 	static map<string, pair<float, float> > illuminants;

@@ -35,6 +35,7 @@ protected:
 
 class CMS_Matrix {
 public:
+	virtual ~CMS_Matrix();
 	static CMS_Matrix *instance(void) {
 		if(_this == NULL)
 			_this = new CMS_Matrix();
@@ -62,7 +63,6 @@ public:
 protected:
 	static CMS_Matrix *_this;
 	CMS_Matrix(void);
-	~CMS_Matrix();
 	// FP_ interaction
 	class color_space_t;
 	static std::list<color_space_t> color_spaces;

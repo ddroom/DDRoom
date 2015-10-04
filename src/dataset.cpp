@@ -27,7 +27,7 @@ dataset_field_t::dataset_field_t(const dataset_field_t &other) {
 	type = other.type;
 	vString = other.vString;
 	value = other.value;
-	// do deep copying here	:-/
+	// --
 	if(type == type_vector_float) {
 		const QVector<float> *p = (QVector<float> *)other.value.v_ptr;
 		QVector<float> *ptr = new QVector<float>(*p);
@@ -46,7 +46,7 @@ dataset_field_t &dataset_field_t::operator = (const dataset_field_t &other) {
 		type = other.type;
 		vString = other.vString;
 		value = other.value;
-		// do deep copying here	:-/
+		// --
 		if(type == type_vector_float) {
 			const QVector<float> *p = (QVector<float> *)other.value.v_ptr;
 			QVector<float> *ptr = new QVector<float>(*p);
@@ -87,15 +87,13 @@ bool dataset_field_t::operator == (const dataset_field_t &other) {
 
 void dataset_field_t::_clean(void) {
 	if(type == type_vector_float) {
-		if(value.v_ptr != NULL) {
+		if(value.v_ptr != NULL)
 			delete (QVector<float> *)value.v_ptr;
-		}
 		value.v_ptr = NULL;
 	}
 	if(type == type_vector_qpointf) {
-		if(value.v_ptr != NULL) {
+		if(value.v_ptr != NULL)
 			delete (QVector<QPointF> *)value.v_ptr;
-		}
 		value.v_ptr = NULL;
 	}
 }
@@ -384,10 +382,16 @@ list<class field_delta_t> DataSet::get_fields_delta(DataSet *before, DataSet *af
 
 void DataSet::apply_fields_delta(const std::list<field_delta_t> *fields_delta, bool to_state_before) {
 	for(list<field_delta_t>::const_iterator it = fields_delta->begin(); it != fields_delta->end(); it++) {
+		cerr << "to_state_before == " << to_state_before << endl;
+		cerr << "field: \"" << (*it).field_name << "\" == " << "\"" << dataset_fields[(*it).field_name].serialize() << endl;
+		cerr << "delta before == \"" << (*it).field_before.serialize() << "\"" << endl;
+		cerr << "       after == \"" << (*it).field_after.serialize() << "\"" << endl;
 		if(to_state_before)
 			dataset_fields[(*it).field_name] = (*it).field_before;
 		else
 			dataset_fields[(*it).field_name] = (*it).field_after;
+		cerr << "field: \"" << (*it).field_name << "\" == " << "\"" << dataset_fields[(*it).field_name].serialize() << endl;
+cerr << endl;
 	}
 }
 

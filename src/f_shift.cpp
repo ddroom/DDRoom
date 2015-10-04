@@ -28,7 +28,7 @@ using namespace std;
 class FP_Shift : public FilterProcess_GP {
 public:
 	FP_Shift(void);
-	~FP_Shift();
+	virtual ~FP_Shift();
 	bool is_enabled(const PS_Base *ps_base);
 	FP_GP *get_new_FP_GP(const class FP_GP_data_t &data);
 protected:
@@ -773,6 +773,40 @@ bool F_Shift::mouseReleaseEvent(FilterEdit_event_t *et, Cursor::cursor &_cursor)
 	return true;
 }
 
+float angle(class Metadata *metadata, double angle_v, double angle_h, double angle_r, float *guide_0, float *guide_1) {
+	float g0[4];
+	float g1[4];
+	FP_GP_Shift shift(metadata, angle_v, angle_h, angle_r);
+//cerr << "angle_v == " << angle_v << endl;
+	shift.process_forward(guide_0[0], guide_0[1], g0[0], g0[1]);
+	shift.process_forward(guide_0[2], guide_0[3], g0[2], g0[3]);
+	if(guide_1 != NULL) {
+		shift.process_forward(guide_1[0], guide_1[1], g1[0], g1[1]);
+		shift.process_forward(guide_1[2], guide_1[3], g1[2], g1[3]);
+	} else {
+		g1[0] = g0[0];
+		g1[1] = g0[1];
+		g1[2] = g0[0];
+		g1[3] = g0[1] + ((g0[3] - g0[1]) < 0.0f ? -50.0f : 50.0f);
+	}
+	// calculate angle
+	float u0 = g0[2] - g0[0];
+	float u1 = g0[3] - g0[1];
+	float v0 = g1[2] - g1[0];
+	float v1 = g1[3] - g1[1];
+	float lu = sqrtf(u0 * u0 + u1 * u1);
+	float lv = sqrtf(v0 * v0 + v1 * v1);
+	u0 /= lu; u1 /= lu;
+	v0 /= lv; v1 /= lv;
+	float dot_product = u0 * v0 + u1 * v1;
+//	float cos_a = dot_product / (lu * lv);
+	float cos_a = dot_product;
+//cerr << "cos_a == " << cos_a << endl;
+	float angle = acosf(cos_a);
+	angle = (angle / M_PI) * 180.0f;
+	return angle;
+}
+
 void F_Shift::edit_UI_process_guide(QLineF guide, FilterEdit_event_t *et) {
 	bool is_first_guide = ps->guide_undefined(0);
 //cerr << "is_first_guide == " << is_first_guide << endl;
@@ -789,8 +823,51 @@ void F_Shift::edit_UI_process_guide(QLineF guide, FilterEdit_event_t *et) {
 		et->transform.image_to_photo_f(ps_guide[0 + off], ps_guide[1 + off], im[0], im[1]);
 //cerr << "image[" << j << "] at " << im[0] << " - " << im[1] << endl;
 	}
-	if(!ps->guide_undefined(0) && !ps->guide_undefined(1)) {
+	if(!ps->guide_undefined(0) && !ps->guide_undefined(1) && et->metadata != NULL) {
 		cerr << "!!! process guides !!!" << endl;
+		double angle_v = 0.0f;
+		double angle_h = 0.0f;
+		double angle_r = 0.0f;
+		float guide_first[4];
+		float guide_second[4];
+		for(int i = 0; i < 4; i++) {
+			guide_first[i] = ps->guide_first[i];
+			guide_second[i] = ps->guide_second[i];
+		}
+		float original_angle = angle(et->metadata, angle_v, angle_h, angle_r, guide_first, guide_second);
+		if(d_abs(original_angle) > 90.0f) {
+			guide_second[0] = ps->guide_second[2];
+			guide_second[1] = ps->guide_second[3];
+			guide_second[2] = ps->guide_second[0];
+			guide_second[3] = ps->guide_second[1];
+		}
+		float a_delta = 60.0f * 1.2f;
+//cerr << "a_prev == " << a_prev << endl;
+		// - use a real selection with decreased grain
+		// - add rotation correction
+		while(true) {
+			float a_minus = angle(et->metadata, angle_v - a_delta, angle_h, angle_r, guide_first, guide_second);
+			float a_plus = angle(et->metadata, angle_v + a_delta, angle_h, angle_r, guide_first, guide_second);
+			a_delta *= 0.66f;
+			if(a_minus < a_plus) {
+				angle_v -= a_delta;
+			} else {
+				angle_v += a_delta;
+			}
+			if(a_delta < 0.001f)
+				break;
+		}
+cerr << "angle_v == " << angle_v << "; a_delta == " << a_delta << endl;
+/*
+		float guide_v[4];
+		guide_v[0] = guide_first[0];
+		guide_v[1] = guide_first[1];
+		guide_v[2] = guide_first[0];
+		guide_v[3] = guide_first[1] + (((guide_first[3] - guide_first[1]) > 0.0f) ? 100.0f : -100.0f);
+*/
+		angle_r = -angle(et->metadata, angle_v, angle_h, angle_r, guide_first, NULL);
+cerr << "angle_r == " << angle_r << endl;
+cerr << endl;
 	}
 /*
 	cerr << "ps_guide[0] == " << ps_guide[0] << endl;

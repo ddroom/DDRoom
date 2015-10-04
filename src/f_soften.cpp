@@ -40,7 +40,7 @@ public:
 class FP_Soften : public FilterProcess_2D {
 public:
 	FP_Soften(void);
-	~FP_Soften();
+	virtual ~FP_Soften();
 
 	bool is_enabled(const PS_Base *ps_base);
 	Area *process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj);

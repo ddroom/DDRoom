@@ -15,7 +15,7 @@
 #include <QWaitCondition>
 
 //------------------------------------------------------------------------------
-// class-agent to complete asynchronous tasks by one performer and loose all accepted tasks while performer is busy except the last one.
+// class-agent to complete asynchronous tasks by one performer and loose all accepted tasks while performer is busy, except the last one.
 // useful to perform actions initiated by mouse
 template<class T> class events_compressor : public QThread {
 public:

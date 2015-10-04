@@ -78,7 +78,7 @@ class PreferencesDialog : public QDialog {
 
 public:
 	PreferencesDialog(QWidget *parent, const std::map<std::string, class DataSet> *dataset);
-	~PreferencesDialog();
+	virtual ~PreferencesDialog();
 	std::map<std::string, class DataSet> dataset;
 
 protected:

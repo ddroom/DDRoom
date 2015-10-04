@@ -642,28 +642,47 @@ void EditHistory::add_eh_filter_records(const QVector<eh_filter_record_t> &filte
 	if(!edit_history->h_before.empty() && edit_history_compression) {
 		eh_record_t &last_record = edit_history->h_before.last();
 		// check time delta
-//cerr << endl;
 //cerr << "time delta: " << _abs(last_record.time.msecsTo(record.time)) << endl;
 		if(_abs(last_record.time.msecsTo(record.time)) <= compression_time_delta) {
 			// check filters
-//			QSet<std::string> set_1;
 			std::set<std::string> set_1;
 			for(int i = 0; i < last_record.filter_records.size(); i++)
 				set_1.insert(last_record.filter_records[i].filter->id().c_str());
-//				set_1.insert(QString::fromLocal8Bit(last_record.filter_records[i].filter->id().c_str()));
-//			QSet<std::string> set_2;
 			std::set<std::string> set_2;
-//			QSet<QString> set_2;
 			for(int i = 0; i < record.filter_records.size(); i++)
 				set_2.insert(record.filter_records[i].filter->id().c_str());
-//				set_2.insert(QString::fromLocal8Bit(record.filter_records[i].filter->id().c_str()));
-			if(set_1 == set_2)
+			if(set_1 == set_2) {
 				add_record = false;
+				// relplace 'field_after' for record at the top of 'history_before', to do an actual compression
+				for(int i = 0; i < last_record.filter_records.size(); i++) {
+					eh_filter_record_t &fr_last = last_record.filter_records[i];
+					for(int j = 0; j < record.filter_records.size(); j++) {
+						if(record.filter_records[j].filter->id() == fr_last.filter->id()) {
+							//--
+							eh_filter_record_t &fr = record.filter_records[j];
+							for(std::list<class field_delta_t>::iterator it_last = fr_last.deltas.begin(); it_last != fr_last.deltas.end(); it_last++) {
+								for(std::list<class field_delta_t>::iterator it = fr.deltas.begin(); it != fr.deltas.end(); it++) {
+									if((*it_last).field_name == (*it).field_name) {
+										(*it_last).field_after = (*it).field_after;
+										break;
+									}
+								}
+							}
+						}
+					}
+					last_record.description[i] = last_record.filter_records[i].get_description();
+				}
+			}
 		}
 	}
 	if(add_record) {
-		edit_history->h_after.erase(edit_history->h_after.begin(), edit_history->h_after.end());
+		edit_history->h_after.clear();
 		edit_history->h_before.push_back(record);
+/*
+cerr << "add record, " << filter_records[0].deltas.front().field_name << endl;
+cerr << "            " << filter_records[0].deltas.front().field_before.serialize() << endl;
+cerr << "            " << filter_records[0].deltas.front().field_after.serialize() << endl;
+*/
 	}
 	//--
 	// TODO: how signal to ViewModel what was changed ?
@@ -686,10 +705,16 @@ void EditHistory::move(bool is_undo) {
 	// TODO: add 'fast' undo/redo
 	eh_record_t record;
 	if(is_undo) {
+		if(edit_history->h_before.empty())
+			return;
+//cerr << "undo, h_before.size() == " << edit_history->h_before.size() << "; h_after.size() == " << edit_history->h_after.size() << endl;
 		record = edit_history->h_before.back();
 		edit_history->h_before.pop_back();
 		edit_history->h_after.push_front(record);
 	} else {
+		if(edit_history->h_after.empty())
+			return;
+//cerr << "redo, h_before.size() == " << edit_history->h_before.size() << "; h_after.size() == " << edit_history->h_after.size() << endl;
 		record = edit_history->h_after.front();
 		edit_history->h_after.pop_front();
 		edit_history->h_before.push_back(record);

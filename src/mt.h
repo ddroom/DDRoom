@@ -20,23 +20,23 @@ inline int _mt_qatom_fetch_and_add(QAtomicInt *atom, int value) {
 	return atom->fetchAndAddOrdered(value);
 }
 
-//#define MT_QSEMAPHORES
-#undef MT_QSEMAPHORES
+#define __MT_QSEMAPHORES
+//#undef __MT_QSEMAPHORES
 
 //------------------------------------------------------------------------------
 class Flow {
 	friend class SubFlow;
 
 public:
-	Flow(void (*method)(void *obj, class SubFlow *subflow, void *data), void *object, void *method_data);
-	~Flow(void);
+	Flow(void (*method)(void *obj, class SubFlow *subflow, void *data), void *object, void *method_data, int force_cores_to = 0);
+	virtual ~Flow(void);
 	void flow(void);
 
 protected:
 	void set_private(void **priv_array);
 	class SubFlow **subflows;
 	int cores;
-#ifdef MT_QSEMAPHORES
+#ifdef __MT_QSEMAPHORES
 	QSemaphore **s_master;
 	QSemaphore **s_slaves;
 #else
@@ -47,45 +47,34 @@ protected:
 	QMutex m_jobs;
 	QAtomicInt c_lock;
 	QAtomicInt c_jobs;
-//	volatile int c_lock;
-//	volatile int c_jobs;
 #endif
 };
 
 //------------------------------------------------------------------------------
-class SubFlow : public QThread {
-	Q_OBJECT
-
+class SubFlow {
 	friend class Flow;
+
 public:
-	bool is_master(void) {return _master;}
-	int cores(void) {return _cores;}
+	SubFlow(Flow *parent);
+	virtual ~SubFlow();
 
-	void set_private(void **priv_array);
+	virtual bool is_master(void) {return _master;}
+	virtual int cores(void) {return _cores;}
 
-	void sync_point(void);
-	bool sync_point_pre(void);
-	void sync_point_post(void);
+	// Some data that should be shared between all of the threads.
+	virtual void set_private(void **priv_array);
+	virtual void *get_private(void);
 
-	// some data that should be transferred from the master to all threads
-	void *get_private(void) {
-		return _target_private;
-	}
+	// Note: avoid recursion of sync_point_pre()/sync_point_post() calls.
+	virtual void sync_point(void) = 0;
+	virtual bool sync_point_pre(void) = 0;
+	virtual void sync_point_post(void) = 0;
+
+	virtual bool wait(void);
+	virtual void start(void);
 
 protected:
-	SubFlow(Flow *parent, bool master, int cores) : QThread() {
-		_parent = parent;
-		_master = master;
-		_cores = cores;
-		_target_private = NULL;
-#ifdef MT_QSEMAPHORES
-		_sync_point = 0;
-#endif
-	}
-
-	void run(void) {
-		method(object, this, method_data);
-	}
+//	virtual void run(void);
 	void (*method)(void *, class SubFlow *, void *);
 	void *object;
 	void *method_data;
@@ -93,10 +82,37 @@ protected:
 	Flow *_parent;
 	bool _master;
 	int _cores;
-	
 	void *_target_private;
+};
 
-#ifdef MT_QSEMAPHORES
+//------------------------------------------------------------------------------
+class SubFlow_Function : public SubFlow {
+public:
+	virtual ~SubFlow_Function();
+	void sync_point(void);
+	bool sync_point_pre(void);
+	void sync_point_post(void);
+};
+
+//------------------------------------------------------------------------------
+class SubFlow_Thread : public QThread,  public SubFlow {
+	Q_OBJECT
+	friend class Flow;
+
+public:
+	virtual ~SubFlow_Thread();
+	void sync_point(void);
+	bool sync_point_pre(void);
+	void sync_point_post(void);
+
+	bool wait(void);
+	void start(void);
+
+protected:
+	SubFlow_Thread(Flow *parent, bool master, int cores);
+	void run(void);
+
+#ifdef __MT_QSEMAPHORES
 	QSemaphore **s_master;
 	QSemaphore **s_slaves;
 	int _sync_point;
@@ -108,11 +124,8 @@ protected:
 	QMutex *m_jobs;
 	QAtomicInt *c_lock;
 	QAtomicInt *c_jobs;
-//	volatile int *c_lock;
-//	volatile int *c_jobs;
 #endif
 };
 
 //------------------------------------------------------------------------------
-
 #endif // __H_MT__

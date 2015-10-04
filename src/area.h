@@ -102,7 +102,7 @@ public:
 		format_rgb_8	// for JPEG export etc...
 	};
 	Area(void);
-	~Area();
+	virtual ~Area();
 	Area(int32_t width, int32_t height, Area::type_t type = type_float_p4);
 	Area(const t_dimensions *_dims, Area::type_t type = type_float_p4);
 	Area(Area const &copy);

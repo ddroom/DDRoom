@@ -82,7 +82,7 @@ public:
 class FP_Unsharp : public FilterProcess_2D {
 public:
 	FP_Unsharp(void);
-	~FP_Unsharp();
+	virtual ~FP_Unsharp();
 	bool is_enabled(const PS_Base *ps_base);
 	Area *process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj);
 
