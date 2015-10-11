@@ -642,27 +642,42 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 		for(int x = x_min; x < x_max; x++) {
 			const int k = w4 * (y + 2) + (x + 2) * 4;
 			const int s = __bayer_pos_to_c(x, y);
+			_rgba[k + 0] = _rgba[k + 1];
 			if(s == p_red || s == p_blue) {
 				const int d4 = d_ptr[k + 3] & D4_MASK;
 				if(d4 == D4_NW) { // '\'
 					const int d1 = d_ptr[k - w4 - 4 + 3] & D4_MASK;
 					const int d2 = d_ptr[k + w4 + 4 + 3] & D4_MASK;
 					if(d1 == D4_NW || d2 == D4_NW)
-						_rgba[k + 1] = (_rgba[k - w4 - 4 + 1] + _rgba[k + 1] + _rgba[k + w4 + 4 + 1]) / 3.0f;
+						_rgba[k + 0] = (_rgba[k - w4 - 4 + 1] + _rgba[k + 1] + _rgba[k + w4 + 4 + 1]) / 3.0f;
+//						_rgba[k + 1] = (_rgba[k - w4 - 4 + 1] + _rgba[k + 1] + _rgba[k + w4 + 4 + 1]) / 3.0f;
 				}
 				if(d4 == D4_NE) { // '/'
 					const int d1 = d_ptr[k - w4 + 4 + 3] & D4_MASK;
 					const int d2 = d_ptr[k + w4 - 4 + 3] & D4_MASK;
 					if(d1 == D4_NE || d2 == D4_NE)
-						_rgba[k + 1] = (_rgba[k - w4 + 4 + 1] + _rgba[k + 1] + _rgba[k + w4 - 4 + 1]) / 3.0f;
+						_rgba[k + 0] = (_rgba[k - w4 + 4 + 1] + _rgba[k + 1] + _rgba[k + w4 - 4 + 1]) / 3.0f;
+//						_rgba[k + 1] = (_rgba[k - w4 + 4 + 1] + _rgba[k + 1] + _rgba[k + w4 - 4 + 1]) / 3.0f;
 				}
 			}
+		}
+	}
+	//---------------------------
+//	if(subflow->sync_point_pre())
+//		mirror_2(width, height, _m);
+//	subflow->sync_point_post();
+	//---------------------------
+	for(int y = y_min; y < y_max; y++) {
+		for(int x = x_min; x < x_max; x++) {
+			const int k = w4 * (y + 2) + (x + 2) * 4;
+			_rgba[k + 1] = _rgba[k + 0];
 		}
 	}
 	//---------------------------
 	if(subflow->sync_point_pre())
 		mirror_2(width, height, _m);
 	subflow->sync_point_post();
+	//---------------------------
 #endif
 
 #if 1
