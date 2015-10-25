@@ -412,7 +412,7 @@ void GUI_Curve::keyPressEvent(QKeyEvent *event) {
 	if(curves.size() < 1)
 		return;
 //	if(point_active_index == -1)
-	if(point_active_index < 0)
+	if(point_active_index < 0 && level_active_index < 0)
 		return;
 //	cerr << "GUI_Curve::keyPressEvent" << endl;
 	int offset_x = 0;
@@ -421,15 +421,28 @@ void GUI_Curve::keyPressEvent(QKeyEvent *event) {
 	if(event->key() == Qt::Key_Down)	offset_y--;
 	if(event->key() == Qt::Key_Left)	offset_x--;
 	if(event->key() == Qt::Key_Right)	offset_x++;
-	if(offset_x != 0 || offset_y != 0) {
-		QVector<QPointF> &points = curves[curve_active_index];
-		double x = points[point_active_index].x() * (size_w - 1);
-		double y = points[point_active_index].y() * (size_h - 1);
-		x = (x + offset_x) / double(size_w - 1);
-		y = (y + offset_y) / double(size_h - 1);
+	bool update = false;
+	if(level_active_index != -1 && offset_x != 0) {
+		update = true;
+		float x = levels[level_active_index] * (size_w - 1);
+		x = (x + offset_x) / float(size_w - 1);
 		_clip(x, 0.0, 1.0);
-		_clip(y, 0.0, 1.0);
-		points[point_active_index] = QPointF(x, y);
+		levels[level_active_index] = x;
+	} else {
+		// points
+		if(offset_x != 0 || offset_y != 0) {
+			update = true;
+			QVector<QPointF> &points = curves[curve_active_index];
+			double x = points[point_active_index].x() * (size_w - 1);
+			double y = points[point_active_index].y() * (size_h - 1);
+			x = (x + offset_x) / double(size_w - 1);
+			y = (y + offset_y) / double(size_h - 1);
+			_clip(x, 0.0, 1.0);
+			_clip(y, 0.0, 1.0);
+			points[point_active_index] = QPointF(x, y);
+		}
+	}
+	if(update) {
 		do_update();
 		emit signal_curve_update(curves, levels);
 	}
