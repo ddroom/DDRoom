@@ -547,8 +547,8 @@ void F_WB::load_temp_ui(const Metadata *metadata) {
 //cerr << "   scale_ref == " << scale_ref[i] << endl;
 //cerr << "scale_camera == " << scale_camera[i] << endl;
 	}
-	if(!valid)
-		return;
+	if(!valid && metadata->is_raw)
+			return;
 	for(int i = 0; i < 9; i++)
 		cRGB_to_XYZ[i] = metadata->cRGB_to_XYZ[i];
 	if(ps->defined == false) {
@@ -855,13 +855,18 @@ void F_WB::slot_checkbox_auto_f(int state, bool &ps_value) {
 }
 
 void F_WB::slot_radio_wb(int index) {
-	if(!temp_initialized)
+	if(!temp_initialized) {
+cerr << "return..." << endl;
 		return;
+	}
 //	if(combo_wb_skip)
 //		return;
 	std::string index_id = wb_presets[index].id;
-	if(ps->wb_id == index_id)
+	if(ps->wb_id == index_id) {
+cerr << "slot_radio_wb - return" << endl;
 		return;
+}
+cerr << "slot_radio_wb" << endl;
 	ps->wb_id = index_id;
 	ps->defined = true;
 	if(index >= 2) {
