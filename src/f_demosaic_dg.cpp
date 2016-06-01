@@ -512,6 +512,9 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 //	float *gaussian = task->gaussian;
 	//------------
 	// pass III: determine directions of green plane, reconstruct GREEN by direction, copy known RED and BLUE
+//	float median = 0.3f;
+//	float median_low = median - 0.05f;
+//	float median_high = median + 0.05f;
 	for(int y = y_min; y < y_max; y++) {
 		for(int x = x_min; x < x_max; x++) {
 			const int k = ((width + 4) * (y + 2) + x + 2) * 4;
@@ -540,14 +543,19 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 			if(C[0] == C[2])
 				_rgba[k + 1] = (_rgba[k + 2] + _rgba[k + 0]) * 0.5;
 #else
-//			const int s = __bayer_pos_to_c(x, y);
-//			if(s == p_red || s == p_blue) {
+//		const int s = __bayer_pos_to_c(x, y);
+//		if(s == p_red || s == p_blue) {
+			// skip clipped areas
+			if(C[0] < 0.95f && C[2] < 0.95f && C[0] > 0.05f && C[2] > 0.05f) {
+//			if(C[0] < median_high && C[2] < median_high && C[0] > median_low && C[2] > median_low) {
 				float dd = _abs(C[0] - C[2]);
 				_rgba[k + 1] = dd;
 				long dd_index = (dd * task->dd_hist_scale) * task->dd_hist_size;
 				if(dd_index > 0 && dd_index < task->dd_hist_size)
 					task->dd_hist[dd_index]++;
 //			}
+			}
+//		}
 #endif
 			// store directions - in alpha channel
 			// '-' '\' '|' '/' - 0, 1, 2, 3
@@ -579,6 +587,7 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 	// fill missed GREEN with refined from directional noise values
 	// TODO: use a more appropriate noise analysis for 'dd_limit' value,
 	//       and pprobably not a linear shift function (?)
+	// Looks like dd (direction delta) is not the same in dark and bright areas - measure it.
 	if(subflow->sync_point_pre()) {
 		long *dd_hist = task->dd_hist;
 		long dd_hist_size = task->dd_hist_size;
@@ -597,12 +606,13 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 				break;
 			}
 		dd_limit *= 9.0f;
+//		dd_limit *= 3.0f;
 //		dd_limit = 0.06f;
 		for(int i = 0; i < subflow->cores(); i++) {
 			task_t *_task = ((task_t **)task->_tasks)[i];
 			_task->dd_limit = dd_limit;
 		}
-//		cerr << "dd_limit == " << dd_limit << endl;
+//		cerr << "dd_limit for median == " << median << " == " << dd_limit << endl;
 	}
 	subflow->sync_point_post();
 

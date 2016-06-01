@@ -3,8 +3,8 @@
 /*
  * f_projection.h
  *
- * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * This source code is a part of the 'DDRoom' project.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
@@ -17,7 +17,7 @@
 #include "mt.h"
 
 //------------------------------------------------------------------------------
-class F_Projection : public Filter, public FilterEdit {
+class F_Projection : public Filter {
 	Q_OBJECT
 
 public:
@@ -36,12 +36,8 @@ public:
 	void set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t args);
 
 public slots:
-	void slot_action_edit(bool checked);
 	void slot_checkbox_enable(int state);
 	void slot_changed_strength(double value);
-
-signals:
-	void signal_filter_edit(FilterEdit *, bool, int);
 
 protected:
 	class PS_Projection *ps;
@@ -50,35 +46,10 @@ protected:
 
 	// controls
 	QWidget *widget;
-	QAction *q_action_precise;
 	QCheckBox *checkbox_enable;
 	class GuiSlider *slider_strength;
 	void reconnect(bool to_connect);
 
-	bool edit_active;
-	QPoint mouse_start;
-	QPoint mouse_position;
-
-	float guide_min_length;
-
-// edit mode interaction
-public:
-	void draw(QPainter *painter, FilterEdit_event_t *et);
-	bool mousePressEvent(FilterEdit_event_t *mt, Cursor::cursor &_cursor);
-	bool mouseReleaseEvent(FilterEdit_event_t *mt, Cursor::cursor &_cursor);
-	bool mouseMoveEvent(FilterEdit_event_t *mt, bool &accepted, Cursor::cursor &_cursor);
-
-	void edit_mode_exit(void);
-	void edit_mode_forced_exit(void);
-
-protected:
-	bool edit_mode_enabled;
-	double edit_angle_normalize(double _angle);
-
-	// OSD
-	bool edit_draw_OSD;
-	double edit_OSD_angle;
-	double edit_OSD_offset;
 };
 //------------------------------------------------------------------------------
 

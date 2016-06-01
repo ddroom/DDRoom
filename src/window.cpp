@@ -365,7 +365,7 @@ void Window::menu_help_about(void) {
 	about_str += "version: ";
 	about_str += APP_VERSION;
 	about_str += "<br>";
-	about_str += "Copyright &copy; 2015 Mykhailo Malyshko a.k.a. Spectr";
+	about_str += "Copyright &copy; 2015-2016 Mykhailo Malyshko a.k.a. Spectr";
 	about_str += "<br>";
 	about_str += "License: GPL version 3";
 	about_str += "<br>";

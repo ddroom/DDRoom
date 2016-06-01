@@ -292,8 +292,8 @@ Filter_Store::Filter_Store(void) {
 	filters_list_offline.push_back(f_wb);
 	// geometry
 	filters_list_offline.push_back(f_chromatic_aberration);
-	filters_list_offline.push_back(f_projection);
 	filters_list_offline.push_back(f_distortion);
+	filters_list_offline.push_back(f_projection);
 	filters_list_offline.push_back(f_shift);
 	filters_list_offline.push_back(f_rotation);
 	filters_list_offline.push_back(f_crop);
@@ -335,7 +335,7 @@ Filter_Store::Filter_Store(void) {
 */
 	// 'color picker' for white balance
 //	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_wb, f_wb));
-	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_projection, f_projection));
+//	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_projection, f_projection));
 	// should be implemented - UI helper for shift
 	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_shift, f_shift));
 	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_rotation, f_rotation));

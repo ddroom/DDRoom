@@ -17,10 +17,10 @@
 using namespace std;
 
 //------------------------------------------------------------------------------
-Flow::Flow(void (*method)(void *, class SubFlow *, void *), void *object, void *method_data, int force_cores_to) {
+Flow::Flow(void (*method)(void *, class SubFlow *, void *), void *object, void *method_data, Flow::flow_method_t flow_method) {
 	cores = System::instance()->cores();
-	if(force_cores_to != 0)
-		cores = force_cores_to;
+	if(flow_method == flow_method_function)
+		cores = 1;
 //cerr << "cores == " << cores << endl;
 //cerr << "Flow::Flow()" << endl;
 	subflows = new SubFlow *[cores];
@@ -40,22 +40,28 @@ Flow::Flow(void (*method)(void *, class SubFlow *, void *), void *object, void *
 #endif
 
 	for(int i = 0; i < cores; i++) {
-		SubFlow_Thread *subflow = new SubFlow_Thread(this, (i == 0), cores);
+		SubFlow *subflow(NULL);
+		if(flow_method == flow_method_thread) {
+			SubFlow_Thread *st = new SubFlow_Thread(this, (i == 0), cores);
+#ifdef __MT_QSEMAPHORES
+			st->s_master = s_master;
+			st->s_slaves = s_slaves;
+#else
+			st->w_m_lock = &w_m_lock;
+			st->w_s_lock = &w_s_lock;
+			st->w_jobs = &w_jobs;
+			st->m_lock = &m_lock;
+			st->m_jobs = &m_jobs;
+			st->c_lock = &c_lock;
+			st->c_jobs = &c_jobs;
+#endif
+			subflow = st;
+		}
+		if(flow_method == flow_method_function)
+			subflow = new SubFlow_Function(this);
 		subflow->method = method;
 		subflow->object = object;
 		subflow->method_data = method_data;
-#ifdef __MT_QSEMAPHORES
-		subflow->s_master = s_master;
-		subflow->s_slaves = s_slaves;
-#else
-		subflow->w_m_lock = &w_m_lock;
-		subflow->w_s_lock = &w_s_lock;
-		subflow->w_jobs = &w_jobs;
-		subflow->m_lock = &m_lock;
-		subflow->m_jobs = &m_jobs;
-		subflow->c_lock = &c_lock;
-		subflow->c_jobs = &c_jobs;
-#endif
 		subflows[i] = subflow;
 	}
 //cerr << "Flow::Flow()... done" << endl;
@@ -125,6 +131,12 @@ void SubFlow::start(void) {
 }
 
 //------------------------------------------------------------------------------
+SubFlow_Function::SubFlow_Function(Flow *parent) : SubFlow(parent) {
+}
+
+SubFlow_Function::~SubFlow_Function() {
+}
+
 void SubFlow_Function::sync_point(void) {
 }
 
@@ -133,9 +145,6 @@ bool SubFlow_Function::sync_point_pre(void) {
 }
 
 void SubFlow_Function::sync_point_post(void) {
-}
-
-SubFlow_Function::~SubFlow_Function() {
 }
 
 //------------------------------------------------------------------------------

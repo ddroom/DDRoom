@@ -397,8 +397,6 @@ void Process::process_online(void *ptr, QSharedPointer<Photo_t> photo, int reque
 //cerr << "photo->area_raw == " << (unsigned long)photo->area_raw << endl;
 		if(photo->area_raw == NULL || !photo->area_raw->valid()) {
 			if(!photo->area_raw->valid()) {
-// TODO: add OOM notice
-//				cerr << "OOM" << endl;
 				OOM_desc_t *OOM_desc = new OOM_desc_t;
 				OOM_desc->photo_id = photo->photo_id;
 				OOM_desc->at_export = false;
@@ -434,11 +432,11 @@ cerr << "decline processing task, failed to import \"" << photo->photo_id.get_ex
 				continue;
 		filter_record_t filter_record;
 		filter_record.filter = *it;
+		filter_record.fp = (*it)->getFP();
 		// TODO: separate edit update and real process; move edit to size_forward routine, or somewhere else...
 		//	- check on 'f_crop'
 		filter_record.ps_base = map_ps_base[*it];
 		// here filter can determine its passes tpe - single or two;
-		filter_record.fp = (*it)->getFP();
 		filter_records.push_back(filter_record);
 	}
 	allocate_process_caches(filter_records, photo);
@@ -449,6 +447,7 @@ cerr << "decline processing task, failed to import \"" << photo->photo_id.get_ex
 
 	// apply filters
 	Flow flow(Process::subflow_run_mt, NULL, (void *)&task);
+//	Flow flow(Process::subflow_run_mt, NULL, (void *)&task, Flow::flow_method_function);
 	flow.flow();
 
 	// a real result should be handled by View via TilesReceiver; signal 'signal_process_complete' should be send from the other place
@@ -694,6 +693,18 @@ void Process::run_mt(SubFlow *subflow, void *data) {
 	if(process_source == ProcessSource::s_process_export || process_source == ProcessSource::s_load || process_source == ProcessSource::s_demosaic)
 		to_process_demosaic = true;
 	if(to_process_demosaic) {
+		// clean up demosaic and WB caches if any
+		if(is_master) {
+			if(process_cache->area_demosaic != NULL) {
+				delete process_cache->area_demosaic;
+				process_cache->area_demosaic = NULL;
+			}
+			if(process_cache->area_wb != NULL) {
+				delete process_cache->area_wb;
+				process_cache->area_wb = NULL;
+			}
+		}
+		// process
 		if(is_master) {
 			prof->mark("Demosaic");
 			task->tiles_receiver->long_wait(true);
@@ -711,7 +722,6 @@ void Process::run_mt(SubFlow *subflow, void *data) {
 	if(is_master && process_wb && process_cache->area_wb != NULL) {
 		delete process_cache->area_wb;
 		process_cache->area_wb = NULL;
-//cerr << "!!! delete reset area_wb" << endl;
 	}
 	// create list of enabled filters
 	list<class filter_record_t> pl_filters[3];	// 0 - thumbnail, 1 - tiles, 2 - tiles & demosaic
@@ -1106,8 +1116,8 @@ void Process::process_filters(SubFlow *subflow, Process::task_run_t *task, std::
 //			process_obj = task->process_obj;
 			filter_obj.filter = task->is_offline ? NULL : filter;
 			filter_obj.is_offline = task->is_offline;
-//			if(is_master)
-//				cerr << "process filter: \"" << (*it).fp_2d->name() << "\"" << endl;
+			if(is_master)
+				cerr << "process filter: \"" << (*it).fp_2d->name() << "\"" << endl;
 			Area *area_rez = (*it).fp_2d->process(&mt_obj, task->process_obj, &filter_obj);
 			if(subflow->sync_point_pre()) {
 				// NOTE WB: cache area if result of WB filter

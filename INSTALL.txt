@@ -7,6 +7,16 @@ Qt 5.5.0 or newer; zlib; jpeglib; libpng; libtiff; openjpeg 1.x.x; expat; libexi
 Run 'qmake' from the Qt 5.5 installation at folder with sources (where is 'ddroom.pro');
 then build with a command 'make install' - and result would be file 'ddroom'.
 
+Necessary headers:
+OpenGL:		'mesa-common-dev' or other;
+Exiv2:		'libexiv2-dev';
+Lensfun:	'liblensfun-dev';
+JpegLib:	'libjpeg8-dev';
+Jpeg2000:	'libopenjpeg-dev';
+TIFF:		'libtiff5-dev';
+PNG:		'libpng12-dev';
+GL:			'libgl1-mesa-dev';
+
 =================================================================================================
 
 --== win32 build with MinGW ==--

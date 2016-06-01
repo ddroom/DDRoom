@@ -17,6 +17,7 @@
 #include <QThread>
 
 inline int _mt_qatom_fetch_and_add(QAtomicInt *atom, int value) {
+//	return atom->fetchAndAddRelaxed(value);
 	return atom->fetchAndAddOrdered(value);
 }
 
@@ -28,7 +29,11 @@ class Flow {
 	friend class SubFlow;
 
 public:
-	Flow(void (*method)(void *obj, class SubFlow *subflow, void *data), void *object, void *method_data, int force_cores_to = 0);
+	enum flow_method_t {
+		flow_method_thread,
+		flow_method_function
+	};
+	Flow(void (*method)(void *obj, class SubFlow *subflow, void *data), void *object, void *method_data, flow_method_t flow_method = flow_method_thread);
 	virtual ~Flow(void);
 	void flow(void);
 
@@ -88,6 +93,7 @@ protected:
 //------------------------------------------------------------------------------
 class SubFlow_Function : public SubFlow {
 public:
+	SubFlow_Function(Flow *parent);
 	virtual ~SubFlow_Function();
 	void sync_point(void);
 	bool sync_point_pre(void);

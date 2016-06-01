@@ -19,6 +19,7 @@
 	- split "process source" from one element to two - actual process source, by event,
 		and source of update as filter, if any - should be necessary for improved cache system,
 		and correct undo/redo with F_Demosaic;
+	 --use dynamic list of 'edit' filters;
 
  */
 
@@ -615,8 +616,9 @@ void Edit::slot_view_active(void *data) {
 	}
 	// here active session is other, but filter keep previous session_id, so process on update will be forced offline
 	// leave 'edit' mode
+	// TODO: use dynamic list of 'edit' filters
 //	fstore->f_wb->edit_mode_forced_exit();
-	fstore->f_projection->edit_mode_forced_exit();
+//	fstore->f_projection->edit_mode_forced_exit();
 	fstore->f_shift->edit_mode_forced_exit();
 	fstore->f_rotation->edit_mode_forced_exit();
 	fstore->f_crop->edit_mode_forced_exit();
