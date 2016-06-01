@@ -83,6 +83,13 @@ FP_Projection_Gnomonic_TF::FP_Projection_Gnomonic_TF(float _radians_per_pixel, f
 	radians_per_pixel = _radians_per_pixel;
 	focal_length_px = _focal_length_px;
 	_init(_min, _max, TABLE_FUNCTION_TABLE_SIZE);
+	// C++11 sample code
+///*
+	int my_array[5] = {1, 2, 3, 4, 5};
+	for(int &x : my_array) {
+		x *= 2;
+	}
+//*/
 }
 
 float FP_Projection_Gnomonic_TF::function(float x) {

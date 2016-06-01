@@ -196,11 +196,13 @@ QMAKE_CXXFLAGS_DEBUG += -ggdb
 QMAKE_CXXFLAGS_DEBUG += -fstack-check
 QMAKE_CFLAGS_DEBUG += -O0
 QMAKE_CFLAGS_DEBUG += -ggdb
-CONFIG += thread
 
 CONFIG += debug_and_release
 #CONFIG += debug
 #CONFIG += release
+
+CONFIG += thread
+CONFIG += c++11
 
 win32 {
 	RC_ICONS = resources/ddroom.ico

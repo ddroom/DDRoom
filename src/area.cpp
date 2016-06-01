@@ -193,7 +193,18 @@ QPixmap Area::to_qpixmap(void) {
 		return QPixmap();
 	int w = dimensions()->width();
 	int h = dimensions()->height();
-	return QPixmap(QPixmap::fromImage(QImage((uchar *)ptr(), w, h, w * 4, QImage::Format_ARGB32)));
+#if 1
+	return QPixmap(QPixmap::fromImage(QImage((uchar *)ptr(), w, h, w * 4, QImage::Format_ARGB32))).copy();
+#else
+	// store JPEG files on local FS
+	static int count = 0;
+	count++;
+	QPixmap px = QPixmap(QPixmap::fromImage(QImage((uchar *)ptr(), w, h, w * 4, QImage::Format_ARGB32)));
+	char buf[128];
+	sprintf(buf, "./%04d.jpeg", count);
+	px.save(QString::fromLocal8Bit(buf), "jpeg", 95);
+	return px;
+#endif
 }
 
 //==============================================================================
@@ -278,23 +289,14 @@ float y2_old = y1_old + d->size.h * d->position.px_size_y;
 //cerr << "Area::scale_dimensions_to_size(); pos out == " << d->position.x << " - " << d->position.y << " - " << d->position.px_size_x << " - " <<  d->position.px_size_y << endl;
 	d->size.w = clip_w;
 	d->size.h = clip_h;
-/*
+#if 0
 cerr << "Area::scale_dimensions_to_size(); to_fit == " << to_fit << "; limits == " << limit_w << " x " << limit_h << endl;
 cerr << "d->size.w == " << d->size.w << endl;
 cerr << "d->size.h == " << d->size.h << endl;
-float x1_new = d->position.x - d->position.px_size_x * 0.5;
-float x2_new = x1_new + d->size.w * d->position.px_size_x;
-float y1_new = d->position.y - d->position.px_size_y * 0.5;
-float y2_new = y1_new + d->size.h * d->position.px_size_y;
-cerr << "x in == " << x_in << "; y in == " << y_in << endl;
-cerr << "x1  in == " << x1_old << "; x1 out == " << x1_new << endl;
-cerr << "x2  in == " << x2_old << "; x2 out == " << x2_new << endl;
-cerr << "y1  in == " << y1_old << "; y1 out == " << y1_new << endl;
-cerr << "y2  in == " << y2_old << "; y2 out == " << y2_new << endl;
 cerr << "px_size_x == " << px_size_x << "; px_size_y == " << px_size_y << endl;
 cerr << "position: " << d->position.x << " - " << d->position.y << "; " << d->size.w << " x " << d->size.h << endl;
 cerr << endl;
-*/
+#endif
 	d->edges.x1 = 0;
 	d->edges.x2 = 0;
 	d->edges.y1 = 0;

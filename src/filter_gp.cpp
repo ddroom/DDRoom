@@ -27,7 +27,7 @@
 
 using namespace std;
 
-#define MARK_CORNERS
+//#define MARK_CORNERS
 #undef MARK_CORNERS
 
 //------------------------------------------------------------------------------
@@ -595,7 +595,7 @@ void FilterProcess_GP_Wrapper::process_copy(SubFlow *subflow) {
 	color_pixel[11] = 0.75;
 
 	float *bad_pixel = &color_pixel[0];
-#if MARK_CORNERS
+#ifdef MARK_CORNERS
 	float *mark_lt_pixel = &color_pixel[4];
 	float *mark_rb_pixel = &color_pixel[8];
 #endif
@@ -618,7 +618,7 @@ void FilterProcess_GP_Wrapper::process_copy(SubFlow *subflow) {
 				out[2] = in[2] * task->wb_a[2] + task->wb_b[2];
 				out[3] = in[3];
 			}
-#if MARK_CORNERS
+#ifdef MARK_CORNERS
 			// mark corners
 			const int mark_near = 2;
 			const int mark_far = 31;//15;
@@ -725,16 +725,15 @@ Area *FilterProcess_GP_Wrapper::process_sampling(MT_t *mt_obj, Process_t *proces
 //			cerr << "px_size == 1.0 - should be used \"just copy\" instead of a real resampling - WRONG!!!" << endl;
 		Area::t_dimensions d_out = *area_in->dimensions();
 		Tile_t::t_position &tp = process_obj->position;
-/*
+#if 0
 cerr << "GP_Wrapper:  in position == (" << area_in->dimensions()->position.x << ", " << area_in->dimensions()->position.y << "); size == " << area_in->dimensions()->size.w << "x" << area_in->dimensions()->size.h << "; px_size == " << area_in->dimensions()->position.px_size_x << " - " << area_in->dimensions()->position.px_size_y << endl;
 cerr << "GP_Wrapper: out position == (" << tp.x << ", " << tp.y << "); size == " << tp.width << "x" << tp.height << "; px_size == " << tp.px_size_x << " - " << tp.px_size_y << endl;
-*/
-/*
+
 cerr << "tp sizes: " << tp.x << " - " << tp.y << "; " << tp.width << " x " << tp.height << endl;
 cerr << "edge x1 == " << tp.x - 0.5 * px_size_out_x << "; edge x2 == " << tp.x - 0.5 * px_size_out_x + tp.width * px_size_out_x << endl;
 cerr << "edge y1 == " << tp.y - 0.5 * px_size_out_y << "; edge y2 == " << tp.y - 0.5 * px_size_out_y + tp.height * px_size_out_y << endl;
 cerr << endl;
-*/
+#endif
 		// add 1px. strip for each edge on purpose - to simplify recalculations at rescaling stage
 		d_out.position.x = tp.x - px_size_out_x;
 		d_out.position.y = tp.y - px_size_out_y;
@@ -1081,7 +1080,7 @@ void FilterProcess_GP_Wrapper::process_sampling(SubFlow *subflow) {
 	color_pixel[11] = 0.75;
 
 	float *empty_pixel = &color_pixel[0];
-#if MARK_CORNERS
+#ifdef MARK_CORNERS
 	float *mark_lt_pixel = &color_pixel[4];
 	float *mark_rb_pixel = &color_pixel[8];
 #endif
@@ -1258,7 +1257,7 @@ cerr << "w_sum == " << w_sum << "; w_sum_alpha == " << w_sum_alpha << endl;
 					rez[3] = px_sum[3] / w_sum_alpha;
 				}
 			}
-#if MARK_CORNERS
+#ifdef MARK_CORNERS
 			// mark corners
 			const int mark_near = 2;
 			const int mark_far = 31;//15;

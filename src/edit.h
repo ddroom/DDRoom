@@ -211,7 +211,7 @@ protected slots:
 	void slot_copy_paste_fine_copy(void);
 	void slot_copy_paste_fine_paste(void);
 
-// CoordinatesTracer
+// public CoordinatesTracer
 public:
 	class Area *viewport_to_filter(class Area *viewport_coords, std::string filter_id);
 	class Area *filter_to_viewport(class Area *filter_coords, std::string filter_id);

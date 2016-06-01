@@ -912,15 +912,24 @@ void View::slot_resize_update_timeout() {
 }
 
 //------------------------------------------------------------------------------
+/*
 QPixmap *View::_area_to_qpixmap(Area *area, bool save) {
 	int w = area->dimensions()->width();
 	int h = area->dimensions()->height();
-//cerr << "_area_to_qpixmap: " << w << "x" << h << endl;
+cerr << "_area_to_qpixmap: " << w << "x" << h << endl;
 	QPixmap *pixmap = new QPixmap(QPixmap::fromImage(QImage((uchar *)area->ptr(), w, h, w * 4, QImage::Format_ARGB32)));
 //	QPixmap *pixmap = new QPixmap(QPixmap::fromImage(QImage((uchar *)area->ptr(), w, h, w * 4, QImage::Format_ARGB32)).copy());
+#if 0
+	static int count = 0;
+	count++;
+	char buf[128];
+	sprintf(buf, "/home/spectr/misc/04%d.jpeg", count);
+	pixmap->save(QString::fromLocal8Bit(buf), "jpeg", 95);
+#endif
 	delete area;
 	return pixmap;
 }
+*/
 
 // convert all Areas into corresponding pixmaps
 void View::slot_update_image(void) {

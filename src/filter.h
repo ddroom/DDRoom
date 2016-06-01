@@ -56,8 +56,10 @@ protected:
 // interface for filters that allow on-view interactive edit like guidelines for crop and rotation, color picking for white balance etc.
 
 // Object that could synchronously convert coordinates between Area at viewport level
-// to Area at desired filter level, back and forth
-// Area used in here with type Area::type_float_p2, for a 'green' color channel only
+// to Area at desired filter level, back and forth.
+// Area used in here with type Area::type_float_p2 (x, y)
+// for a 'green' color channel only (as for cases like CA correction),
+// coordiantes could be not a neighbors, and w/o size limits (like 'should be square only' etc.).
 class Coordinates_Tracer {
 public:
 	// If (filter_id == ""), use trace at start, before any geometry distortion filter.

@@ -111,7 +111,7 @@ protected:
 	void sb_x_show(bool flag_show);
 	void sb_y_show(bool flag_show);
 	void scrollbars_update(void);
-	QPixmap *_area_to_qpixmap(Area *area, bool save = false);
+//	QPixmap *_area_to_qpixmap(Area *area, bool save = false);
 	void draw(QPainter *painter);
 	void paintEvent(QPaintEvent *event);
 
