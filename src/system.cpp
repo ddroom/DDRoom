@@ -2,7 +2,7 @@
  * system.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -50,7 +50,7 @@ void Profiler::mark(string mark) {
 		long d = cr_time.restart();
 		vector<pair<string, long> >::iterator it = prof.begin();
 		bool flag = false;
-		for(; it != prof.end(); it++) {
+		for(; it != prof.end(); ++it) {
 			if((*it).first == cr_mark) {
 				flag = true;
 				break;
@@ -69,7 +69,7 @@ Profiler::~Profiler() {
 	cerr << "__________________________________" << endl;
 	cerr << "Profile for " << _module << " : " << endl;
 	long total = 0;
-	for(vector<pair<string, long> >::iterator it = prof.begin(); it != prof.end(); it++) {
+	for(vector<pair<string, long> >::iterator it = prof.begin(); it != prof.end(); ++it) {
 		QString str;
 		str.sprintf("%d:%03d", (int)((*it).second / 1000), (int)((*it).second % 1000));
 		total += (*it).second;
@@ -86,7 +86,7 @@ Profiler::~Profiler() {
  * System capabilities description (singleton)
  */
 
-System *System::_this = NULL;
+System *System::_this = nullptr;
 
 #define cpuid(func,ax,bx,cx,dx) \
 	__asm__ __volatile__ ("cpuid": \
@@ -108,7 +108,7 @@ System::System(void) {
 		mib[0] = CTL_HW;
 		mib[1] = HW_NCPU;
 		len = sizeof(cpuc);
-		sysctl(mib, 2, &cpuc, &len, NULL, 0);
+		sysctl(mib, 2, &cpuc, &len, nullptr, 0);
 		_cores = cpuc;
 #endif
 

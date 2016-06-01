@@ -4,7 +4,7 @@
  * import_exiv2.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
@@ -16,7 +16,7 @@
 #include <string>
 //#include <stdint.h>
 
-uint8_t *Exiv2_load_thumb(std::string filename, int thumb_width, int thumb_height, long &length, class Metadata *metadata = NULL);
+uint8_t *Exiv2_load_thumb(std::string filename, int thumb_width, int thumb_height, long &length, class Metadata *metadata = nullptr);
 bool Exiv2_load_metadata(std::string file_name, class Metadata *metadata);
 bool Exiv2_load_metadata_image(Exiv2::Image::AutoPtr &image, class Metadata *metadata);
 

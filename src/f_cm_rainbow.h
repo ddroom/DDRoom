@@ -4,7 +4,7 @@
  * f_cm_rainbow.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
@@ -31,7 +31,7 @@ public:
 	Filter::type_t type(void);
 
 	// controls
-	QWidget *controls(QWidget *parent = NULL);
+	QWidget *controls(QWidget *parent = nullptr);
 	PS_Base *newPS(void);
 	FS_Base *newFS(void);
 	void saveFS(FS_Base *fs_base);

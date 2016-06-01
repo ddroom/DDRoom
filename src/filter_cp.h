@@ -4,13 +4,12 @@
  * filter_cp.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
 
-
-#include <QSharedPointer>
+#include <memory>
 
 #include "filter.h"
 
@@ -22,7 +21,7 @@ public:
 	class Metadata *metadata;
 	DataSet *mutators;			// <- , \|/ - rename to "mutators_ro" and "mutators_rw"
 	DataSet *mutators_mpass; // will keep data between thumb and scaled processing
-	class PS_Base *ps_base;
+	class PS_Base *ps_base; // TODO: check necessity of sharepointer it
 	void **ptr_private;
 	int cores;
 	class FP_Cache_t *cache;
@@ -56,8 +55,7 @@ class FP_CP_Wrapper_record_t {
 public:
 	class Filter *filter;
 	class FilterProcess_CP *fp_cp;
-//	ddr_shared_ptr<PS_Base> ps_base;
-	QSharedPointer<PS_Base> ps_base;
+	std::shared_ptr<PS_Base> ps_base;
 	class FP_Cache_t *cache;
 	class FS_Base *fs_base;
 };

@@ -2,7 +2,7 @@
  * filter.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -20,7 +20,6 @@ TODO:
 #include <iostream>
 
 #include "filter.h"
-//#include "shared_ptr.h"
 #include "process_h.h"
 
 #include "f_process.h"
@@ -185,30 +184,30 @@ QList<QAction *> FilterEdit::get_actions_list(void) {
 
 //------------------------------------------------------------------------------
 Filter_t::Filter_t(void) {
-	ps_base = NULL;
-	fs_base = NULL;
-	filter = NULL;
+	ps_base = nullptr;
+	fs_base = nullptr;
+	filter = nullptr;
 }
 
 //------------------------------------------------------------------------------
 Process_t::Process_t(void) {
-	metadata = NULL;
-	mutators = NULL;
-	mutators_mpass = NULL;
-	area_in = NULL;
+	metadata = nullptr;
+	mutators = nullptr;
+	mutators_mpass = nullptr;
+	area_in = nullptr;
 	allow_destructive = false;
 	OOM = false;
 }
 
 //------------------------------------------------------------------------------
 Filter::Filter(void) {
-	ps_base = NULL;
-	fs_base = NULL;
-	session_id = NULL;
+	ps_base = nullptr;
+	fs_base = nullptr;
+	session_id = nullptr;
 	_id = "Filter";
 	_name = tr("Empty filter");
 	_is_hidden = false;
-};
+}
 
 string Filter::id(void) {
 	return _id;
@@ -242,9 +241,9 @@ void Filter::emit_signal_update(void) {
 }
 
 void Filter::reset(void) {
-	if(ps_base != NULL) ps_base->reset();
-	if(fs_base != NULL) fs_base->reset();
-};
+	if(ps_base != nullptr) ps_base->reset();
+	if(fs_base != nullptr) fs_base->reset();
+}
 
 //------------------------------------------------------------------------------
 Filter_Control::Filter_Control(void) : Filter() {
@@ -254,7 +253,7 @@ void Filter_Control::get_mutators(class DataSet *dataset, class DataSet *ps_data
 }
 
 //------------------------------------------------------------------------------
-Filter_Store *Filter_Store::_this = NULL;
+Filter_Store *Filter_Store::_this = nullptr;
 
 Filter_Store::Filter_Store(void) {
 	// filters

@@ -2,7 +2,7 @@
  * batch_dialog.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
@@ -69,7 +69,7 @@ Batch_Dialog::Batch_Dialog(export_parameters_t *_ep, QWidget *parent) : QDialog(
 	if(ep->process_single)
 		line_file_name = new QLineEdit();
 	else
-		line_file_name = NULL;
+		line_file_name = nullptr;
 	// destination folder
 	QHBoxLayout *hb_folder = new QHBoxLayout();
 	line_folder = new QLineEdit();
@@ -396,7 +396,7 @@ Batch_Dialog::Batch_Dialog(export_parameters_t *_ep, QWidget *parent) : QDialog(
 //	connect(checkbox_jpeg_colors, SIGNAL(stateChanged(int)), this, SLOT(slot_jpeg_color_space(int)));
 	connect(radio_jpeg_color_space, SIGNAL(buttonClicked(int)), this, SLOT(slot_jpeg_color_space(int)));
 	connect(slider_png_compression, SIGNAL(signal_changed(double)), this, SLOT(slot_png_compression(double)));
-	if(line_file_name != NULL)
+	if(line_file_name != nullptr)
 		connect(line_file_name, SIGNAL(editingFinished(void)), this, SLOT(slot_line_file_name(void)));
 	connect(check_process_asap, SIGNAL(stateChanged(int)), this, SLOT(slot_process_asap(int)));
 	connect(line_scaling_width, SIGNAL(editingFinished(void)), this, SLOT(slot_line_scaling_width(void)));

@@ -4,7 +4,7 @@
  * batch_dialog.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
@@ -20,7 +20,7 @@ class Batch_Dialog : public QDialog {
 	Q_OBJECT
 
 public:
-	Batch_Dialog(export_parameters_t *_ep, QWidget *parent = NULL);
+	Batch_Dialog(export_parameters_t *_ep, QWidget *parent = nullptr);
 	void set_file_name(std::string file_name);
 	void set_folder(std::string folder);
 

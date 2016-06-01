@@ -6,4 +6,4 @@ DDRoom is a cross-platform application, currently run under Linux and Windows, a
 
 For feedbacks or donations please contact author to email: ddroom.spectr@gmail.com.
 
-(C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+(C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.

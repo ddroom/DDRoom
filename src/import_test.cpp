@@ -2,7 +2,7 @@
  * import_test.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -33,7 +33,7 @@ Area *Import_Test::image(Metadata *metadata) {
 		return test_xy(metadata);
 	if(fname.contains("-demosaic.ddr_test"))
 		return test_demosaic(metadata);
-	return NULL;
+	return nullptr;
 }
 
 Area *Import_Test::test_xy(Metadata *metadata) {
@@ -83,7 +83,7 @@ Area *Import_Test::test_demosaic(Metadata *metadata) {
 	Area *in = test_draw(metadata);
 	int w = metadata->width;
 	int h = metadata->height;
-	Area *out = new Area(w + 4, h + 4, Area::type_float_p1);
+	Area *out = new Area(w + 4, h + 4, Area::type_t::type_float_p1);
 	metadata->demosaic_pattern = DEMOSAIC_PATTERN_BAYER_RGGB;
 	metadata->demosaic_unknown = false;
 	metadata->demosaic_unsupported = false;

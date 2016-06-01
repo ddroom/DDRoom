@@ -4,7 +4,7 @@
  * cm.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
@@ -20,7 +20,7 @@ namespace cm {
 // TODO: remove that
 void sRGB_to_Jsh(float *Jsh, const float *sRGB);
 void Jsh_to_sRGB(float *sRGB, const float *Jsh);
-};
+}
 
 //------------------------------------------------------------------------------
 class CM_Convert {
@@ -47,8 +47,8 @@ public:
 	static CM *new_CM(CM::cm_type_en, CS_White white_in, CS_White white_out);
 	virtual ~CM(void){};
 
-	virtual class CM_Convert *get_convert_XYZ_to_Jsh(void){return NULL;}
-	virtual class CM_Convert *get_convert_Jsh_to_XYZ(void){return NULL;}
+	virtual class CM_Convert *get_convert_XYZ_to_Jsh(void){return nullptr;}
+	virtual class CM_Convert *get_convert_Jsh_to_XYZ(void){return nullptr;}
 
 protected:
 	CM(void){};

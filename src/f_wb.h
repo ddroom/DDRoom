@@ -4,7 +4,7 @@
  * f_wb.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
@@ -21,6 +21,7 @@
 #include "mt.h"
 #include "gui_ct.h"
 
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -42,7 +43,7 @@ public:
 
 	Filter::type_t type(void);
 
-	QWidget *controls(QWidget *parent = NULL);
+	QWidget *controls(QWidget *parent = nullptr);
 	QList<QAction *> get_actions_list(void);
 	PS_Base *newPS(void);
 	FS_Base *newFS(void);
@@ -88,7 +89,7 @@ protected:
 //	class GuiSlider *slider_temp_kelvin;
 //	class GuiSlider *slider_temp_tint;
 	class GUI_CT *gui_ct;
-	void update_CCT_to_PS(double *_scale = NULL);
+	void update_CCT_to_PS(double *_scale = nullptr);
 	void gui_ct_connect(bool flag);
 	void checkbox_auto_connect(bool flag);
 	QCheckBox *checkbox_hl_clip;
@@ -143,7 +144,7 @@ class WB_Histogram : public QWidget {
 	Q_OBJECT
 
 public:
-	WB_Histogram(QWidget *parent = NULL);
+	WB_Histogram(QWidget *parent = nullptr);
 	QSize sizeHint(void) const;
 
 	void set_data_object(class WB_Histogram_data *);
@@ -160,7 +161,7 @@ protected:
 	int shift_y;
 	int shift_y2;
 
-	QMutex data_lock;
+	std::mutex data_lock;
 	WB_Histogram_data *data;
 };
 

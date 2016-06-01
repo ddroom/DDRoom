@@ -2,7 +2,7 @@
  * sgt.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -76,7 +76,7 @@ Saturation_Gamut::gamut_table_t::~gamut_table_t(void) {
 }
 
 //------------------------------------------------------------------------------
-QMutex Saturation_Gamut::cache_lock;
+std::mutex Saturation_Gamut::cache_lock;
 std::map<std::string, class Saturation_Gamut::gamut_table_t *> Saturation_Gamut::map_cache;
 
 #if 0
@@ -98,8 +98,8 @@ void Saturation_Gamut::generate_sgt(void) {
 	std::list<CM::cm_type_en> cm_list = CM::get_types_list();
 	CMS_Matrix *cms_matrix = CMS_Matrix::instance();
 	std::list<std::string> cs_list = cms_matrix->get_cs_names();
-	for(std::list<CM::cm_type_en>::iterator cm_it = cm_list.begin(); cm_it != cm_list.end(); cm_it++) {
-		for(std::list<std::string>::iterator cs_it = cs_list.begin(); cs_it != cs_list.end(); cs_it++) {
+	for(std::list<CM::cm_type_en>::iterator cm_it = cm_list.begin(); cm_it != cm_list.end(); ++cm_it) {
+		for(std::list<std::string>::iterator cs_it = cs_list.begin(); cs_it != cs_list.end(); ++cs_it) {
 			cerr << "build SGT for CM == \"" << CM::get_type_name(*cm_it) << "\" and CS == \"" << *cs_it << "\"" << endl;
 			std::string cs_id = cms_matrix->get_cs_name_from_string_name(*cs_it);
 			Saturation_Gamut *sg = new Saturation_Gamut(*cm_it, cs_id);
@@ -124,7 +124,7 @@ Saturation_Gamut::Saturation_Gamut(CM::cm_type_en _cm_type, std::string _cs_name
 	id += "_";
 	id += cs_name;
 
-	gamut_table = NULL;
+	gamut_table = nullptr;
 	cache_lock.lock();
 	std::map<std::string, class gamut_table_t *>::iterator it = map_cache.find(id);
 //cerr << "create Saturation_Gamut, id == " << id << endl;
@@ -147,14 +147,14 @@ Saturation_Gamut::~Saturation_Gamut() {
 }
 
 bool Saturation_Gamut::is_empty(void) {
-	return (gamut_table == NULL);
+	return (gamut_table == nullptr);
 }
 
 float Saturation_Gamut::saturation_limit(float J, float h) {
-	if(gamut_table == NULL)
+	if(gamut_table == nullptr)
 		return 0.0;
-	_clip(J, 0.0, 1.0);
-	_clip(h, 0.0, 1.0);
+	ddr::clip(J);
+	ddr::clip(h);
 	const int size_J = gamut_table->size_J;
 	float fJ = J * (size_J - 1);
 	float fh = h * (gamut_table->size_h - 1);
@@ -181,11 +181,11 @@ float Saturation_Gamut::saturation_limit(float J, float h) {
 }
 
 float Saturation_Gamut::lightness_limit(float s, float h) {
-	if(gamut_table == NULL)
+	if(gamut_table == nullptr)
 		return 1.0;
 //	if(h >= 1.0) h -= 1.0;
 //	if(h < 0.0) h += 1.0;
-	_clip(h, 0.0, 1.0);
+	ddr::clip(h);
 	if(s < 0.0)	s = 0.0;
 
 	const int size_h = gamut_table->size_h - 1;
@@ -219,12 +219,12 @@ float Saturation_Gamut::lightness_limit(float s, float h) {
 }
 
 void Saturation_Gamut::lightness_edge_Js(float &J, float &s, float h) {
-	if(gamut_table == NULL) {
+	if(gamut_table == nullptr) {
 		J = 1.0;
 		s = 0.0;
 		return;
 	}
-	_clip(h, 0.0, 1.0);
+	ddr::clip(h);
 //	if(h >= 1.0)	h -= 1.0;
 //	if(h < 0.0)		h += 1.0;
 	float fh = h * (gamut_table->size_h - 1);
@@ -261,7 +261,7 @@ void Saturation_Gamut::generate_s_limits(float *s_limits, const int resolution_h
 	for(int i = 0; i < XYZ_locus_blacklist_size; i++)
 		indexes_blacklist.insert(XYZ_locus_blacklist[i]);
 /*
-	int indexes_size = sizeof(indexes_CAM02) / sizeof(int);
+	const int indexes_size = sizeof(indexes_CAM02) / sizeof(int);
 	for(int i = 0; i < indexes_size; i++)
 		indexes_blacklist.insert(indexes_CAM02[i]);
 */
@@ -272,8 +272,8 @@ void Saturation_Gamut::generate_s_limits(float *s_limits, const int resolution_h
 //	locus_size /= 3;
 	int table_size = locus_size - XYZ_locus_blacklist_size + 2;
 //	int table_size = locus_size - indexes_size + 2;
-	float Jsh_s[table_size];
-	float Jsh_h[table_size];
+	float *Jsh_s = new float[table_size];
+	float *Jsh_h = new float[table_size];
 	float min_h = 2.0;
 	int min_h_index = 0;
 //	for(int i = 0; i < locus_size; i++) {
@@ -302,7 +302,7 @@ void Saturation_Gamut::generate_s_limits(float *s_limits, const int resolution_h
 	}
 	// move sorted to array for interpolation
 	int index = 0;
-	for(QMap<float, float>::iterator it = sh_map.begin(); it != sh_map.end(); it++) {
+	for(QMap<float, float>::iterator it = sh_map.begin(); it != sh_map.end(); ++it) {
 		float h = it.key();
 		float s = it.value();
 		Jsh_h[index + 1] = h;
@@ -369,6 +369,8 @@ cerr << "_s == " << _s << endl;
 		}
 	}
 	delete xyz_to_cm;
+	delete[] Jsh_s;
+	delete[] Jsh_h;
 }
 
 void Saturation_Gamut::generate_SGT(void) {
@@ -379,7 +381,7 @@ void Saturation_Gamut::generate_SGT(void) {
 	float as = 1.0 / RGB_one_edge_resolution;
 	int i_max = RGB_one_edge_resolution;
 
-	float s_limits[resolution_h];
+	float *s_limits = new float[resolution_h];
 	generate_s_limits(s_limits, resolution_h);
 	// y = ax + b
 	// red - yellow - green - cyan - blue - purple - red
@@ -390,9 +392,9 @@ void Saturation_Gamut::generate_SGT(void) {
 	float b_r[6] = {1.0, 1.0, 0.0, 0.0, 0.0, 1.0};
 	float b_g[6] = {0.0, 1.0, 1.0, 1.0, 0.0, 0.0};
 	float b_b[6] = {0.0, 0.0, 0.0, 1.0, 1.0, 1.0};
-	float Jsh_J[i_max * 6];
-	float Jsh_s[i_max * 6];
-	float Jsh_h[i_max * 6];
+	float *Jsh_J = new float[i_max * 6];
+	float *Jsh_s = new float[i_max * 6];
+	float *Jsh_h = new float[i_max * 6];
 	// generate Jsh vector for most saturated edges of RGB cube
 	float min_h = 2.0;
 	int min_h_index = 0;
@@ -502,6 +504,10 @@ void Saturation_Gamut::generate_SGT(void) {
 		}
 		//--
 	}
+	delete[] s_limits;
+	delete[] Jsh_J;
+	delete[] Jsh_s;
+	delete[] Jsh_h;
 }
 
 float Saturation_Gamut::search_s_dark(float s_limit, float _j, float _h, float _s_start, float _s_step) {
@@ -546,7 +552,7 @@ cerr << "h == " << _h << "; s_limit == " << s_limit << "; _s_start == " << _s_st
 	float rez = (_s + _s_new) / 2.0;
 //if(flag)
 //cerr << "h == " << _h << "; s_limit == " << s_limit << "; _s_start == " << _s_start << "; _s == " << _s << "; rez == " << rez << endl;
-//	_clip(rez, 0.0, s_limit);
+//	ddr::clip(rez, 0.0, s_limit);
 	return rez;
 }
 
@@ -589,7 +595,7 @@ cerr << "h == " << _h << "; s_limit == " << s_limit << "; _s_start == " << _s_st
 		rez = s_limit;
 	}
 */
-	_clip(rez, 0.0, s_limit);
+	ddr::clip(rez, 0.0, s_limit);
 	return rez;
 }
 
@@ -693,7 +699,7 @@ bool Saturation_Gamut::_sgt_load(CM::cm_type_en _cm_type, std::string _cs_name) 
 //return false;
 //cerr << "sgt load()" << endl;
 	// reset current state...
-	gamut_table = NULL;// don't delete object from cache
+	gamut_table = nullptr;// don't delete object from cache
 
 	QString cm_name = CM::get_type_name(_cm_type).c_str();
 //	QString sgt_folder = "./";	// folder _with_ separator

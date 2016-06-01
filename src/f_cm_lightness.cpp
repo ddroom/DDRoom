@@ -2,7 +2,7 @@
  * f_cm_lightness.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -168,19 +168,19 @@ protected:
 };
 
 //------------------------------------------------------------------------------
-FP_CM_Lightness *F_CM_Lightness::fp = NULL;
+FP_CM_Lightness *F_CM_Lightness::fp = nullptr;
 
 F_CM_Lightness::F_CM_Lightness(int id) : Filter() {
 	histogram = new GUI_Curve_Histogram(true);
 	_id = "F_CM_Lightness";
 	_name = tr("Lightness");
 	filter_id = id;
-	if(fp == NULL)
+	if(fp == nullptr)
 		fp = new FP_CM_Lightness();
 	_ps = (PS_CM_Lightness *)newPS();
 	ps = _ps;
 	ps_base = ps;
-	widget = NULL;
+	widget = nullptr;
 	curve_channel = curve_channel_t::channel_rgb;
 	reset();
 }
@@ -209,7 +209,7 @@ FS_Base *F_CM_Lightness::newFS(void) {
 }
 
 void F_CM_Lightness::saveFS(FS_Base *fs_base) {
-	if(fs_base == NULL)
+	if(fs_base == nullptr)
 		return;
 	FS_CM_Lightness *fs = (FS_CM_Lightness *)fs_base;
 	fs->curve_channel = curve_channel;
@@ -217,7 +217,7 @@ void F_CM_Lightness::saveFS(FS_Base *fs_base) {
 
 void F_CM_Lightness::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t args) {
 	// PS
-	if(new_ps != NULL) {
+	if(new_ps != nullptr) {
 		ps = (PS_CM_Lightness *)new_ps;
 		ps_base = new_ps;
 	} else {
@@ -225,13 +225,13 @@ void F_CM_Lightness::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_
 		ps_base = ps;
 	}
 	// FS
-	if(widget == NULL)
+	if(widget == nullptr)
 		return;
 	reconnect(false);
 
-	if(fs_base == NULL) {
+	if(fs_base == nullptr) {
 //		set_histograms(QVector<long>(0), QVector<long>(0));
-		histogram->set_data_object(NULL);
+		histogram->set_data_object(nullptr);
 		curve_channel = curve_channel_t::channel_rgb;
 	} else {
 		// load
@@ -280,7 +280,7 @@ void F_CM_Lightness::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_
 }
 
 QWidget *F_CM_Lightness::controls(QWidget *parent) {
-	if(widget != NULL)
+	if(widget != nullptr)
 		return widget;
 	QGroupBox *q = new QGroupBox(_name);
 	widget = q;
@@ -664,17 +664,17 @@ public:
 };
 
 FP_CM_Lightness_Cache_t::FP_CM_Lightness_Cache_t(void) {
-	tf_spline = NULL;
+	tf_spline = nullptr;
 	func_table_J_is_one = true;
-	tf_gamma = NULL;
+	tf_gamma = nullptr;
 	gamma = 1.0;
 }
 
 FP_CM_Lightness_Cache_t::~FP_CM_Lightness_Cache_t() {
 //cerr << "~FP_CM_Lightness_Cache_t()" << endl;
-	if(tf_spline != NULL)
+	if(tf_spline != nullptr)
 		delete tf_spline;
-	if(tf_gamma != NULL)
+	if(tf_gamma != nullptr)
 		delete tf_gamma;
 }
 
@@ -726,7 +726,7 @@ void FP_CM_Lightness::filter_pre(fp_cp_args_t *args) {
 	if(fp_cache->points_J != points_J) {
 		fp_cache->points_J = points_J;
 		if(!func_table_J_is_one) {
-			if(fp_cache->tf_spline != NULL)
+			if(fp_cache->tf_spline != nullptr)
 				delete fp_cache->tf_spline;
 			fp_cache->tf_spline = new TF_Spline(&points_J);
 		}
@@ -735,7 +735,7 @@ void FP_CM_Lightness::filter_pre(fp_cp_args_t *args) {
 
 	bool do_histograms = false;
 	//----------------------------
-	if(filter != NULL)
+	if(filter != nullptr)
 		do_histograms = true;
 	bool is_thumb = false;
 	args->mutators->get("_p_thumb", is_thumb);
@@ -760,7 +760,7 @@ void FP_CM_Lightness::filter_pre(fp_cp_args_t *args) {
 	if(ps->enabled_gamma && ps->gamma != 1.0) {
 		apply_gamma = true;
 		if(fp_cache->gamma != ps->gamma) {
-			if(fp_cache->tf_gamma != NULL) delete fp_cache->tf_gamma;
+			if(fp_cache->tf_gamma != nullptr) delete fp_cache->tf_gamma;
 			fp_cache->tf_gamma = new TF_Gamma(1.0 / ps->gamma);
 			fp_cache->gamma = ps->gamma;
 		}
@@ -769,7 +769,7 @@ void FP_CM_Lightness::filter_pre(fp_cp_args_t *args) {
 	//--
 	string cm_name;
 	args->mutators->get("CM", cm_name);
-	if(filter != NULL)
+	if(filter != nullptr)
 		filter->set_CM(cm_name);
 //	cm::cm_type_en cm_type = cm::get_type(cm_name);
 	string cs_name = "";
@@ -778,7 +778,7 @@ void FP_CM_Lightness::filter_pre(fp_cp_args_t *args) {
 	double gamut_strength = 0.0;
 	if(ps->gamut_use)
 		gamut_strength = ps->gamut_strength;
-	Saturation_Gamut *sg = NULL;
+	Saturation_Gamut *sg = nullptr;
 	if(gamut_strength != 0.0) {
 		string cm_name;
 		args->mutators->get("CM", cm_name);
@@ -820,7 +820,7 @@ void FP_CM_Lightness::filter_pre(fp_cp_args_t *args) {
 void FP_CM_Lightness::filter_post(fp_cp_args_t *args) {
 	task_t *task = (task_t *)args->ptr_private[0];
 	task_t **tasks = (task_t **)&args->ptr_private[0];
-	if(task->sg != NULL)
+	if(task->sg != nullptr)
 		delete task->sg;
 	if(task->do_histograms) {
 		QVector<long> hist_in = QVector<long>(HIST_SIZE);
@@ -833,16 +833,16 @@ void FP_CM_Lightness::filter_post(fp_cp_args_t *args) {
 				hist_out[i] += tasks[k]->hist_out[i];
 			}
 		}
-		if(args->filter != NULL) {
+		if(args->filter != nullptr) {
 			F_CM_Lightness *f = (F_CM_Lightness *)args->filter;
-			GUI_Curve_Histogram_data *histogram_data = NULL;
-			if(args->fs_base != NULL)
+			GUI_Curve_Histogram_data *histogram_data = nullptr;
+			if(args->fs_base != nullptr)
 				histogram_data = &((FS_CM_Lightness *)args->fs_base)->histogram_data;
 //cerr << "args->fs_base == " << (unsigned long)args->fs_base << endl;
 			f->set_histograms(histogram_data, hist_in, hist_out);
 		}
 /*
-		if(args->fs_base == NULL) {
+		if(args->fs_base == nullptr) {
 			((F_CM_Lightness *)args->filter)->set_histograms(hist_in, hist_out);
 		} else {
 			FS_CM_Lightness *fs = (FS_CM_Lightness *)args->fs_base;
@@ -866,7 +866,7 @@ void FP_CM_Lightness::filter(float *pixel, void *data) {
 	float alpha = pixel[3];
 	float J = pixel[0];
 	float J_max = 1.0;
-	if(task->gamut_strength != 0.0 && task->sg != NULL) {
+	if(task->gamut_strength != 0.0 && task->sg != nullptr) {
 		float j = task->sg->lightness_limit(pixel[1], pixel[2]);
 //		J_max = j + (1.0 - j) * (1.0 - task->gamut_strength);
 		J_max = 1.0 - task->gamut_strength + j * task->gamut_strength;
@@ -909,7 +909,7 @@ void FP_CM_Lightness::filter(float *pixel, void *data) {
 	if(task->hist_in.size() != 0 && alpha > 0.99) {
 //		long index = original * (HIST_SIZE - 1) + 0.05;
 		long index = h_in * (HIST_SIZE - 1) + 0.05;
-		_clip(index, 0, HIST_SIZE - 1);
+		ddr::clip(index, 0, HIST_SIZE - 1);
 //		if(index > HIST_SIZE - 1)	index = HIST_SIZE - 1;
 //		if(index < 0)		index = 0;
 		task->hist_in[index]++;
@@ -917,7 +917,7 @@ void FP_CM_Lightness::filter(float *pixel, void *data) {
 	if(task->hist_out.size() != 0 && alpha > 0.99) {
 //		long index = pixel[0] * (HIST_SIZE - 1) + 0.05;
 		long index = h_out * (HIST_SIZE - 1) + 0.05;
-		_clip(index, 0, HIST_SIZE - 1);
+		ddr::clip(index, 0, HIST_SIZE - 1);
 //		if(index > HIST_SIZE - 1)	index = HIST_SIZE - 1;
 //		if(index < 0)		index = 0;
 		task->hist_out[index]++;

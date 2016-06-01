@@ -8,7 +8,6 @@ HEADERS	= \
 	src/system.h \
 	src/db.h \
 	src/mt.h \
-	src/events_compressor.h \
 	src/memory.h \
 	src/area.h \
 	src/area_helper.h \
@@ -196,6 +195,8 @@ QMAKE_CXXFLAGS_DEBUG += -ggdb
 QMAKE_CXXFLAGS_DEBUG += -fstack-check
 QMAKE_CFLAGS_DEBUG += -O0
 QMAKE_CFLAGS_DEBUG += -ggdb
+
+QMAKE_CXXFLAGS_RELEASE += -pedantic
 
 CONFIG += debug_and_release
 #CONFIG += debug

@@ -2,7 +2,7 @@
  * f_demosaic_dg.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -146,16 +146,16 @@ inline float _reconstruct(float c_low, float b, float b_low) {
 }
 #if 0
 inline float _delta(float v1, float v2) {
-	return _abs(v1 - v2);
+	return ddr::abs(v1 - v2);
 }
 #else
 inline float _delta(float v1, float v2) {
-	return _abs(v2 - v1);
+	return ddr::abs(v2 - v1);
 	float min = (v1 < v2) ? v1 : v2;
 	float max = (v1 > v2) ? v1 : v2;
 	return (max - min) / min;
 	// 'classic' - fastest, good enough
-	return _abs(v2 - v1);
+	return ddr::abs(v2 - v1);
 	// weighted
 	if(v1 > v2) {
 		float v = v1; v1 = v2; v2 = v;
@@ -167,7 +167,7 @@ inline float _delta(float v1, float v2) {
 #endif
 /*
 inline float _delta2(const float &v1, const float &v2, const float &v3) {
-	return _abs(v1 - v2) + _abs(v2 - v3);
+	return ddr::abs(v1 - v2) + ddr::abs(v2 - v3);
 }
 */
 
@@ -269,7 +269,7 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 				g3 = value_bayer(width, height, x + 1, y + 0, bayer);
 #if 0
 				// first way - with less noise
-				if(d_abs(c - c2) < d_abs(c - c3))
+				if(ddr::abs(c - c2) < ddr::abs(c - c3))
 					gH = (g2 * c) / ((c2 + c) * 0.5);
 				else
 					gH = (g3 * c) / ((c3 + c) * 0.5);
@@ -291,7 +291,7 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 				g1 = value_bayer(width, height, x + 0, y - 1, bayer);
 				g4 = value_bayer(width, height, x + 0, y + 1, bayer);
 #if 0
-				if(d_abs(c - c1) < d_abs(c - c4))
+				if(ddr::abs(c - c1) < ddr::abs(c - c4))
 					gV = (g1 * c) / ((c1 + c) * 0.5);
 				else
 					gV = (g4 * c) / ((c4 + c) * 0.5);
@@ -322,7 +322,7 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 				float cc4 = value_bayer(width, height, x + 1, y + 1, bayer);
 				float cc5 = value_bayer(width, height, x + 2, y + 2, bayer);
 				float cc = _reconstruct((cc2 + cc4) * 0.5, cc3, ((cc1 + cc5) * 0.5 + cc3) * 0.5);
-				if(_abs(g2 - g4) < _abs(g1 - g3)) {
+				if(ddr::abs(g2 - g4) < ddr::abs(g1 - g3)) {
 					float gm = (g2 + g4) * 0.5;
 					float c_ = value_bayer(width, height, x - 1, y + 1, bayer);
 					float cm = (cc + c_) * 0.5;
@@ -342,7 +342,7 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 				cc4 = value_bayer(width, height, x - 1, y + 1, bayer);
 				cc5 = value_bayer(width, height, x - 2, y + 2, bayer);
 				cc = _reconstruct((cc2 + cc4) * 0.5, cc3, ((cc1 + cc5) * 0.5 + cc3) * 0.5);
-				if(_abs(g1 - g2) < _abs(g3 - g4)) {
+				if(ddr::abs(g1 - g2) < ddr::abs(g3 - g4)) {
 					float gm = (g1 + g2) * 0.5;
 					float c_ = value_bayer(width, height, x - 1, y - 1, bayer);
 					float cm = (cc + c_) * 0.5;
@@ -358,43 +358,43 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 */
 				// gNE - '/'
 ///*
-				if(_abs(g1 - g2) < _abs(g3 - g4))
+				if(ddr::abs(g1 - g2) < ddr::abs(g3 - g4))
 					gNW = _reconstruct((g1 + g2) * 0.5, c, ((c1 + c2) * 0.5 + c) * 0.5);
 				else
 					gNW = _reconstruct((g3 + g4) * 0.5, c, ((c3 + c4) * 0.5 + c) * 0.5);
 
-				if(_abs(g1 - g3) < _abs(g2 - g4))
+				if(ddr::abs(g1 - g3) < ddr::abs(g2 - g4))
 					gNE = _reconstruct((g1 + g3) * 0.5, c, ((c1 + c3) * 0.5 + c) * 0.5);
 				else
 					gNE = _reconstruct((g2 + g4) * 0.5, c, ((c2 + c4) * 0.5 + c) * 0.5);
 //*/
 #else
-				if(_abs(g1 - g2) < _abs(g3 - g4)) {
+				if(ddr::abs(g1 - g2) < ddr::abs(g3 - g4)) {
 					float d = (g1 + g2) * 0.5;
-					if(_abs(d - g3) < _abs(d - g4))
+					if(ddr::abs(d - g3) < ddr::abs(d - g4))
 						gNW = ((g1 + g2) * 0.75 + g3 * 0.25) / 1.75;
 					else
 						gNW = ((g1 + g2) * 0.75 + g4 * 0.25) / 1.75;
 //					gNW = ((g1 + g2) * 0.75 + (g3 + g4) * 0.25) / 2.0;
 				} else {
 					float d = (g3 + g4) * 0.5;
-					if(_abs(d - g1) < _abs(d - g2))
+					if(ddr::abs(d - g1) < ddr::abs(d - g2))
 						gNW = ((g3 + g4) * 0.75 + g1 * 0.25) / 1.75;
 					else
 						gNW = ((g3 + g4) * 0.75 + g2 * 0.25) / 1.75;
 //					gNW = ((g1 + g2) * 0.25 + (g3 + g4) * 0.75) / 2.0;
 				}
 
-				if(_abs(g1 - g3) < _abs(g2 - g4)) {
+				if(ddr::abs(g1 - g3) < ddr::abs(g2 - g4)) {
 					float d = (g1 + g3) * 0.5;
-					if(_abs(d - g2) < _abs(d - g4))
+					if(ddr::abs(d - g2) < ddr::abs(d - g4))
 						gNE = ((g1 + g3) * 0.75 + g2 * 0.25) / 1.75;
 					else
 						gNE = ((g1 + g3) * 0.75 + g4 * 0.25) / 1.75;
 //					gNE = ((g1 + g3) * 0.75 + (g2 + g4) * 0.25) / 2.0;
 				} else {
 					float d = (g2 + g4) * 0.5;
-					if(_abs(d - g1) < _abs(d - g3))
+					if(ddr::abs(d - g1) < ddr::abs(d - g3))
 						gNE = ((g2 + g4) * 0.75 + g1 * 0.25) / 1.75;
 					else
 						gNE = ((g2 + g4) * 0.75 + g3 * 0.25) / 1.75;
@@ -548,7 +548,7 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 			// skip clipped areas
 			if(C[0] < 0.95f && C[2] < 0.95f && C[0] > 0.05f && C[2] > 0.05f) {
 //			if(C[0] < median_high && C[2] < median_high && C[0] > median_low && C[2] > median_low) {
-				float dd = _abs(C[0] - C[2]);
+				float dd = ddr::abs(C[0] - C[2]);
 				_rgba[k + 1] = dd;
 				long dd_index = (dd * task->dd_hist_scale) * task->dd_hist_size;
 				if(dd_index > 0 && dd_index < task->dd_hist_size)
@@ -824,7 +824,7 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 						// use low freq from the color channel, and use high freq from the green channel
 						float gt = (g1 + g11 + g12) / 3.0;
 						float gb = (g2 + g21 + g22) / 3.0;
-//						if(_abs(g - gt) < _abs(g - gb))
+//						if(ddr::abs(g - gt) < ddr::abs(g - gb))
 							c = _reconstruct((c1 + c2) * 0.5, g, gt);
 //						else
 							c += _reconstruct((c3 + c4) * 0.5, g, gb);
@@ -841,7 +841,7 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 						float g22 = _rgba[k + 4 + w4 + 1];
 						float gl = (g1 + g11 + g12) / 3.0;
 						float gr = (g2 + g21 + g22) / 3.0;
-//						if(_abs(g - gl) < _abs(g - gr))
+//						if(ddr::abs(g - gl) < ddr::abs(g - gr))
 							c = _reconstruct((c1 + c3) * 0.5, g, gl);
 //						else
 							c += _reconstruct((c2 + c4) * 0.5, g, gr);
@@ -926,7 +926,7 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 							float c3 = _rgba[k +  4 + ai[i]];
 							float c4 = _rgba[k + w4 + ai[i]];
 							float c;
-							if(_abs(c1 - c2) < _abs(g3 - g4))
+							if(ddr::abs(c1 - c2) < ddr::abs(g3 - g4))
 								c = _reconstruct((c1 + c2) * 0.5, g, (g1 + g2) * 0.5);
 							else
 								c = _reconstruct((c3 + c4) * 0.5, g, (g3 + g4) * 0.5);
@@ -942,7 +942,7 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 							float c3 = _rgba[k +  4 + ai[i]];
 							float c4 = _rgba[k + w4 + ai[i]];
 							float c;
-							if(_abs(c1 - c3) < _abs(g2 - g4))
+							if(ddr::abs(c1 - c3) < ddr::abs(g2 - g4))
 								c = _reconstruct((c1 + c3) * 0.5, g, (g1 + g3) * 0.5);
 							else
 								c = _reconstruct((c2 + c4) * 0.5, g, (g2 + g4) * 0.5);
@@ -1100,9 +1100,9 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 			_rgba[k + 2] = gb * scale;
 #endif
 /*
-			_clip(_rgba[k + 0], 0.0f, 1.0f);
-			_clip(_rgba[k + 1], 0.0f, 1.0f);
-			_clip(_rgba[k + 2], 0.0f, 1.0f);
+			ddr::clip(_rgba[k + 0]);
+			ddr::clip(_rgba[k + 1]);
+			ddr::clip(_rgba[k + 2]);
 */
 #if 0
 			_rgba[k + 0] = _rgba[k + 1];

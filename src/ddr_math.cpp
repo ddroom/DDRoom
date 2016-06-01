@@ -2,7 +2,7 @@
  * ddr_math.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -21,13 +21,13 @@ using namespace std;
 
 //------------------------------------------------------------------------------
 TableFunction::TableFunction() {
-	table = NULL;
+	table = nullptr;
 	x_min = 0.0;
 	x_max = 0.0;
 }
 
 TableFunction::~TableFunction() {
-	if(table != NULL)
+	if(table != nullptr)
 		delete[] table;
 }
 
@@ -169,7 +169,7 @@ float *Spline_Calc::d3_np_fs(int n, float *a, float *b) {
 	// Check.
 	for(int i = 0; i < n; i++)
 		if(a[1 + i * 3] == 0.0)
-			return NULL;
+			return nullptr;
 	float *x = new float[n];
 	for(int i = 0; i < n; i++)
 		x[i] = b[i];
@@ -185,7 +185,7 @@ float *Spline_Calc::d3_np_fs(int n, float *a, float *b) {
 }
 
 void Spline_Calc::spline_cubic_set(int n, float *t, float *y, int ibcbeg, float ybcbeg, int ibcend, float ybcend) {
-	float *ypp = NULL;
+	float *ypp = nullptr;
 	// Solve the linear system.
 	if(n == 2 && ibcbeg == 0 && ibcend == 0) {
 		ypp = new float[2];
@@ -236,7 +236,7 @@ void Spline_Calc::spline_cubic_set(int n, float *t, float *y, int ibcbeg, float 
 			a[1 + (n - 1) * 3] = 1.0;
 		}
 		ypp = d3_np_fs(n, a, b);
-		// if ypp == NULL - The linear system could not be solved.
+		// if ypp == nullptr - The linear system could not be solved.
 		delete[] a;
 		delete[] b;
 	}
@@ -294,8 +294,8 @@ float compression_function_spline(float x, float x_max) {
 	if(x >= x_max)
 		return 1.0;
 	//
-	static Spline_Calc *spline = NULL;
-	if(spline == NULL) {
+	static Spline_Calc *spline = nullptr;
+	if(spline == nullptr) {
 		QVector<QPointF> points;
 		points.push_back(QPointF(0.0, 0.0));
 		points.push_back(QPointF(1.0, 1.0 / 3.0));

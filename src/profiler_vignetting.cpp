@@ -2,7 +2,7 @@
  * profiler_vignetting.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -31,7 +31,7 @@ void Profiler_Vignetting::process(string folder) {
 
 	QStringList filter;
 	QList<QString> list_import = Import::extensions();
-	for(QList<QString>::iterator it = list_import.begin(); it != list_import.end(); it++)
+	for(QList<QString>::iterator it = list_import.begin(); it != list_import.end(); ++it)
 		filter << QString("*.") + *it;
 	QString folder_id = QString::fromLocal8Bit(folder.c_str());
 	QDir dir(folder_id);
@@ -65,7 +65,7 @@ void Profiler_Vignetting::process(string folder) {
 void Profiler_Vignetting::process_photos(QMap<float, std::string> &map_fn_to_fl) {
 	// first step - process photo with smallest aperture to calculate normalization table
 	QMap<float, std::string>::iterator it_last = map_fn_to_fl.end();
-	it_last--;
+	--it_last;
 	float max_aperture = it_last.key();
 	cerr << "considered as photo with less vignetting is: \"" << it_last.value() << "\" with aperture == F/" << max_aperture << endl;
 	// second - analyze each other photo

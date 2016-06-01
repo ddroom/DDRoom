@@ -2,7 +2,7 @@
  * memory.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -21,62 +21,60 @@ using namespace std;
 // - forced memory alignment cause bugs in the different versions of GCC compiler
 
 long long Mem::mem_total = 0;
-QMutex Mem::state_mutex;
+std::mutex Mem::state_mutex;
 long long Mem::mem_start = 0;
 long long Mem::mem_min = 0;
 long long Mem::mem_max = 0;
+#ifdef _FORCE_SILENT
+bool Mem::silent = true;
+#else
 bool Mem::silent = false;
+#endif
 
-QMutex Mem::ptr_set_lock;
-QSet<unsigned long> Mem::ptr_set;
+std::mutex Mem::ptr_set_lock;
+std::set<unsigned long> Mem::ptr_set;
 
 class Mem::mem_c_t {
 public:
 	long counter;
-	QMutex mutex;
+	std::mutex mutex;
 };
 
 void Mem::ptr_dump(void) {
-	if(mem_c != NULL) {
+	if(mem_c != nullptr) {
 		mem_c->mutex.lock();
 		std::cerr << (unsigned long)((void *)ptr_allocated) << ", references == " << mem_c->counter;
 		mem_c->mutex.unlock();
 	} else
 		std::cerr << (unsigned long)((void *)ptr_allocated) << ", no references ";
 }
-
+/*
 Mem::Mem(void) {
-	#ifdef _FORCE_SILENT
-	Mem::silent = true;
-	#endif
-	ptr_allocated = NULL;
-	ptr_aligned = NULL;
-	mem_c = NULL;
+	ptr_allocated = nullptr;
+	ptr_aligned = nullptr;
+	mem_c = nullptr;
 }
-
+*/
 Mem::Mem(int size) {
-	#ifdef _FORCE_SILENT
-	Mem::silent = true;
-	#endif
 //cerr << "Mem::Mem(): asked size: " << size << " bytes" << endl;
-//	ptr_allocated = NULL;
-	ptr_aligned = NULL;
-	mem_c = NULL;
+//	ptr_allocated = nullptr;
+//	ptr_aligned = nullptr;
+//	mem_c = nullptr;
 	if(size != 0) {
 		// aligned memory for SSE2 compatibility
 		try {
 			ptr_allocated = new char[size + 32];
 		} catch(...) {
-			// operator new failed, use NULL value instead
-			ptr_allocated = NULL;
+			// operator new failed, use nullptr value instead
+			ptr_allocated = nullptr;
 cerr << "failed to allocate memory with size: " << size << endl;
 		}
 	}
-	if(ptr_allocated != NULL) {
+	if(ptr_allocated != nullptr) {
 		_mem_size = size + 32;
 		state_update(_mem_size);
 		ptr_set_lock.lock();
-		ptr_set.insert((unsigned long)((void *)ptr_allocated));
+		ptr_set.insert((uintptr_t)((void *)ptr_allocated));
 		ptr_set_lock.unlock();
 		if(!silent) {
 			cerr << "------------------------->> ptr == " << (unsigned long)((void *)ptr_allocated) <<  "; after new(";
@@ -131,7 +129,7 @@ cerr << "failed to allocate memory with size: " << size << endl;
 Mem::Mem(Mem const &other) {
 	ptr_allocated = other.ptr_allocated;
 	ptr_aligned = other.ptr_aligned;
-	if(other.mem_c != NULL) {
+	if(other.mem_c != nullptr) {
 		other.mem_c->mutex.lock();
 		other.mem_c->counter++;
 		other.mem_c->mutex.unlock();
@@ -146,7 +144,7 @@ Mem & Mem::operator = (const Mem & other) {
 		_mem_size = other._mem_size;
 		ptr_allocated = other.ptr_allocated;
 		ptr_aligned = other.ptr_aligned;
-		if(other.mem_c != NULL) {
+		if(other.mem_c != nullptr) {
 			other.mem_c->mutex.lock();
 			other.mem_c->counter++;
 			other.mem_c->mutex.unlock();
@@ -162,7 +160,7 @@ Mem::~Mem(void) {
 
 void *Mem::ptr(void) {
 /*
-	if(ptr_aligned == NULL) {
+	if(ptr_aligned == nullptr) {
 cerr << "Mem: request for pointer of empty Mem object" << endl;
 		throw("Mem: request for pointer of empty Mem object");
 	}
@@ -171,20 +169,25 @@ cerr << "Mem: request for pointer of empty Mem object" << endl;
 }
 
 void Mem::free(void) {
-	if(ptr_allocated != NULL && mem_c != NULL) {
+	if(ptr_allocated != nullptr && mem_c != nullptr) {
 		mem_c->mutex.lock();
 		mem_c->counter--;
 		if(mem_c->counter == 0) {
 void *ptr_old = (void *)ptr_allocated;
 			delete[] ptr_allocated;
-			ptr_allocated = NULL;
-			ptr_aligned = NULL;
+			ptr_allocated = nullptr;
+			ptr_aligned = nullptr;
 			state_update(-_mem_size);
 			mem_c->mutex.unlock();
 			delete mem_c;
-			mem_c = NULL;
+			mem_c = nullptr;
 			ptr_set_lock.lock();
-			ptr_set.remove((unsigned long)ptr_old);
+			{
+				auto it = ptr_set.find((uintptr_t)ptr_old);
+				if(it != ptr_set.end())
+					ptr_set.erase(it);
+			}
+//			ptr_set.remove((uintptr_t)ptr_old);
 			ptr_set_lock.unlock();
 //			if(!silent) {
 			if(false) {
@@ -269,7 +272,7 @@ void Mem::state_print(void) {
 /*
 	cerr << "----------- active pointers: " << endl;
 	ptr_set_lock.lock();
-	for(QSet<unsigned long>::iterator it = ptr_set.begin(); it != ptr_set.end(); it++)
+	for(auto it = ptr_set.begin(); it != ptr_set.end(); ++it)
 		cerr << "ptr: " << (*it) << endl;
 	ptr_set_lock.unlock();
 */

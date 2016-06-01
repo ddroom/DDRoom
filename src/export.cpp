@@ -2,7 +2,7 @@
  * export.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -195,7 +195,7 @@ void Export::export_tiff(string file_name, Area *area_image, Area *area_thumb, e
 
 	TIFF *tiff;
 	// Open the TIFF file
-	if((tiff = TIFFOpen(file_name.c_str(), "w")) == NULL) {
+	if((tiff = TIFFOpen(file_name.c_str(), "w")) == nullptr) {
 		// handle error
 	}
 
@@ -254,11 +254,11 @@ Exif.Photo.PixelYDimension                   Short       1  1536
 	// write EXIF
 	Exiv2::Image::AutoPtr exif_image = Exiv2::ImageFactory::open(file_name);
 	exif_image->readMetadata();
-	if(metadata != NULL)
+	if(metadata != nullptr)
 		exif_image->setExifData(metadata->_exif_image->exifData());
 	Exiv2::ExifData& exif_data = exif_image->exifData();
 	// reset thumbnail
-	if(area_thumb != NULL) {
+	if(area_thumb != nullptr) {
 		Exiv2::ExifThumb exif_thumb(exif_data);
 		exif_thumb.erase();
 		QImage thumb_image = area_thumb->to_qimage();
@@ -338,7 +338,7 @@ void Export::export_jpeg(string fname, Area *area_image, Area *area_thumb, expor
 	cinfo.err = jpeg_std_error(&jerr);
 	jpeg_create_compress(&cinfo);
 
-	if((outfile = fopen(fname.c_str(), "wb")) == NULL) {
+	if((outfile = fopen(fname.c_str(), "wb")) == nullptr) {
 		cerr << "can't open " << fname << endl;
 		return;
 	}
@@ -422,7 +422,7 @@ void Export::export_png(string file_name, Area *area_image, Area *area_thumb, ex
 cerr << "FATAL ERROR - 1 !!!" << endl;
 	}
 //	png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, (png_voidp)user_error_ptr, user_error_fn, user_warning_fn);
-	png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, (png_voidp)NULL, NULL, NULL);
+	png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, (png_voidp)nullptr, nullptr, nullptr);
 	if(!png_ptr) {
 		fclose(fp);
 		// handle error
@@ -430,7 +430,7 @@ cerr << "FATAL ERROR - 2 !!!" << endl;
 	}
 	png_infop info_ptr = png_create_info_struct(png_ptr);
 	if(!info_ptr) {
-		png_destroy_write_struct(&png_ptr, (png_infopp)NULL);
+		png_destroy_write_struct(&png_ptr, (png_infopp)nullptr);
 		fclose(fp);
 		// handle error
 cerr << "FATAL ERROR - 3 !!!" << endl;
@@ -516,12 +516,12 @@ void Export::write_exif(string fname, int rotation, Metadata *metadata, int widt
 	// NOTE: rewrite fields with real values - width and height, possibly other too...
 	Exiv2::Image::AutoPtr exif_image = Exiv2::ImageFactory::open(fname);
 	exif_image->readMetadata();
-	if(metadata != NULL)
+	if(metadata != nullptr)
 		exif_image->setExifData(metadata->_exif_image->exifData());
 	Exiv2::ExifData& exif_data = exif_image->exifData();
 
 	// store thumbnail
-	if(area_thumb != NULL) {
+	if(area_thumb != nullptr) {
 		Exiv2::ExifThumb exif_thumb(exif_data);
 		exif_thumb.erase();
 		QImage image = area_thumb->to_qimage();
@@ -551,6 +551,10 @@ void Export::write_exif(string fname, int rotation, Metadata *metadata, int widt
 }
 
 void Export::export_photo(std::string file_name, Area *area_image, Area *area_thumb, export_parameters_t *ep, int rotation, Metadata *metadata) {
+	if(area_image == nullptr || area_thumb == nullptr)
+		return;
+	if(area_image->ptr() == nullptr || area_thumb->ptr() == nullptr)
+		return;
 	if(ep->image_type == export_parameters_t::image_type_jpeg)
 		export_jpeg(file_name, area_image, area_thumb, ep, rotation, metadata);
 	if(ep->image_type == export_parameters_t::image_type_png)

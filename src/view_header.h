@@ -4,13 +4,15 @@
  * view_header.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
 
 
 #include <list>
+#include <mutex>
+
 #include <QtWidgets>
 
 //------------------------------------------------------------------------------
@@ -18,7 +20,7 @@ class ViewHeaderButton : public QToolButton {
 	Q_OBJECT
 
 public:
-	ViewHeaderButton(int size, QWidget *parent = NULL);
+	ViewHeaderButton(int size, QWidget *parent = nullptr);
 };
 
 //------------------------------------------------------------------------------
@@ -26,7 +28,7 @@ class ViewHeader : public QWidget {
 	Q_OBJECT
 
 public:
-	ViewHeader(QWidget *parent = NULL);
+	ViewHeader(QWidget *parent = nullptr);
 	~ViewHeader();
 	void set_text(QString text);
 	void set_enabled(bool enable);
@@ -53,7 +55,7 @@ protected:
 	void paintEvent(QPaintEvent *event);
 
 	static std::list<ViewHeader *> vh_list;
-	static QMutex vh_list_lock;
+	static std::mutex vh_list_lock;
 
 	void set_active(bool _active);
 

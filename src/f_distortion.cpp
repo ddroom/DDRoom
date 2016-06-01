@@ -2,7 +2,7 @@
  * f_distortion.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -66,14 +66,14 @@ TF_Distortion::TF_Distortion(lfModifier *_modifier, float &_w2, float &_h2) {
 	float l = function(1.0) * max_length;
 	_w2 = l * scale_x;
 	_h2 = l * scale_y;
-	modifier = NULL;
+	modifier = nullptr;
 }
 
 TF_Distortion::~TF_Distortion() {
 }
 
 float TF_Distortion::function(float arg) {
-	if(modifier == NULL)
+	if(modifier == nullptr)
 		return arg;
 	if(arg < 0.0) return 0.0;
 	if(arg > 1.0)
@@ -98,7 +98,7 @@ public:
     TF_Distortion *tf_forward;
 	TF_Distortion *tf_backward;
 	
-	QMutex lock;
+	std::mutex lock;
 	//--
 	std::string lensfun_lens_ID;
 	float lens_focal_length;
@@ -114,14 +114,14 @@ public:
 
 FP_Distortion_Cache_t::FP_Distortion_Cache_t(void) {
 //cerr << "FP_Distortion_Cache_t::FP_Distortion_Cache_t()" << endl;
-    tf_forward = NULL;
-    tf_backward = NULL;
+    tf_forward = nullptr;
+    tf_backward = nullptr;
 }
 
 FP_Distortion_Cache_t::~FP_Distortion_Cache_t() {
 //cerr << "FP_Distortion_Cache_t::~FP_Distortion_Cache_t()" << endl;
-    if(tf_forward != NULL) delete tf_forward;
-    if(tf_backward != NULL) delete tf_backward;
+    if(tf_forward != nullptr) delete tf_forward;
+    if(tf_backward != nullptr) delete tf_backward;
 }
 
 FP_Cache_t *FP_Distortion::new_FP_Cache(void) {
@@ -154,13 +154,13 @@ bool FP_GP_Distortion::to_clip(void) {
 FP_GP_Distortion::FP_GP_Distortion(const class Metadata *metadata, bool _flag_to_clip, FP_Distortion_Cache_t *cache) {
 	enabled = false;
 	flag_to_clip = _flag_to_clip;
-	if(metadata->lensfun_lens_model == "" || cache == NULL) {
+	if(metadata->lensfun_lens_model == "" || cache == nullptr) {
 //cerr << "metadata->lensfun_lens_model == \"" << metadata->lensfun_lens_model << "\"" << endl;
 //cerr << "return - 1!" << endl;
 		return;
 	}
 	cache->lock.lock();
-	if(cache->tf_forward != NULL && cache->tf_backward != NULL) {
+	if(cache->tf_forward != nullptr && cache->tf_backward != nullptr) {
 		bool flag = false;
 		flag |= (metadata->lensfun_lens_model != cache->lensfun_lens_ID);
 		flag |= (metadata->lens_focal_length != cache->lens_focal_length);
@@ -180,8 +180,8 @@ FP_GP_Distortion::FP_GP_Distortion(const class Metadata *metadata, bool _flag_to
 		}
 	}
 	lfDatabase *ldb = System::instance()->ldb();
-	const lfLens **lenses = ldb->FindLenses(NULL, NULL, metadata->lensfun_lens_model.c_str());
-	if(lenses == NULL) {
+	const lfLens **lenses = ldb->FindLenses(nullptr, nullptr, metadata->lensfun_lens_model.c_str());
+	if(lenses == nullptr) {
 cerr << "return - 2!" << endl;
 		ldb->Destroy();
 		cache->lock.unlock();
@@ -311,18 +311,18 @@ bool PS_Distortion::save(DataSet *dataset) {
 }
 
 //------------------------------------------------------------------------------
-FP_Distortion *F_Distortion::fp = NULL;
+FP_Distortion *F_Distortion::fp = nullptr;
 
 F_Distortion::F_Distortion(int id) : Filter() {
 	filter_id = id;
 	_id = "F_Distortion";
 	_name = tr("Distortion");
-	if(fp == NULL)
+	if(fp == nullptr)
 		fp = new FP_Distortion();
 	_ps = (PS_Distortion *)newPS();
 	ps = _ps;
 	ps_base = ps;
-	widget = NULL;
+	widget = nullptr;
 	reset();
 }
 
@@ -335,24 +335,24 @@ PS_Base *F_Distortion::newPS(void) {
 
 void F_Distortion::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t args) {
 	// PS
-	if(new_ps != NULL) {
+	if(new_ps != nullptr) {
 		ps = (PS_Distortion *)new_ps;
 		ps_base = new_ps;
 	} else {
 		ps = _ps;
 		ps_base = ps;
 	}
-	if(ps != NULL && args.metadata != NULL) {
+	if(ps != nullptr && args.metadata != nullptr) {
 		ps->camera_maker = args.metadata->camera_make;
 		ps->camera_model = args.metadata->camera_model;
 		ps->exiv2_lens_footprint = args.metadata->exiv2_lens_footprint;
 	}
 	// FS
-	if(widget != NULL) {
+	if(widget != nullptr) {
 		reconnect(false);
 		checkbox_enable->setCheckState(ps->enabled ? Qt::Checked : Qt::Unchecked);
 		checkbox_clip->setCheckState(ps->to_clip ? Qt::Checked : Qt::Unchecked);
-		if(args.metadata != NULL) {
+		if(args.metadata != nullptr) {
 			QString lens_maker = QString::fromLatin1(args.metadata->lensfun_lens_maker.c_str());
 			QString lens_model = QString::fromLatin1(args.metadata->lensfun_lens_model.c_str());
 			QString lens;
@@ -370,7 +370,7 @@ void F_Distortion::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_ar
 }
 
 QWidget *F_Distortion::controls(QWidget *parent) {
-	if(widget != NULL)
+	if(widget != nullptr)
 		return widget;
 	QGroupBox *q = new QGroupBox(_name);
 	QVBoxLayout *l = new QVBoxLayout(q);

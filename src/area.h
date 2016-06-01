@@ -4,11 +4,10 @@
  * area.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
-
 
 #include <stdint.h>
 #include <string>
@@ -19,7 +18,10 @@
 #include "memory.h"
 
 //------------------------------------------------------------------------------
-// in the case 'Out Of Memory' 'ptr() == NULL', or 'valid() == false';
+// in the case 'Out Of Memory' 'ptr() == nullptrptr', or 'valid() == false';
+// Container to manage in memory rectangular area of the whole photo/image (or part of it, i.e. 'tile').
+// Holds an actual pixels or 2D coordinates for geometry transformations.
+// Keeps coordinates of the upper left pixel corresponding to the original photo coordinates; and rescaling factor as well.
 class Area {
 public:
 	class t_position {
@@ -29,47 +31,48 @@ public:
 	//  coordinates are coordinates of imaginary center of pixel, so _x_max == (photo_width - 1.0) / 2.0;
 	//	_x_max == 0.5 when width of photo is 2px, _x_max == 1.0 for photo with width of 3px, and so on.
 	public:
-		double x;		// position (of center) of top left point (pixel) of actual data (i.e. skipping edges), with scale 1:1
-		double y;
-		double px_size_x;	// actual size of pixel, so coordinate_of_the_next_pixel is coordinate_of_previous_pixel plus offset px_size
-		double px_size_y;
-		double _x_max;	// coordinate of corner of photo after import (demosaic) with scale 1:1
-		double _y_max;	// so (x1,y1) is relative coordinate; for reference only; should be not changed in filters.
-		t_position(void) {
-			x = 0.0; y = 0.0; px_size_x = 1.0; px_size_y = 1.0; _x_max = 0.0; _y_max = 0.0;
-		}
+		// position (of center) of top left point (pixel) of actual data (i.e. skipping edges), with scale 1:1
+		double x = 0.0;
+		double y = 0.0;
+		// actual size of pixel, so coordinate_of_the_next_pixel is coordinate_of_previous_pixel plus offset px_size
+		double px_size_x = 1.0;
+		double px_size_y = 1.0;
+		// coordinate of corner of photo after import (demosaic) with scale 1:1
+		// so (x1,y1) is relative coordinate; for reference only; should be not changed in filters.
+		double _x_max = 0.0;
+		double _y_max = 0.0;
 	};
 
 	// described size of whole area in memory
 	class t_size {
 	public:
-		int32_t w;	// width
-		int32_t h;	// height
-		t_size(void) {w = 0; h = 0;}
+		int32_t w = 0;	// width
+		int32_t h = 0;	// height
+		t_size() = default;
+		t_size(int32_t _w, int32_t _h) : w(_w), h(_h) {}
 	};
 	// described actual data in memory; edges should be not processed within filters
 	class t_edges {
 	public:
-		int32_t x1;	// left offset
-		int32_t x2;	// right offset
-		int32_t y1;	// top offset
-		int32_t y2;	// bottom offset
-		t_edges(void) {x1 = 0; x2 = 0; y1 = 0; y2 = 0;}
+		int32_t x1 = 0;	// left offset
+		int32_t x2 = 0;	// right offset
+		int32_t y1 = 0;	// top offset
+		int32_t y2 = 0;	// bottom offset
 	};
 
 	class t_dimensions {
 	public:
-		t_dimensions(void) {};
-		t_dimensions(int width, int height) {size.w = width; size.h = height;}
+		t_dimensions(void)  = default;
+		t_dimensions(int width, int height) : size(width, height) {}
 		void dump(void);
 		// size of actual data in memory
 		int32_t width(void) const {return size.w - edges.x1 - edges.x2;}
 		int32_t height(void) const {return size.h - edges.y1 - edges.y2;}
-		// in memory, size of whole array (actual data + edges-offsets)
+		// in memory, size of the whole array (actual data + edges-offsets)
 		t_size size;
-		// in memory, offsets of actual data - used for tiles descriptors and demosaic output
+		// in memory, offsets of an actual data - used for tiles descriptors and demosaic output
 		t_edges edges;
-		// coordinates and edges, position of tile in whole photo
+		// coordinates and edges, position of a tile in the whole photo
 		t_position position;
 
 		void rotate_plus_90(void);
@@ -82,7 +85,8 @@ public:
 		bool edges_are_OK(void);
 	};
 
-	enum type_t {
+	
+	enum class type_t {
 		type_float_p4,	// float RGBA
 		type_float_p3,	// float RGB
 		type_float_p2,	// float 2D coordinates
@@ -94,7 +98,7 @@ public:
 		type_uint8_p3,	// U8	RGB (JPEG export)
 		type_float_p1,	// float V
 	};	// _p4,_p1 - mean count of planes
-	enum format_t {
+	enum class format_t {
 		format_rgba_16,	// RGBA 16bit
 		format_rgba_8,	// RGBA 8bit
 		format_bgra_8,	// BGRA 8bit (QT format)
@@ -103,14 +107,14 @@ public:
 	};
 	Area(void);
 	virtual ~Area();
-	Area(int32_t width, int32_t height, Area::type_t type = type_float_p4);
-	Area(const t_dimensions *_dims, Area::type_t type = type_float_p4);
+	Area(int32_t width, int32_t height, Area::type_t type = type_t::type_float_p4);
+	Area(const t_dimensions *_dims, Area::type_t type = type_t::type_float_p4);
 	Area(Area const &copy);
 	Area & operator = (const Area &other);
 	static Area *real_copy(Area *other);
 
 	void *ptr(void);
-	bool valid(void) {return ptr() != NULL;} // check for 'Out Of Memory'
+	bool valid(void) {return ptr() != nullptr;} // check for 'Out Of Memory'
 	inline int32_t mem_width(void) { return _dimensions.size.w; }
 	inline int32_t mem_height(void) { return _dimensions.size.h; }
 
@@ -119,25 +123,25 @@ public:
 		return type_to_sizeof(this->_type);
 	}
 	static int16_t type_to_sizeof(type_t t) {
-		if(t == type_float_p4)
+		if(t == type_t::type_float_p4)
 			return sizeof(float) * 4;
-		else if(t == type_float_p3)
+		else if(t == type_t::type_float_p3)
 			return sizeof(float) * 3;
-		else if(t == type_float_p2)
+		else if(t == type_t::type_float_p2)
 			return sizeof(float) * 2;
-		else if(t == type_float_p6)
+		else if(t == type_t::type_float_p6)
 			return sizeof(float) * 6;
-		else if(t == type_int16_p4)
+		else if(t == type_t::type_int16_p4)
 			return sizeof(int16_t) * 4;
-		else if(t == type_int16_p3)
+		else if(t == type_t::type_int16_p3)
 			return sizeof(int16_t) * 3;
-		else if(t == type_uint16_p4)
+		else if(t == type_t::type_uint16_p4)
 			return sizeof(uint16_t) * 4;
-		else if(t == type_uint8_p4)
+		else if(t == type_t::type_uint8_p4)
 			return sizeof(uint8_t) * 4;
-		else if(t == type_uint8_p3)
+		else if(t == type_t::type_uint8_p3)
 			return sizeof(uint8_t) * 3;
-		if(t == type_float_p1)
+		if(t == type_t::type_float_p1)
 			return sizeof(float);
 		return 0;
 	}

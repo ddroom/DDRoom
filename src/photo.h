@@ -4,15 +4,16 @@
  * photo.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
 
 
-#include <QSharedPointer>
-#include <string>
 #include <map>
+#include <memory>
+#include <mutex>
+#include <string>
 
 #include "metadata.h"
 #include "memory.h"
@@ -54,7 +55,7 @@ public:
 	QString name;
 	Photo_ID photo_id;	// full file name, ':', version id; like "IMG_1234.CR2:1" etc
 	std::string ps_state;	// at the 'open' moment
-	QMutex ids_lock;
+	std::mutex ids_lock;
 
 	static QString photo_name_with_versions(Photo_ID photo_id, int versions_count);
 
@@ -63,8 +64,7 @@ public:
 	// TODO: remove that from here and put it in a new class related to processing transaction, not to whole Photo opened for edit;
 	// filter-independent PS_Base storage, to avoid asynchronous delay between PS_Base change by filter and 'signal_update' processing
 	// that map is related to the processing loop and edit history and undo/redo
-//	std::map<class Filter *, ddr_shared_ptr<class PS_Base> > map_ps_base_current;
-	std::map<class Filter *, QSharedPointer<class PS_Base> > map_ps_base_current;
+	std::map<class Filter *, std::shared_ptr<class PS_Base> > map_ps_base_current;
 	// real PS_Base objects used by filters for interface
 	std::map<class Filter *, class PS_Base *> map_ps_base;
 	// filters GUI cache

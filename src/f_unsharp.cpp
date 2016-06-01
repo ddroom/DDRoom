@@ -2,7 +2,7 @@
  * f_unsharp.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -178,19 +178,19 @@ bool PS_Unsharp::save(DataSet *dataset) {
 }
 
 //------------------------------------------------------------------------------
-FP_Unsharp *F_Unsharp ::fp = NULL;
+FP_Unsharp *F_Unsharp ::fp = nullptr;
 
 F_Unsharp::F_Unsharp(int id) : Filter() {
 	filter_id = id;
 	_id = "F_Unsharp";
 //	_name = tr("Unsharp");
 	_name = tr("Sharpness");
-	if(fp == NULL)
+	if(fp == nullptr)
 		fp = new FP_Unsharp();
 	_ps = (PS_Unsharp *)newPS();
 	ps = _ps;
 	ps_base = ps;
-	widget = NULL;
+	widget = nullptr;
 	reset();
 }
 
@@ -221,7 +221,7 @@ FS_Base *F_Unsharp::newFS(void) {
 }
 
 void F_Unsharp::saveFS(FS_Base *fs_base) {
-	if(fs_base == NULL)
+	if(fs_base == nullptr)
 		return;
 	FS_Unsharp *fs = (FS_Unsharp *)fs_base;
 	fs->scaled_index = scaled_index;
@@ -229,7 +229,7 @@ void F_Unsharp::saveFS(FS_Base *fs_base) {
 
 void F_Unsharp::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t args) {
 	// PS
-	if(new_ps != NULL) {
+	if(new_ps != nullptr) {
 		ps = (PS_Unsharp *)new_ps;
 		ps_base = new_ps;
 	} else {
@@ -237,13 +237,13 @@ void F_Unsharp::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_
 		ps_base = ps;
 	}
 	// FS
-	if(widget == NULL)
+	if(widget == nullptr)
 		return;
-	if(fs_base == NULL) {
-//cerr << "fs_base == NULL" << endl;
+	if(fs_base == nullptr) {
+//cerr << "fs_base == nullptr" << endl;
 		scaled_index = _DEFAULT_SCALED_INDEX;
 	} else {
-//cerr << "fs_base != NULL" << endl;
+//cerr << "fs_base != nullptr" << endl;
 		FS_Unsharp *fs = (FS_Unsharp *)fs_base;
 		scaled_index = fs->scaled_index;
 	}
@@ -285,7 +285,7 @@ void F_Unsharp::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_
 }
 
 QWidget *F_Unsharp::controls(QWidget *parent) {
-	if(widget != NULL)
+	if(widget != nullptr)
 		return widget;
 	widget = new QWidget(parent);
 	QVBoxLayout *wvb = new QVBoxLayout(widget);
@@ -726,8 +726,8 @@ public:
 	Area *area_in;
 	Area *area_out;
 	PS_Unsharp *ps;
-	QAtomicInt *y_flow_pass_1;
-	QAtomicInt *y_flow_pass_2;
+	std::atomic_int *y_flow_pass_1;
+	std::atomic_int *y_flow_pass_2;
 	Area *area_temp;
 
 	const float *kernel;
@@ -750,24 +750,24 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 	SubFlow *subflow = mt_obj->subflow;
 	Area *area_in = process_obj->area_in;
 	PS_Unsharp *ps = (PS_Unsharp *)filter_obj->ps_base;
-	Area *area_out = NULL;
-	Area *area_to_delete = NULL;
+	Area *area_out = nullptr;
+	Area *area_to_delete = nullptr;
 
 	for(int type = 0; type < 2 && !process_obj->OOM; type++) {
 		if(type == 0 && ps->lc_enabled == false) // type == 0 - local contrast, square blur
 			continue;
 		if(type == 1 && ps->enabled == false)    // type == 1 - sharpness, round blur
 			continue;
-		task_t **tasks = NULL;
-		QAtomicInt *y_flow_pass_1 = NULL;
-		QAtomicInt *y_flow_pass_2 = NULL;
-		float *kernel = NULL;
-		Area *area_temp = NULL;
+		task_t **tasks = nullptr;
+		std::atomic_int *y_flow_pass_1 = nullptr;
+		std::atomic_int *y_flow_pass_2 = nullptr;
+		float *kernel = nullptr;
+		Area *area_temp = nullptr;
 
 		FP_params_t params;
 		if(subflow->sync_point_pre()) {
 //cerr << "FP_UNSHARP::PROCESS" << endl;
-			if(area_out != NULL) {
+			if(area_out != nullptr) {
 				area_to_delete = area_out;
 				area_in = area_out;
 			}
@@ -834,14 +834,14 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 			area_out = new Area(&d_out);
 			process_obj->OOM |= !area_out->valid();
 			if(type == 0) {
-				area_temp = new Area(area_in->dimensions(), Area::type_float_p1);
+				area_temp = new Area(area_in->dimensions(), Area::type_t::type_float_p1);
 				process_obj->OOM |= !area_temp->valid();
 			}
 			//--
 			int in_x_offset = (d_out.position.x - area_in->dimensions()->position.x) / px_size_x + 0.5 + area_in->dimensions()->edges.x1;
 			int in_y_offset = (d_out.position.y - area_in->dimensions()->position.y) / px_size_y + 0.5 + area_in->dimensions()->edges.y1;
-			y_flow_pass_1 = new QAtomicInt(0);
-			y_flow_pass_2 = new QAtomicInt(0);
+			y_flow_pass_1 = new std::atomic_int(0);
+			y_flow_pass_2 = new std::atomic_int(0);
 			for(int i = 0; i < cores; i++) {
 				tasks[i] = new task_t;
 				tasks[i]->area_in = area_in;
@@ -877,7 +877,7 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 
 		subflow->sync_point();
 		if(subflow->is_master()) {
-			if(area_to_delete != NULL)
+			if(area_to_delete != nullptr)
 				delete area_to_delete;
 			if(type == 0)
 				delete area_temp;
@@ -890,10 +890,6 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 		}
 	}
 	return area_out;
-}
-
-inline float _abs(float &val) {
-	return (val > 0.0f) ? val : -val;
 }
 
 //------------------------------------------------------------------------------
@@ -926,7 +922,7 @@ void FP_Unsharp::process_square(class SubFlow *subflow) {
 
 	// horizontal pass - from input to temporal area
 	int j = 0;
-	while((j = _mt_qatom_fetch_and_add(task->y_flow_pass_1, 1)) < t_y_max) {
+	while((j = task->y_flow_pass_1->fetch_add(1)) < t_y_max) {
 		for(int i = 0; i < t_x_max; i++) {
 //			const int i_in = ((j + t_y_offset) * in_width + (i + t_x_offset)) * 4;
 			const int i_temp = ((j + t_y_offset) * in_width + (i + t_x_offset));
@@ -967,7 +963,7 @@ void FP_Unsharp::process_square(class SubFlow *subflow) {
 	float threshold = task->threshold;
 	// vertical pass - from temporary to output area
 	j = 0;
-	while((j = _mt_qatom_fetch_and_add(task->y_flow_pass_2, 1)) < y_max) {
+	while((j = task->y_flow_pass_2->fetch_add(1)) < y_max) {
 		for(int i = 0; i < x_max; i++) {
 			const int i_in = ((j + in_y_offset) * in_width + (i + in_x_offset)) * 4; // k
 			const int i_out = ((j + out_y_offset) * out_width + (i + out_x_offset)) * 4; // l
@@ -1007,8 +1003,8 @@ void FP_Unsharp::process_square(class SubFlow *subflow) {
 
 			float v_in = in[i_in + 0];
 			float v_out = v_in - v_blur;
-//			v_out = amount * ((_abs(v_out) < threshold) ? 0.0 : v_out);
-			if(_abs(v_out) < threshold && threshold > 0.0f) {
+//			v_out = amount * ((ddr::abs(v_out) < threshold) ? 0.0 : v_out);
+			if(ddr::abs(v_out) < threshold && threshold > 0.0f) {
 				float s = v_out / threshold;
 				v_out = (v_out < 0.0f) ? (-s * s) : (s * s);
 				v_out *= threshold;
@@ -1069,7 +1065,7 @@ void FP_Unsharp::process_round(class SubFlow *subflow) {
 	// float w = (1.0 / sqrtf(2.0 * M_PI * sigma_sq)) * expf(-(z * z) / (2.0 * sigma_sq));
 
 	int j = 0;
-	while((j = _mt_qatom_fetch_and_add(task->y_flow_pass_1, 1)) < y_max) {
+	while((j = task->y_flow_pass_1->fetch_add(1)) < y_max) {
 		for(int i = 0; i < x_max; i++) {
 			int l = ((j + in_y_offset) * in_width + (i + in_x_offset)) * 4;
 			int k = ((j + out_y_offset) * out_width + (i + out_x_offset)) * 4;
@@ -1117,7 +1113,7 @@ void FP_Unsharp::process_round(class SubFlow *subflow) {
 
 			float v_in = in[l + 0];
 			float v_out = v_in - v_blur;
-			if(threshold > 0.0f && _abs(v_out) < threshold) {
+			if(threshold > 0.0f && ddr::abs(v_out) < threshold) {
 				float s = v_out / threshold;
 				v_out = (v_out < 0.0f) ? (-s * s) : (s * s);
 				v_out *= threshold;
@@ -1132,7 +1128,7 @@ void FP_Unsharp::process_round(class SubFlow *subflow) {
 			v_out = v_in + v_out;
 //			if(v_out > v_in)
 //				v_out = v_in;
-			_clip(v_out, 0.0f, 1.0f);
+			ddr::clip(v_out);
 			out[k + 0] = v_out;
 		}
 	}

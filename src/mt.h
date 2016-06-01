@@ -4,25 +4,15 @@
  * mt.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
 
-
-#include <QSemaphore>
-#include <QWaitCondition>
-#include <QMutex>
-#include <QAtomicInt>
-#include <QThread>
-
-inline int _mt_qatom_fetch_and_add(QAtomicInt *atom, int value) {
-//	return atom->fetchAndAddRelaxed(value);
-	return atom->fetchAndAddOrdered(value);
-}
-
-#define __MT_QSEMAPHORES
-//#undef __MT_QSEMAPHORES
+#include <atomic>
+#include <condition_variable>
+#include <mutex>
+#include <thread>
 
 //------------------------------------------------------------------------------
 class Flow {
@@ -41,18 +31,13 @@ protected:
 	void set_private(void **priv_array);
 	class SubFlow **subflows;
 	int cores;
-#ifdef __MT_QSEMAPHORES
-	QSemaphore **s_master;
-	QSemaphore **s_slaves;
-#else
-	QWaitCondition w_m_lock;
-	QWaitCondition w_s_lock;
-	QWaitCondition w_jobs;
-	QMutex m_lock;
-	QMutex m_jobs;
-	QAtomicInt c_lock;
-	QAtomicInt c_jobs;
-#endif
+	std::condition_variable w_m_lock;
+	std::condition_variable w_s_lock;
+	std::condition_variable w_jobs;
+	std::mutex m_lock;
+	std::mutex m_jobs;
+	std::atomic_int c_lock;
+	std::atomic_int c_jobs;
 };
 
 //------------------------------------------------------------------------------
@@ -75,7 +60,7 @@ public:
 	virtual bool sync_point_pre(void) = 0;
 	virtual void sync_point_post(void) = 0;
 
-	virtual bool wait(void);
+	virtual void wait(void);
 	virtual void start(void);
 
 protected:
@@ -101,8 +86,7 @@ public:
 };
 
 //------------------------------------------------------------------------------
-class SubFlow_Thread : public QThread,  public SubFlow {
-	Q_OBJECT
+class SubFlow_Thread : public SubFlow {
 	friend class Flow;
 
 public:
@@ -111,26 +95,21 @@ public:
 	bool sync_point_pre(void);
 	void sync_point_post(void);
 
-	bool wait(void);
+	void wait(void);
 	void start(void);
 
 protected:
 	SubFlow_Thread(Flow *parent, bool master, int cores);
-	void run(void);
+//	void run(void);
 
-#ifdef __MT_QSEMAPHORES
-	QSemaphore **s_master;
-	QSemaphore **s_slaves;
-	int _sync_point;
-#else
-	QWaitCondition *w_m_lock;
-	QWaitCondition *w_s_lock;
-	QWaitCondition *w_jobs;
-	QMutex *m_lock;
-	QMutex *m_jobs;
-	QAtomicInt *c_lock;
-	QAtomicInt *c_jobs;
-#endif
+	std::thread *std_thread = nullptr;
+	std::condition_variable *w_m_lock;
+	std::condition_variable *w_s_lock;
+	std::condition_variable *w_jobs;
+	std::mutex *m_lock;
+	std::mutex *m_jobs;
+	std::atomic_int *c_lock;
+	std::atomic_int *c_jobs;
 };
 
 //------------------------------------------------------------------------------

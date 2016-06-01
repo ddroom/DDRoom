@@ -2,7 +2,7 @@
  * dataset.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -87,14 +87,14 @@ bool dataset_field_t::operator == (const dataset_field_t &other) {
 
 void dataset_field_t::_clean(void) {
 	if(type == type_vector_float) {
-		if(value.v_ptr != NULL)
+		if(value.v_ptr != nullptr)
 			delete (QVector<float> *)value.v_ptr;
-		value.v_ptr = NULL;
+		value.v_ptr = nullptr;
 	}
 	if(type == type_vector_qpointf) {
-		if(value.v_ptr != NULL)
+		if(value.v_ptr != nullptr)
 			delete (QVector<QPointF> *)value.v_ptr;
-		value.v_ptr = NULL;
+		value.v_ptr = nullptr;
 	}
 }
 
@@ -339,7 +339,7 @@ DataSet::DataSet(void) {
 
 void DataSet::_dump(void) {
 	cerr << "---- DataSet: dump:" << endl;
-	for(map<string, dataset_field_t>::const_iterator it = dataset_fields.begin(); it != dataset_fields.end(); it++) {
+	for(map<string, dataset_field_t>::const_iterator it = dataset_fields.begin(); it != dataset_fields.end(); ++it) {
 		cerr << "\"" << (*it).first << "\" == \"";
 		cerr << (*it).second.serialize();
 		cerr << "\"" << endl;
@@ -349,7 +349,7 @@ void DataSet::_dump(void) {
 
 std::string DataSet::serialize(void) {
 	string rez;
-	for(map<string, dataset_field_t>::const_iterator it = dataset_fields.begin(); it != dataset_fields.end(); it++) {
+	for(map<string, dataset_field_t>::const_iterator it = dataset_fields.begin(); it != dataset_fields.end(); ++it) {
 		rez += (*it).first;
 		rez += "=";
 		rez += (*it).second.serialize();
@@ -363,7 +363,7 @@ list<class field_delta_t> DataSet::get_fields_delta(DataSet *before, DataSet *af
 	list<class field_delta_t> l;
 	map<string, dataset_field_t> &m_before = *before->get_dataset_fields();
 	map<string, dataset_field_t> &m_after = *after->get_dataset_fields();
-	for(map<string, dataset_field_t>::iterator it = m_before.begin(); it != m_before.end(); it++) {
+	for(map<string, dataset_field_t>::iterator it = m_before.begin(); it != m_before.end(); ++it) {
 		map<string, dataset_field_t>::iterator it_after = m_after.find((*it).first);
 		if(it_after != m_after.end()) {
 			dataset_field_t &d_before = (*it).second;
@@ -381,7 +381,7 @@ list<class field_delta_t> DataSet::get_fields_delta(DataSet *before, DataSet *af
 }
 
 void DataSet::apply_fields_delta(const std::list<field_delta_t> *fields_delta, bool to_state_before) {
-	for(list<field_delta_t>::const_iterator it = fields_delta->begin(); it != fields_delta->end(); it++) {
+	for(list<field_delta_t>::const_iterator it = fields_delta->begin(); it != fields_delta->end(); ++it) {
 //		cerr << "to_state_before == " << to_state_before << endl;
 //		cerr << "field: \"" << (*it).field_name << "\" == " << "\"" << dataset_fields[(*it).field_name].serialize() << endl;
 //		cerr << "delta before == \"" << (*it).field_before.serialize() << "\"" << endl;

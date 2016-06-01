@@ -4,13 +4,14 @@
  * edit_history.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
 
 #include <list>
-#include <QSharedPointer>
+#include <memory>
+
 #include <QtWidgets>
 
 #include "photo.h"
@@ -85,7 +86,7 @@ public:
 	void add_eh_filter_record(const eh_filter_record_t &filter_record);
 	void add_eh_filter_records(const QVector<eh_filter_record_t> &filter_records);
 	// switch GUI to records object stored at Photo_t
-	void set_current_photo(QSharedPointer<Photo_t> photo);
+	void set_current_photo(std::shared_ptr<Photo_t> photo);
 
 	static void photo_constructor(Photo_t *photo);
 	static void photo_destructor(Photo_t *photo);

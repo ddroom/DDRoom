@@ -2,7 +2,7 @@
  * f_wb.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -178,16 +178,16 @@ bool PS_WB::save(DataSet *dataset) {
 }
 
 //------------------------------------------------------------------------------
-FP_WB *F_WB::fp = NULL;
+FP_WB *F_WB::fp = nullptr;
 
 F_WB::F_WB(int id) : Filter() {
-	q_action = NULL;
-	widget = NULL;
+	q_action = nullptr;
+	widget = nullptr;
 	wb_cache_asked = false;
 	filter_id = id;
 	_id = "F_WB";
 	_name = tr("White and black balance");
-	if(fp == NULL)
+	if(fp == nullptr)
 		fp = new FP_WB();
 	_ps = (PS_WB *)newPS();
 	ps = _ps;
@@ -255,7 +255,7 @@ FS_Base *F_WB::newFS(void) {
 }
 
 void F_WB::saveFS(FS_Base *fs_base) {
-	if(fs_base == NULL)
+	if(fs_base == nullptr)
 		return;
 	FS_WB *fs = (FS_WB *)fs_base;
 //cerr << "saveFS(), fs == " << long((void *)fs) << endl;
@@ -275,7 +275,7 @@ void F_WB::saveFS(FS_Base *fs_base) {
 
 void F_WB::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t args) {
 	// PS
-	if(new_ps != NULL) {
+	if(new_ps != nullptr) {
 		ps = (PS_WB *)new_ps;
 		ps_base = new_ps;
 	} else {
@@ -284,20 +284,20 @@ void F_WB::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t arg
 	}
 	// FS
 	// use cache
-	if(widget == NULL)
+	if(widget == nullptr)
 		return;
 	gui_ct_connect(false);
 	radio_wb_connect(false);
 	checkbox_auto_connect(false);
 
 //	bool wb_camera = true;
-	if(fs_base == NULL) {
+	if(fs_base == nullptr) {
 //		if(metadata)
 //			wb_camera = metadata->c_scale_camera_valid;
 		QVector<long> hist_before_empty(0);
 		QVector<long> hist_after_empty(0);
 //		gui_histogram->set_histograms(hist_before_empty, hist_after_empty);
-		gui_histogram->set_data_object(NULL);
+		gui_histogram->set_data_object(nullptr);
 		temp_initialized = false;
 		point_wb_is_valid = false;
 		point_wb_is_entered = false;
@@ -535,7 +535,7 @@ void F_WB::scale_to_correlated_temp(double &temp, double &tint, const double *sc
 
 //==============================================================================
 void F_WB::load_temp_ui(const Metadata *metadata) {
-	if(temp_initialized || metadata == NULL)
+	if(temp_initialized || metadata == nullptr)
 		return;
 //cerr << "_____________________________________________________+++++++++++++++++++++++++++ load_temp_ui" << endl;
 	bool valid = false;
@@ -574,7 +574,7 @@ void F_WB::slot_load_temp_ui(QVector<double> scale) {
 }
 
 void F_WB::update_CCT_to_PS(double *s_current) {
-	if(s_current == NULL) s_current = ps->scale_current;
+	if(s_current == nullptr) s_current = ps->scale_current;
 	double s[3];
 	for(int i = 0; i < 3; i++)
 		s[i] = s_current[i] / scale_ref[i];
@@ -603,7 +603,7 @@ void F_WB::wb_ui_set_temp(double t_kelvin, double t_tint) {
 }
 
 QList <QAction *> F_WB::get_actions_list(void) {
-	if(q_action == NULL) {
+	if(q_action == nullptr) {
 		q_action = new QAction(QIcon(":/resources/wb_picker.svg"), tr("Click white balance"), this);
 //		q_action->setShortcut(tr("Ctrl+C"));
 		q_action->setStatusTip(tr("Click white balance"));
@@ -629,7 +629,7 @@ struct _wb_tb_t {
 };
 
 QWidget *F_WB::controls(QWidget *parent) {
-	if(widget != NULL)
+	if(widget != nullptr)
 		return widget;
 
 	widget = new QGroupBox(_name);
@@ -933,7 +933,7 @@ public:
 
 	Area *area_in;
 	Area *area_out;
-	QAtomicInt *y_flow;
+	std::atomic_int *y_flow;
 
 	// 256 elements, 3 planes - red, green, blue
 	long *hist_in;
@@ -983,20 +983,16 @@ bool FP_WB::is_enabled(const PS_Base *ps_base) {
 	return true;
 }
 
-inline float clip_min(const float &arg, const float &min) {
-	return (arg < min) ? min : arg;
-}
-
 Area *FP_WB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj) {
     SubFlow *subflow = mt_obj->subflow;
     Area *area_in = process_obj->area_in;
     PS_WB *ps = (PS_WB *)filter_obj->ps_base;
-    Area *area_out = NULL;
+    Area *area_out = nullptr;
 	Metadata *metadata = process_obj->metadata;
 	F_WB *filter = (F_WB *)filter_obj->filter;
 	FP_WB_Cache_t *fp_cache = (FP_WB_Cache_t *)process_obj->fp_cache;
-	QAtomicInt *y_flow;
-	task_t **tasks = NULL;
+	std::atomic_int *y_flow;
+	task_t **tasks = nullptr;
 
 	if(subflow->sync_point_pre()) {
 //		area_out = new Area(*area_in);
@@ -1120,7 +1116,7 @@ Area *FP_WB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj)
 			//----
 			// update and emit histograms
 			// TODO: correct that, especially unawareness of black level autocorrection
-			if(filter != NULL) {
+			if(filter != nullptr) {
 				QVector<long> hist_before(256 * 3);
 				QVector<long> hist_after(256 * 3);
 				QVector<float> v(400);
@@ -1133,9 +1129,9 @@ Area *FP_WB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj)
 					for(int i = 0; i < 256; i++)
 						hist_after[j * 256 + i] = v[i];
 				}
-				if(filter != NULL) {
-					WB_Histogram_data *histogram_data = NULL;
-					if(filter_obj->fs_base != NULL)
+				if(filter != nullptr) {
+					WB_Histogram_data *histogram_data = nullptr;
+					if(filter_obj->fs_base != nullptr)
 						histogram_data = &((FS_WB *)filter_obj->fs_base)->histogram_data;
 //cerr << "args->fs_base == " << (unsigned long)args->fs_base << endl;
 					filter->set_histograms(histogram_data, hist_before, hist_after);
@@ -1179,7 +1175,7 @@ Area *FP_WB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj)
 			}			
 			limit = (edge[0] < edge[1]) ? edge[0] : edge[1];
 			limit = (limit < edge[2]) ? limit : edge[2];
-			_clip(limit, 0.05f, 1.0f);
+			ddr::clip(limit, 0.05f, 1.0f);
 //			limit = 1.0f;
 #if 0
 cerr << "___________" << endl;
@@ -1193,7 +1189,7 @@ cerr << "___________" << endl;
 		if(limit < 1.0f)
 			hl_clip = false;
 		//--
-		y_flow = new QAtomicInt(0);
+		y_flow = new std::atomic_int(0);
 		tasks = new task_t *[subflow->cores()];
 		for(int i = 0; i < subflow->cores(); i++) {
 			tasks[i] = new task_t;
@@ -1207,7 +1203,7 @@ cerr << "___________" << endl;
 				tasks[i]->edge[k] = edge[k];
 			}
 			tasks[i]->limit = limit;
-			if(filter != NULL) {
+			if(filter != nullptr) {
 				tasks[i]->hist_in = new long[256 * 3];
 				tasks[i]->hist_out = new long[256 * 3];
 				for(int k = 0; k < 256 * 3; k++) {
@@ -1215,8 +1211,8 @@ cerr << "___________" << endl;
 					tasks[i]->hist_out[k] = 0;
 				}
 			} else {
-				tasks[i]->hist_in = NULL;
-				tasks[i]->hist_out = NULL;
+				tasks[i]->hist_in = nullptr;
+				tasks[i]->hist_out = nullptr;
 			}
 			tasks[i]->offset = fp_cache->offset;
 			tasks[i]->y_flow = y_flow;
@@ -1260,7 +1256,7 @@ cerr << "tasks->scale_a[2] == " << scale_a[2] << endl;
 //		const int out_h = task->area_out->dimensions()->height();
 
 		int y = 0;
-		while((y = _mt_qatom_fetch_and_add(task->y_flow, 1)) < in_h) {
+		while((y = task->y_flow->fetch_add(1)) < in_h) {
 			for(int x = 0; x < in_w; x++) {
 				const int index_in = (in_mem_w * (in_off_y + y) + in_off_x + x) * 4;
 				const int index_out = (out_mem_w * (out_off_y + y) + out_off_x + x) * 4;
@@ -1308,16 +1304,16 @@ cerr << "tasks->scale_a[2] == " << scale_a[2] << endl;
 						float scale1 = (d1 <= 0.0f) ? 0.0f : ((c[k1] - 1.0f) / d1);
 						const float d2 = task->edge[k2] - 1.0f;
 						float scale2 = (d2 <= 0.0f) ? 0.0f : ((c[k2] - 1.0f) / d2);
-						_clip(scale1, 0.0f, 1.0f);
-						_clip(scale2, 0.0f, 1.0f);
+						ddr::clip(scale1);
+						ddr::clip(scale2);
 //						float scale = (scale1 + scale2) * 0.5;
-						float scale = _max(scale1, scale2);
-						_clip(scale, 0.0f, 1.0f);
-						c[k] = c[k] + clip_min((1.0f - c[k]) * scale, 0.0f);
+						float scale = ddr::max(scale1, scale2);
+						ddr::clip(scale);
+						c[k] += std::max((1.0f - c[k]) * scale, 0.0f);
 					}
 				}
 				for(int k = 0; k < 3; k++)
-					out[index_out + k] = _clip(c[k]);
+					out[index_out + k] = ddr::clip(c[k]);
 				// update histograms
 				if(task->hist_in && task->hist_out) {
 					for(int k = 0; k < 3; k++) {
@@ -1333,7 +1329,7 @@ cerr << "tasks->scale_a[2] == " << scale_a[2] << endl;
 				for(int k = 0; k < 3; k++) {
 					float v = in[index_in + k] * task->c_scale[k];
 					v = (v * task->scale[k] - task->offset) / (1.0 - task->offset);
-					out[index_out + k] = _clip(v);
+					out[index_out + k] = ddr::clip(v);
 				}
 */
 				out[index_out + 3] = in[index_out + 3];
@@ -1344,7 +1340,7 @@ cerr << "tasks->scale_a[2] == " << scale_a[2] << endl;
 	//-- clean-up
 	if(subflow->sync_point_pre()) {
 		// update histograms
-		if(filter != NULL) {
+		if(filter != nullptr) {
 			QVector<long> hist_in(256 * 3);
 			QVector<long> hist_out(256 * 3);
 			for(int i = 0; i < subflow->cores(); i++) {
@@ -1377,8 +1373,8 @@ cerr << "max of hist_out[1] == " << float(level_out[1]) / 200.0 << endl;
 cerr << "max of hist_out[2] == " << float(level_out[2]) / 200.0 << endl;
 cerr << endl;
 #endif
-			WB_Histogram_data *histogram_data = NULL;
-			if(filter_obj->fs_base != NULL)
+			WB_Histogram_data *histogram_data = nullptr;
+			if(filter_obj->fs_base != nullptr)
 				histogram_data = &((FS_WB *)filter_obj->fs_base)->histogram_data;
 //cerr << "args->fs_base == " << (unsigned long)args->fs_base << endl;
 // MARK3
@@ -1427,7 +1423,7 @@ void FP_WB::scale_histogram(QVector<float> &out, int out_1, uint32_t *in, int in
 			x = 0.0;
 		}
 		part = s - x;
-		_clip(part, 0.0, 1.0);
+		ddr::clip(part);
 	}
 }
 
@@ -1438,7 +1434,7 @@ WB_Histogram_data::WB_Histogram_data(void) {
 }
 
 WB_Histogram::WB_Histogram(QWidget *parent) : QWidget(parent) {
-	data = NULL;
+	data = nullptr;
 	size_w = 256;
 	size_h = 128;
 	shift_x = 2;
@@ -1476,9 +1472,9 @@ void WB_Histogram::set_data_object(WB_Histogram_data *_data) {
 void WB_Histogram::set_histograms(WB_Histogram_data *_data, const QVector<long> &before, const QVector<long> &after) {
 	bool flag = false;
 	data_lock.lock();
-//	if(data != NULL || _data != NULL)
+//	if(data != nullptr || _data != nullptr)
 		flag = (data == _data);
-	if(_data != NULL) {
+	if(_data != nullptr) {
 		_data->hist_before = before;
 		_data->hist_after = after;
 	}
@@ -1556,9 +1552,9 @@ void WB_Histogram::draw(QPainter *_painter) {
 	painter->fillRect(QRectF(gx_4 + 0.5, ry_3 + 1.5, rw + 1 - gx_4, ry_1), brush);
 
 	// histograms
-	QVector<long> *hist_ptr[2] = {NULL, NULL};
+	QVector<long> *hist_ptr[2] = {nullptr, nullptr};
 	data_lock.lock();
-	if(data != NULL) {
+	if(data != nullptr) {
 		hist_ptr[0] = &data->hist_before;
 		hist_ptr[1] = &data->hist_after;
 	}
@@ -1571,7 +1567,7 @@ void WB_Histogram::draw(QPainter *_painter) {
 	painter->setOpacity(1.0);
 	painter->setCompositionMode(QPainter::CompositionMode_Plus);
 	for(int j = 0; j < 2; j++) {
-		if(hist_ptr[j] == NULL)
+		if(hist_ptr[j] == nullptr)
 			continue;
 		QVector<long> &hist = *hist_ptr[j];
 		int dy = hist_dy[j];

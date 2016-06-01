@@ -2,7 +2,7 @@
  * import_exiv2.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -27,7 +27,7 @@ using namespace std;
 
 //------------------------------------------------------------------------------
 uint8_t *Exiv2_load_thumb(string filename, int thumb_width, int thumb_height, long &length, Metadata *metadata) {
-	uint8_t *data = NULL;
+	uint8_t *data = nullptr;
 	try {
 		Exiv2::Image::AutoPtr image = Exiv2::ImageFactory::open(filename);
 		if(image.get() == 0) {
@@ -46,7 +46,7 @@ uint8_t *Exiv2_load_thumb(string filename, int thumb_width, int thumb_height, lo
 			int size = thumb_width;
 			int dw = width - size;
 			dw = dw < 0 ? -dw : dw;
-			for(Exiv2::PreviewPropertiesList::iterator pos = list.begin(); pos != list.end(); pos++) {
+			for(Exiv2::PreviewPropertiesList::iterator pos = list.begin(); pos != list.end(); ++pos) {
 				int _dw = pos->width_ - size;
 				_dw = _dw < 0 ? -_dw : _dw;
 				if(_dw < dw) {
@@ -62,7 +62,7 @@ uint8_t *Exiv2_load_thumb(string filename, int thumb_width, int thumb_height, lo
 		}
 
 		// fill metadata
-		if(metadata != NULL) {
+		if(metadata != nullptr) {
 			Exiv2_load_metadata_image(image, metadata);
 		}
 //	} catch (...) {
@@ -254,13 +254,13 @@ bool Exiv2_load_metadata_image(Exiv2::Image::AutoPtr &image, class Metadata *met
 	if(metadata->exiv2_lens_model != "") {
 		lfDatabase *ldb_lens = System::instance()->ldb();
 		const lfCamera **cameras = ldb_lens->FindCameras(metadata->camera_make.c_str(), metadata->camera_model.c_str());
-		const lfCamera *camera = NULL;
-		if(cameras != NULL) {
+		const lfCamera *camera = nullptr;
+		if(cameras != nullptr) {
 			camera = cameras[0];
 //cerr << "camera_maker == \"" << lf_mlstr_get(camera->Maker) << "\"; camera model == \"" << lf_mlstr_get(camera->Model) << "\"" << endl;
 		}
-		const lfLens **lenses = ldb_lens->FindLenses(camera, NULL, metadata->exiv2_lens_model.c_str());
-		if(lenses != NULL) {
+		const lfLens **lenses = ldb_lens->FindLenses(camera, nullptr, metadata->exiv2_lens_model.c_str());
+		if(lenses != nullptr) {
 			const lfLens *lens = lenses[0];
 //			cerr << "Exiv2 lens ID: \"" << metadata->exiv2_lens_model << "\"; Lensfun lens ID: \"" << lf_mlstr_get(lens->Model) << "\"" << endl;
 			metadata->lensfun_lens_model = lf_mlstr_get(lens->Model);
@@ -294,7 +294,7 @@ bool Exiv2_load_metadata_image(Exiv2::Image::AutoPtr &image, class Metadata *met
 	// fill metadats's sensor description
 	lfDatabase *ldb = System::instance()->ldb();
 	const lfCamera **cameras = ldb->FindCameras(metadata->camera_make.c_str(), metadata->camera_model.c_str());
-	if(cameras != NULL) {
+	if(cameras != nullptr) {
 		for(int i = 0; cameras[i]; i++) {
 			if(cameras[i]->CropFactor != 0.0) {
 				metadata->sensor_crop = cameras[i]->CropFactor;

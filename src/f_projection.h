@@ -30,7 +30,7 @@ public:
 	FilterProcess *getFP(void);
 
 	// controls
-	QWidget *controls(QWidget *parent = NULL);
+	QWidget *controls(QWidget *parent = nullptr);
 	QList<QAction *> get_actions_list(void);
 	PS_Base *newPS(void);
 	void set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t args);

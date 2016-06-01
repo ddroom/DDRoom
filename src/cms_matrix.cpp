@@ -2,7 +2,7 @@
  * cms_matrix.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
@@ -355,7 +355,7 @@ void CMS_Matrix::load_color_spaces(void) {
 #endif
 
 /*
-	for(list<CMS_Matrix::color_space_t>::iterator it = color_spaces.begin(); it != color_spaces.end(); it++) {
+	for(list<CMS_Matrix::color_space_t>::iterator it = color_spaces.begin(); it != color_spaces.end(); ++it) {
 		if((*it).key == DEFAULT_OUTPUT_COLOR_SPACE) {
 			default_output_color_space = (*it);
 			break;
@@ -404,10 +404,10 @@ float CMS_Matrix::gamma_function_t::function(float x) {
 //------------------------------------------------------------------------------
 // TODO: clean up those lists?
 std::list<CMS_Matrix::gamma_function_t *> CMS_Matrix::gamma_list;
-QMutex CMS_Matrix::gamma_list_lock;
+std::mutex CMS_Matrix::gamma_list_lock;
 
 std::list<CMS_Matrix::gamma_function_t *> CMS_Matrix::inverse_gamma_list;
-QMutex CMS_Matrix::inverse_gamma_list_lock;
+std::mutex CMS_Matrix::inverse_gamma_list_lock;
 
 TableFunction *CMS_Matrix::get_gamma(string cs_name) {
 	return _get_gamma(cs_name, &gamma_list, &gamma_list_lock, false);
@@ -417,18 +417,18 @@ TableFunction *CMS_Matrix::get_inverse_gamma(string cs_name) {
 	return _get_gamma(cs_name, &inverse_gamma_list, &inverse_gamma_list_lock, true);
 }
 
-TableFunction *CMS_Matrix::_get_gamma(string cs_name, std::list<gamma_function_t *> *ptr_list, QMutex *ptr_list_lock, bool inverse_gamma) {
+TableFunction *CMS_Matrix::_get_gamma(string cs_name, std::list<gamma_function_t *> *ptr_list, std::mutex *ptr_list_lock, bool inverse_gamma) {
 	// find associated color space, by default use "default"
 	color_space_t color_space;
-	for(list<CMS_Matrix::color_space_t>::iterator it = color_spaces.begin(); it != color_spaces.end(); it++) {
+	for(list<CMS_Matrix::color_space_t>::iterator it = color_spaces.begin(); it != color_spaces.end(); ++it) {
 		if((*it).key == cs_name) {
 			color_space = (*it);
 			break;
 		}
 	}
 	// try to found gamma
-	CMS_Matrix::gamma_function_t *gamma_function = NULL;
-	for(list<gamma_function_t *>::iterator it = ptr_list->begin(); it != ptr_list->end(); it++) {
+	CMS_Matrix::gamma_function_t *gamma_function = nullptr;
+	for(list<gamma_function_t *>::iterator it = ptr_list->begin(); it != ptr_list->end(); ++it) {
 		if(color_space.gamma_value == ((*it)->value)) {
 			if(!color_space.gamma_simple) {
 				if((*it)->offset != color_space.gamma_offset || (*it)->transition != color_space.gamma_transition || (*it)->slope != color_space.gamma_slope)
@@ -438,10 +438,10 @@ TableFunction *CMS_Matrix::_get_gamma(string cs_name, std::list<gamma_function_t
 			break;
 		}
 	}
-	if(gamma_function == NULL) {
+	if(gamma_function == nullptr) {
 		ptr_list_lock->lock();
 		bool is_exist = false;
-		for(list<gamma_function_t *>::iterator it = ptr_list->begin(); it != ptr_list->end(); it++) {
+		for(list<gamma_function_t *>::iterator it = ptr_list->begin(); it != ptr_list->end(); ++it) {
 			if(color_space.gamma_value == ((*it)->value)) {
 				if(!color_space.gamma_simple) {
 					if((*it)->offset != color_space.gamma_offset || (*it)->transition != color_space.gamma_transition || (*it)->slope != color_space.gamma_slope)
@@ -462,16 +462,16 @@ TableFunction *CMS_Matrix::_get_gamma(string cs_name, std::list<gamma_function_t
 }
 
 //------------------------------------------------------------------------------
-CMS_Matrix *CMS_Matrix::_this = NULL;
+CMS_Matrix *CMS_Matrix::_this = nullptr;
 
 CMS_Matrix::CMS_Matrix(void) {
-	if(_this == NULL) {
+	if(_this == nullptr) {
 		load_color_spaces();
 	}
 }
 
 bool CMS_Matrix::get_matrix_XYZ_to_CS(string cs_name, float *matrix) {
-	for(list<color_space_t>::iterator it = color_spaces.begin(); it != color_spaces.end(); it++) {
+	for(list<color_space_t>::iterator it = color_spaces.begin(); it != color_spaces.end(); ++it) {
 		if((*it).key == cs_name) {
 			for(int k = 0; k < 9; k++)
 				matrix[k] = (*it).matrix[k];
@@ -491,7 +491,7 @@ bool CMS_Matrix::get_matrix_CS_to_XYZ(string cs_name, float *matrix) {
 }
 
 string CMS_Matrix::get_illuminant_name(string cs_name) {
-	for(list<color_space_t>::iterator it = color_spaces.begin(); it != color_spaces.end(); it++) {
+	for(list<color_space_t>::iterator it = color_spaces.begin(); it != color_spaces.end(); ++it) {
 		if((*it).key == cs_name) {
 			return (*it).illuminant;
 		}
@@ -512,7 +512,7 @@ void CMS_Matrix::get_illuminant_XYZ(string name, float *XYZ) {
 }
 
 string CMS_Matrix::get_cs_string_name(string cs_name) {
-	for(list<color_space_t>::iterator it = color_spaces.begin(); it != color_spaces.end(); it++)
+	for(list<color_space_t>::iterator it = color_spaces.begin(); it != color_spaces.end(); ++it)
 		if((*it).key == cs_name)
 			return (*it).name;
 	return "";
@@ -520,7 +520,7 @@ string CMS_Matrix::get_cs_string_name(string cs_name) {
 
 list<string> CMS_Matrix::get_cs_names(void) {
 	list<string> rez;
-	for(list<color_space_t>::iterator it = color_spaces.begin(); it != color_spaces.end(); it++) {
+	for(list<color_space_t>::iterator it = color_spaces.begin(); it != color_spaces.end(); ++it) {
 		if(!(*it).hidden)
 			rez.push_back((*it).name);
 	}
@@ -528,7 +528,7 @@ list<string> CMS_Matrix::get_cs_names(void) {
 }
 
 string CMS_Matrix::get_cs_name_from_string_name(string cs_string_name) {
-	for(list<color_space_t>::iterator it = color_spaces.begin(); it != color_spaces.end(); it++)
+	for(list<color_space_t>::iterator it = color_spaces.begin(); it != color_spaces.end(); ++it)
 		if((*it).name == cs_string_name)
 			return (*it).key;
 	return "";

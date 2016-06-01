@@ -2,7 +2,7 @@
  * db.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -21,10 +21,10 @@
 using namespace std;
 
 //------------------------------------------------------------------------------
-DB_lens_links *DB_lens_links::_this = NULL;
+DB_lens_links *DB_lens_links::_this = nullptr;
 
 DB_lens_links *DB_lens_links::instance(void) {
-	if(_this == NULL)
+	if(_this == nullptr)
 		_this = new DB_lens_links();
 	return _this;
 }
@@ -126,7 +126,7 @@ bool DB_lens_links::db_save(std::string file_name, const std::map<std::string, D
 	xml.writeStartElement("lens-exiv2_to_lensfun");
 	xml.writeAttribute("version", "1");
 
-	for(map<std::string, DB_lens_links_record_t>::const_iterator it = db.begin(); it != db.end(); it++) {
+	for(map<std::string, DB_lens_links_record_t>::const_iterator it = db.begin(); it != db.end(); ++it) {
 		xml.writeStartElement("link");
 		xml.writeStartElement("exiv2_footprint");
 		xml.writeCharacters(QString::fromLatin1((*it).second.footprint.c_str()));
@@ -301,14 +301,14 @@ Lens_Links_browse_model::Lens_Links_browse_model(const std::map<std::string, DB_
 	// fill multimap to get sorted values...
 	QMultiMap<std::string, int> mmap;
 	int i = 0;
-	for(std::map<std::string, DB_lens_links_record_t>::const_iterator it = db->begin(); it != db->end(); it++) {
+	for(std::map<std::string, DB_lens_links_record_t>::const_iterator it = db->begin(); it != db->end(); ++it) {
 		mmap.insert((*it).second.lens_model, i);
 		i++;
 	}
 	// now - get mapping table...
 	QVector<int> mapping = QVector<int>(size);
 	i = 0;
-	for(QMultiMap<std::string, int>::const_iterator it = mmap.begin(); it != mmap.end(); it++) {
+	for(QMultiMap<std::string, int>::const_iterator it = mmap.begin(); it != mmap.end(); ++it) {
 		mapping[it.value()] = i;
 		i++;
 	}
@@ -316,7 +316,7 @@ Lens_Links_browse_model::Lens_Links_browse_model(const std::map<std::string, DB_
 //	db_footprints = QVector<QString>(size);
 	db_values = QVector<DB_lens_links_record_Q_t>(size);
 	i = 0;
-	for(std::map<std::string, DB_lens_links_record_t>::const_iterator it = db->begin(); it != db->end(); it++) {
+	for(std::map<std::string, DB_lens_links_record_t>::const_iterator it = db->begin(); it != db->end(); ++it) {
 		int index = mapping[i];
 		set_record(index, (*it).second);
 		i++;
@@ -451,15 +451,15 @@ Lens_Link_edit_dialog::Lens_Link_edit_dialog(const DB_lens_links_record_t &rec_t
 	lfCamera camera;
 	const lfCamera **cameras = ldb_lens->FindCameras(camera_maker.c_str(), camera_model.c_str());
 //cerr << "camera_maker == \"" << rec_t.camera_maker << "\"; camera_model == \"" << rec_t.camera_model << "\"" << endl;
-//	const lfCamera **cameras = ldb_lens->FindCameras("Sony", NULL);
-	if(cameras != NULL) {
+//	const lfCamera **cameras = ldb_lens->FindCameras("Sony", nullptr);
+	if(cameras != nullptr) {
 		camera = *cameras[0];
 //cerr << "camera.Model == " << lf_mlstr_get(camera.Model) << "; crop == " << camera.CropFactor << endl;
 	}
 //	cerr << "camera is valid == " << camera.Check() << endl;
-	const lfLens **lenses = ldb_lens->FindLenses(&camera, NULL, NULL);
+	const lfLens **lenses = ldb_lens->FindLenses(&camera, nullptr, nullptr);
 	QMap<QString, QPair<std::string, std::string> > map_lenses;
-	if(lenses != NULL) {
+	if(lenses != nullptr) {
 //		cerr << "found lenses for camera maker: \"" << rec_t.camera_maker << "\"" << endl;
 		for(int i = 0; lenses[i]; i++) {
 			std::string lens_maker = lf_mlstr_get(lenses[i]->Maker);
@@ -474,7 +474,7 @@ Lens_Link_edit_dialog::Lens_Link_edit_dialog(const DB_lens_links_record_t &rec_t
 			map_lenses[lens] = QPair<std::string, std::string>(lens_maker, lens_model);
 		}
 	} else {
-//cerr << "lenses == NULL" << endl;
+//cerr << "lenses == nullptr" << endl;
 	}
 	lf_free(cameras);
 	lf_free(lenses);
@@ -486,7 +486,7 @@ Lens_Link_edit_dialog::Lens_Link_edit_dialog(const DB_lens_links_record_t &rec_t
 	lenses_model = QVector<std::string>(size);
 	int i = 0;
 	lens_index = -1;
-	for(it = map_lenses.begin(); it != map_lenses.end(); it++) {
+	for(it = map_lenses.begin(); it != map_lenses.end(); ++it) {
 		lenses_names[i] = it.key();
 		lenses_maker[i] = it.value().first;
 		lenses_model[i] = it.value().second;
@@ -612,13 +612,13 @@ void Lens_Link_edit_dialog::slot_item_selected(const QModelIndex &index, const Q
 	lfDatabase *ldb_lens = System::instance()->ldb();
 	lfCamera camera;
 	const lfCamera **cameras = ldb_lens->FindCameras(camera_maker.c_str(), camera_model.c_str());
-	if(cameras != NULL)
+	if(cameras != nullptr)
 		camera = *cameras[0];
 	const lfLens **lenses = ldb_lens->FindLenses(&camera, lenses_maker[lens_index].c_str(), lenses_model[lens_index].c_str());
-	if(lenses != NULL) {
-		feature_vignetting |= (lenses[0]->CalibVignetting != NULL);
-		feature_CA |= (lenses[0]->CalibTCA != NULL);
-		feature_distortion |= (lenses[0]->CalibDistortion != NULL);
+	if(lenses != nullptr) {
+		feature_vignetting |= (lenses[0]->CalibVignetting != nullptr);
+		feature_CA |= (lenses[0]->CalibTCA != nullptr);
+		feature_distortion |= (lenses[0]->CalibDistortion != nullptr);
 	}
 	lf_free(cameras);
 	lf_free(lenses);

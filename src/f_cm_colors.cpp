@@ -2,7 +2,7 @@
  * f_cm_colors.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -59,9 +59,9 @@ public:
 double cm_colors_slider_map::UI_to_PS(double arg) {
 	// consider 'arg' in range [0.0 - 2.0], so
 	double value = arg;
-	double v = _abs(arg - 1.0);
+	double v = ddr::abs(arg - 1.0);
 	v = pow(v, 1.3);
-	_clip(v, 0.0f, 1.0f);
+	ddr::clip(v);
 	if(value < 1.0)
 		v = 1.0 - v;
 	else
@@ -153,19 +153,19 @@ protected:
 };
 
 //------------------------------------------------------------------------------
-FP_CM_Colors *F_CM_Colors::fp = NULL;
+FP_CM_Colors *F_CM_Colors::fp = nullptr;
 
 F_CM_Colors::F_CM_Colors(int id) {
 	filter_id = id;
 	_id = "F_CM_Colors";
 //	_name = tr("Colors");
 	_name = tr("Saturation");
-	if(fp == NULL)
+	if(fp == nullptr)
 		fp = new FP_CM_Colors();
 	_ps = (PS_CM_Colors *)newPS();
 	ps = _ps;
 	ps_base = ps;
-	widget = NULL;
+	widget = nullptr;
 	reset();
 }
 
@@ -178,7 +178,7 @@ PS_Base *F_CM_Colors::newPS(void) {
 
 void F_CM_Colors::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t args) {
 	// PS
-	if(new_ps != NULL) {
+	if(new_ps != nullptr) {
 		ps = (PS_CM_Colors *)new_ps;
 		ps_base = new_ps;
 	} else {
@@ -186,7 +186,7 @@ void F_CM_Colors::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_arg
 		ps_base = ps;
 	}
 	// FS
-	if(widget == NULL)
+	if(widget == nullptr)
 		return;
 	reconnect(false);
 	checkbox_saturation->setCheckState(ps->enabled_saturation ? Qt::Checked : Qt::Unchecked);
@@ -202,7 +202,7 @@ void F_CM_Colors::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_arg
 }
 
 QWidget *F_CM_Colors::controls(QWidget *parent) {
-	if(widget != NULL)
+	if(widget != nullptr)
 		return widget;
 	QGroupBox *q = new QGroupBox(_name);
 //	q->setCheckable(true);
@@ -360,11 +360,11 @@ public:
 };
 
 FP_CM_Colors_Cache_t::FP_CM_Colors_Cache_t(void) {
-	tf_js_spline = NULL;
+	tf_js_spline = nullptr;
 }
 
 FP_CM_Colors_Cache_t::~FP_CM_Colors_Cache_t() {
-	if(tf_js_spline != NULL)
+	if(tf_js_spline != nullptr)
 		delete tf_js_spline;
 }
 
@@ -378,7 +378,7 @@ public:
 	// 2D
 	Area *area_in;
 	Area *area_out;
-	QAtomicInt *flow_p1;
+	std::atomic_int *flow_p1;
 	bool gamut_use;
 	Saturation_Gamut *sg;
 };
@@ -417,7 +417,7 @@ void *FP_CM_Colors::get_ptr(bool process_thumb) {
 void FP_CM_Colors::fill_js_curve(FP_CM_Colors_Cache_t *fp_cache, PS_CM_Colors *ps) {
 	if(fp_cache->js_curve != ps->js_curve && ps->enabled_js_curve) {
 		fp_cache->js_curve = ps->js_curve;
-		if(fp_cache->tf_js_spline != NULL)
+		if(fp_cache->tf_js_spline != nullptr)
 			delete fp_cache->tf_js_spline;
 		fp_cache->tf_js_spline = new TF_JS_Spline(&ps->js_curve);
 	}
@@ -431,7 +431,7 @@ void FP_CM_Colors::filter_pre(fp_cp_args_t *args) {
 	string cm_name;
 	args->mutators->get("CM", cm_name);
 
-	if(filter != NULL)
+	if(filter != nullptr)
 		filter->set_CM(cm_name);
 //	CM::cm_type_en cm_type = CM::get_type(cm_name);
 
@@ -442,9 +442,9 @@ void FP_CM_Colors::filter_pre(fp_cp_args_t *args) {
 /*
 	else {
 		// make saturation scaling not so slope
-		float v = _abs(saturation - 1.0);
+		float v = ddr::abs(saturation - 1.0);
 		v = powf(v, 1.3);
-		_clip(v, 0.0f, 1.0f);
+		ddr::clip(v);
 		if(saturation < 1.0)
 			v = 1.0 - v;
 		else
@@ -453,7 +453,7 @@ void FP_CM_Colors::filter_pre(fp_cp_args_t *args) {
 	}
 */
 	fill_js_curve(fp_cache, ps);
-	Saturation_Gamut *sg = NULL;
+	Saturation_Gamut *sg = nullptr;
 	if(ps->gamut_use) {
 		string cm_name;
 		args->mutators->get("CM", cm_name);
@@ -478,7 +478,7 @@ void FP_CM_Colors::filter_pre(fp_cp_args_t *args) {
 
 void FP_CM_Colors::filter_post(fp_cp_args_t *args) {
 	FP_CM_Colors::task_t *t = (FP_CM_Colors::task_t *)args->ptr_private[0];
-	if(t->sg != NULL)
+	if(t->sg != nullptr)
 		delete t->sg;
 	for(int i = 0; i < args->cores; i++) {
 		t = (FP_CM_Colors::task_t *)args->ptr_private[i];
@@ -491,11 +491,11 @@ void FP_CM_Colors::filter(float *pixel, void *data) {
 	// Jsh
 	float scale = task->saturation;
 	float J = pixel[0];
-	if(task->gamut_use && task->sg != NULL) {
+	if(task->gamut_use && task->sg != nullptr) {
 		float J_edge, s_edge;
 		task->sg->lightness_edge_Js(J_edge, s_edge, pixel[2]);
 		J = J / J_edge;
-		_clip(J, 0.0f, 1.0f);
+		ddr::clip(J);
 	}
 	if(task->js_curve)
 		scale *= (*task->fp_cache->tf_js_spline)(J);
@@ -509,9 +509,9 @@ Area *FP_CM_Colors::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filt
 	PS_CM_Colors *ps = (PS_CM_Colors *)(filter_obj->ps_base);
 	FP_CM_Colors_Cache_t *fp_cache = (FP_CM_Colors_Cache_t *)process_obj->fp_cache;
 
-	Area *_area_out = NULL;
-	task_t **tasks = NULL;
-	QAtomicInt *_flow_p1 = NULL;
+	Area *_area_out = nullptr;
+	task_t **tasks = nullptr;
+	std::atomic_int *_flow_p1 = nullptr;
 
 //	long j_scale = 1000;	// use low-pass filter to draw distribution at gui_curve
 
@@ -523,7 +523,7 @@ Area *FP_CM_Colors::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filt
 //D_AREA_PTR(_area_out);
 
 		fill_js_curve(fp_cache, ps);
-		Saturation_Gamut *sg = NULL;
+		Saturation_Gamut *sg = nullptr;
 		if(ps->gamut_use) {
 			string cm_name;
 			process_obj->mutators->get("CM", cm_name);
@@ -539,7 +539,7 @@ Area *FP_CM_Colors::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filt
 			saturation = 1.0;
 
 		int cores = subflow->cores();
-		_flow_p1 = new QAtomicInt(0);
+		_flow_p1 = new std::atomic_int(0);
 		tasks = new task_t *[cores];
 		for(int i = 0; i < cores; i++) {
 			tasks[i] = new task_t;
@@ -578,7 +578,7 @@ Area *FP_CM_Colors::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filt
 //		ps_saturation = ps->saturation;
 		
 	int j;
-	while((j = _mt_qatom_fetch_and_add(task->flow_p1, 1)) < y_max) {
+	while((j = task->flow_p1->fetch_add(1)) < y_max) {
 		int in_index = ((j + in_my) * in_width + in_mx) * 4;
 		int out_index = ((j + out_my) * out_width + out_mx) * 4;
 		for(int i = 0; i < x_max; i++) {
@@ -600,11 +600,11 @@ Area *FP_CM_Colors::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filt
 			float *pixel = &in[in_index];
 			float scale = task->saturation;
 			float J = pixel[0];
-			if(task->gamut_use && task->sg != NULL) {
+			if(task->gamut_use && task->sg != nullptr) {
 				float J_edge, s_edge;
 				task->sg->lightness_edge_Js(J_edge, s_edge, pixel[2]);
 				J = J / J_edge;
-				_clip(J, 0.0f, 1.0f);
+				ddr::clip(J);
 			}
 			if(task->js_curve)
 				scale *= (*task->fp_cache->tf_js_spline)(J);
@@ -626,7 +626,7 @@ Area *FP_CM_Colors::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filt
 	// clean up
 	if(subflow->sync_point_pre()) {
 		delete _flow_p1;
-		if(tasks[0]->sg != NULL)
+		if(tasks[0]->sg != nullptr)
 			delete tasks[0]->sg;
 		for(int i = 0; i < subflow->cores(); i++)
 			delete tasks[i];

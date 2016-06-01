@@ -4,7 +4,7 @@
  * f_process.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
@@ -24,7 +24,7 @@ public:
 	F_Process(int id);
 	~F_Process();
 
-	void get_mutators(class DataSet *mutators, class DataSet *ps_dataset = NULL);
+	void get_mutators(class DataSet *mutators, class DataSet *ps_dataset = nullptr);
 	Filter::type_t type(void);
 
 	QWidget *controls(QWidget *parent = 0);

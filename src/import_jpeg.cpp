@@ -2,7 +2,7 @@
  * import_jpeg.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -37,7 +37,7 @@ QImage Import_Jpeg::thumb(Metadata *metadata, int thumb_width, int thumb_height)
 	QImage qimage;
 	long length = 0;
 	uint8_t *data = Exiv2_load_thumb(file_name, thumb_width, thumb_height, length, metadata);
-	if(data != NULL) {
+	if(data != nullptr) {
 		// thumb from Exif
 //		qimage = QImage::fromData((const uchar *)data, length);
 		qimage.loadFromData((const uchar *)data, length);
@@ -46,7 +46,7 @@ QImage Import_Jpeg::thumb(Metadata *metadata, int thumb_width, int thumb_height)
 	if(qimage.isNull() == true) {
 		// decompress image
 		Area *area = load_image(metadata, true);
-		if(area != NULL) {
+		if(area != nullptr) {
 			if(area->valid())
 				qimage = QImage((uchar *)area->ptr(), area->mem_width(), area->mem_height(), QImage::Format_RGB32).copy();
 			delete area;
@@ -77,14 +77,14 @@ Area *Import_Jpeg::load_image(Metadata *metadata, bool is_thumb) {
 	// --==--
 	// load image - as in libjpeg's example.c
 	metadata->rotation = 0;	// get real rotation with Exiv2
-	Area *area = NULL;
+	Area *area = nullptr;
 
 	struct jpeg_decompress_struct cinfo;
 	struct j_error_mgr mgr;
 	FILE *infile;		/* source file */
 	JSAMPARRAY buffer;	/* Output row buffer */
-	if((infile = fopen(file_name.c_str(), "rb")) == NULL)
-		return NULL;
+	if((infile = fopen(file_name.c_str(), "rb")) == nullptr)
+		return nullptr;
 	cinfo.err = jpeg_std_error(&mgr.pub);
 	mgr.pub.error_exit = j_error_exit;
 	jpeg_create_decompress(&cinfo);
@@ -111,7 +111,7 @@ Area *Import_Jpeg::load_image(Metadata *metadata, bool is_thumb) {
 		if(!is_thumb)
 			area = new Area(metadata->width, metadata->height); // RGBA float
 		else
-			area = new Area(metadata->width, metadata->height, Area::type_uint8_p4);	// ARGB 32bit
+			area = new Area(metadata->width, metadata->height, Area::type_t::type_uint8_p4);	// ARGB 32bit
 		if(area->valid()) {
 			D_AREA_PTR(area);
 			float *ptr = (float *)area->ptr();
@@ -141,7 +141,7 @@ Area *Import_Jpeg::load_image(Metadata *metadata, bool is_thumb) {
 				scale_mask = scale - 1;
 			}
 */
-			JSAMPLE *sample_ptr = NULL;
+			JSAMPLE *sample_ptr = nullptr;
 			for(int i = 0; i < 3; i++)
 				metadata->c_max[i] = 0.0;
 			int width = cinfo.output_width;

@@ -2,7 +2,7 @@
  * photo.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -20,32 +20,32 @@ using namespace std;
 //------------------------------------------------------------------------------
 Photo_t::Photo_t(void) {
 	process_source = ProcessSource::s_none;
-	metadata = NULL;
-	area_raw = NULL;
-	thumbnail = NULL;
-	cache_process = NULL;
+	metadata = nullptr;
+	area_raw = nullptr;
+	thumbnail = nullptr;
+	cache_process = nullptr;
 	EditHistory::photo_constructor(this);
 //cerr << "_____________________________________________________________________________________________________________________________ Photo::Photo() - constructor for " << (unsigned long)this << endl;
 }
 
 Photo_t::~Photo_t(void) {
 cerr << "~Photo()" << endl;
-	if(metadata != NULL)	delete metadata;
-	if(area_raw != NULL) {
+	if(metadata != nullptr)	delete metadata;
+	if(area_raw != nullptr) {
 cerr << "delete area_raw" << endl;
 		delete area_raw;
 	}
-	for(map<class Filter *, class PS_Base *>::iterator it = map_ps_base.begin(); it != map_ps_base.end(); it++) {
-		if((*it).second != NULL)
+	for(map<class Filter *, class PS_Base *>::iterator it = map_ps_base.begin(); it != map_ps_base.end(); ++it) {
+		if((*it).second != nullptr)
 			delete (*it).second;
 	}
-	for(map<class Filter *, class FS_Base *>::iterator it = map_fs_base.begin(); it != map_fs_base.end(); it++) {
-		if((*it).second != NULL)
+	for(map<class Filter *, class FS_Base *>::iterator it = map_fs_base.begin(); it != map_fs_base.end(); ++it) {
+		if((*it).second != nullptr)
 			delete (*it).second;
 	}
-	if(thumbnail != NULL) delete thumbnail;
+	if(thumbnail != nullptr) delete thumbnail;
 	// delete process cache
-	if(cache_process != NULL) {
+	if(cache_process != nullptr) {
 cerr << "delete cache_process" << endl;
 		delete cache_process;
 	}

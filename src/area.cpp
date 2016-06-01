@@ -2,7 +2,7 @@
  * area.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
@@ -12,7 +12,9 @@
 *	- add support of tiling in scaling
 */
 
+#include <atomic>
 #include <iostream>
+
 #include <math.h>
 #include <string.h>
 
@@ -159,7 +161,7 @@ void *Area::ptr(void) {
 	return (void *)mem.ptr();
 /*
 	void *ptr = mem.ptr();
-	if(ptr == NULL) {
+	if(ptr == nullptr) {
 cerr << "FATAL: Area: access to empty Area object" << endl;
 //		throw("Area: access to empty Area object");
 	}
@@ -181,15 +183,15 @@ Area *Area::real_copy(Area *other) {
 QImage Area::to_qimage(void) {
 	int w = dimensions()->width();
 	int h = dimensions()->height();
-	if(_type == type_uint8_p4)
+	if(_type == type_t::type_uint8_p4)
 		return QImage((uchar *)ptr(), w, h, w * 4, QImage::Format_ARGB32);
-	if(_type == type_uint8_p3)
+	if(_type == type_t::type_uint8_p3)
 		return QImage((uchar *)ptr(), w, h, w * 3, QImage::Format_RGB888);
 	return QImage();
 }
 
 QPixmap Area::to_qpixmap(void) {
-	if(_type != type_uint8_p4)
+	if(_type != type_t::type_uint8_p4)
 		return QPixmap();
 	int w = dimensions()->width();
 	int h = dimensions()->height();
@@ -311,7 +313,7 @@ public:
 	Area *area_out;
 	float scale_x;
 	float scale_y;
-	QAtomicInt *y_flow;
+	std::atomic_int *y_flow;
 	float in_x_off;
 	float in_y_off;
 };
@@ -321,9 +323,9 @@ Area *Area::scale(SubFlow *subflow, int out_w, int out_h, float out_scale_x, flo
 // TODO: check original 'px_size' asked by View and 'out_scale'
 	// TODO: utilize t_dimensions::position, support of scaling with tiles
 //cerr << "Area:scale(...) : " << (unsigned long)this << endl;
-	scale_task_t **tasks = NULL;
-	Area *area_out = NULL;
-	QAtomicInt *y_flow = NULL;
+	scale_task_t **tasks = nullptr;
+	Area *area_out = nullptr;
+	std::atomic_int *y_flow = nullptr;
 	if(subflow->sync_point_pre()) {
 		Area::t_dimensions *d_in = this->dimensions();
 ///*
@@ -347,8 +349,8 @@ cerr << "in_y_off == " << in_y_off << endl;
 //cerr << "in_y_off == " << in_y_off << endl;
 cerr << "out size == " << out_w << "x" << out_h << endl;
 
-		if(type() == Area::type_uint8_p4)
-			area_out = new Area(out_w, out_h, Area::type_uint8_p4);
+		if(type() == Area::type_t::type_uint8_p4)
+			area_out = new Area(out_w, out_h, Area::type_t::type_uint8_p4);
 		else
 			area_out = new Area(out_w, out_h);
 		area_out->dimensions()->position.x = d_in->position.x - d_in->position.px_size_x * 0.5 + out_scale_x * 0.5;
@@ -360,7 +362,7 @@ cerr << "out size == " << out_w << "x" << out_h << endl;
 		D_AREA_PTR(area_out);
 		int cores = subflow->cores();
 		tasks = new scale_task_t *[cores];
-		y_flow = new QAtomicInt(0);
+		y_flow = new std::atomic_int(0);
 		for(int i = 0; i < cores; i++) {
 			tasks[i] = new scale_task_t;
 			tasks[i]->area_in = this;
@@ -426,7 +428,7 @@ void Area::scale_process_copy(SubFlow *subflow) {
 	float *_out = (float *)area_out->ptr();
 	uint8_t *u_in = (uint8_t *)area_in->ptr();
 	uint8_t *u_out = (uint8_t *)area_out->ptr();
-	bool flag_8b = (area_in->type() == Area::type_uint8_p4);
+	bool flag_8b = (area_in->type() == Area::type_t::type_uint8_p4);
 
 	int out_x_offset = area_out->dimensions()->edges.x1;
 	int out_y_offset = area_out->dimensions()->edges.y1;
@@ -455,7 +457,7 @@ cerr << "area_out->dimensions()->position.px_size == " << area_out->dimensions()
 
 	int y = 0;
 	if(flag_8b == false) {
-		while((y = _mt_qatom_fetch_and_add(task->y_flow, 1)) < out_h) {
+		while((y = task->y_flow->fetch_add(1)) < out_h) {
 			for(int x = 0; x < out_w; x++) {
 				int index_in = ((y + in_y_offset) * in_width + x + in_x_offset) * 4;
 				int index_out = ((y + out_y_offset) * out_width + x + out_x_offset) * 4;
@@ -466,7 +468,7 @@ cerr << "area_out->dimensions()->position.px_size == " << area_out->dimensions()
 			}
 		}
 	} else {
-		while((y = _mt_qatom_fetch_and_add(task->y_flow, 1)) < out_h) {
+		while((y = task->y_flow->fetch_add(1)) < out_h) {
 			for(int x = 0; x < out_w; x++) {
 				int index_in = ((y + in_y_offset) * in_width + x + in_x_offset) * 4;
 				int index_out = ((y + out_y_offset) * out_width + x + out_x_offset) * 4;
@@ -518,12 +520,12 @@ void Area::scale_process_downscale(SubFlow *subflow) {
 	 *  out[1] = (in[2] * 0.5 + in[3] * 1.0 + in[4] * 1.0) / 2.5
 	 *	- for scale == 2.5; and so on
 	 */
-	bool flag_8b = (area_in->type() == Area::type_uint8_p4);
+	bool flag_8b = (area_in->type() == Area::type_t::type_uint8_p4);
 	const float scale_x = task->scale_x;
 	const float scale_y = task->scale_y;
 	const float w_div = scale_x * scale_y;
 	int j = 0;
-	while((j = _mt_qatom_fetch_and_add(task->y_flow, 1)) < j_max) {
+	while((j = task->y_flow->fetch_add(1)) < j_max) {
 		int out_y = j;
 		const float f_in_y = f_offset_y + scale_y * j;
 		for(int i = 0; i < i_max; i++) {
@@ -638,11 +640,11 @@ cerr << "	f_offset_y == " << f_offset_y << endl;
 	int j_max = out_h;
 	int i_max = out_w;
 
-	bool flag_8b = (area_in->type() == Area::type_uint8_p4);
+	bool flag_8b = (area_in->type() == Area::type_t::type_uint8_p4);
 	const float scale_x = task->scale_x;
 	const float scale_y = task->scale_y;
 	int j = 0;
-	while((j = _mt_qatom_fetch_and_add(task->y_flow, 1)) < j_max) {
+	while((j = task->y_flow->fetch_add(1)) < j_max) {
 		int out_y = j;
 		const float f_in_y = f_offset_y + scale_y * j;
 		float floor_in_y = floor(f_in_y);
@@ -715,7 +717,7 @@ cerr << "	f_offset_y == " << f_offset_y << endl;
 //------------------------------------------------------------------------------
 // one thread smooth downscale with kept aspect ration, for thumbnails
 Area *Area::scale(int scale_width, int scale_height, bool to_fit) {
-	Area *area_out = NULL;
+	Area *area_out = nullptr;
 	Area::t_dimensions d_out = this->_dimensions;
 	float scale = 1.0;
 	if(to_fit)
@@ -768,12 +770,11 @@ Area *Area::scale(int scale_width, int scale_height, bool to_fit) {
 	 *  out[1] = (in[2] * 0.5 + in[3] * 1.0 + in[4] * 1.0) / 2.5
 	 *	- for scale == 2.5; and so on
 	 */
-	bool flag_8b = (this->type() == Area::type_uint8_p4);
+	bool flag_8b = (this->type() == Area::type_t::type_uint8_p4);
 	const float scale_x = out_scale_x;
 	const float scale_y = out_scale_y;
 	const float w_div = scale_x * scale_y;
 //	int j = 0;
-//	while((j = _mt_qatom_fetch_and_add(task->y_flow, 1)) < j_max) {
 	for(int j = 0; j < j_max; j++) {
 		int out_y = j;
 		const float f_in_y = f_offset_y + scale_y * j;

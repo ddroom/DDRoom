@@ -2,7 +2,7 @@
  * f_demosaic_ahd.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -14,6 +14,7 @@
  * ported from dcraw.c as reference
 */
 
+#include <algorithm>
 #include "f_demosaic_int.h"
 
 //------------------------------------------------------------------------------
@@ -30,20 +31,8 @@ struct Lab_t {
 	float b;
 };
 
-//inline float _abs(const float &arg) {
-//	return (arg < 0.0) ? -arg : arg;
-//}
-
 inline float _square(const float &arg) {
 	return arg * arg;
-}
-
-inline float _min(const float &a1, const float &a2) {
-	return (a1 < a2) ? a1 : a2;
-}
-
-inline float _max(const float &a1, const float &a2) {
-	return (a1 > a2) ? a1 : a2;
 }
 
 inline float _rec(float c_low, float b, float b_low) {
@@ -164,12 +153,12 @@ void FP_Demosaic::process_AHD(class SubFlow *subflow) {
 /*
 					float v;
 					if(n == 1) { // horizontal
-						if(_abs(c1 - c2) < _abs(c3 - c4))
+						if(ddr::abs(c1 - c2) < ddr::abs(c3 - c4))
 							v = _rec((c1 + c2) * 0.5, g, (g1 + g2) * 0.5);
 						else
 							v = _rec((c3 + c4) * 0.5, g, (g3 + g4) * 0.5);
 					} else { // vertical
-						if(_abs(c1 - c3) < _abs(c2 - c4))
+						if(ddr::abs(c1 - c3) < ddr::abs(c2 - c4))
 							v = _rec((c1 + c3) * 0.5, g, (g1 + g3) * 0.5);
 						else
 							v = _rec((c2 + c4) * 0.5, g, (g2 + g4) * 0.5);
@@ -280,12 +269,12 @@ void FP_Demosaic::process_AHD(class SubFlow *subflow) {
 			for(int n = 0; n < 2; n++) {
 				float *l = ml[n];
 				for(int i = 0; i < 4; i++) {
-					dl[n][i] = _abs(l[k3] - l[k3 + offsets[i]]);
+					dl[n][i] = ddr::abs(l[k3] - l[k3 + offsets[i]]);
 					dc[n][i] = _square(l[k3 + 1] - l[k3 + offsets[i] + 1]) + _square(l[k3 + 2] - l[k3 + offsets[i] + 2]);
 				}
 			}
-			float el = _min(_max(dl[0][0], dl[0][1]), _max(dl[1][2], dl[1][3]));
-			float ec = _min(_max(dc[0][0], dc[0][1]), _max(dc[1][2], dc[1][3]));
+			float el = ddr::min(ddr::max(dl[0][0], dl[0][1]), ddr::max(dl[1][2], dl[1][3]));
+			float ec = ddr::min(ddr::max(dc[0][0], dc[0][1]), ddr::max(dc[1][2], dc[1][3]));
 			for(int n = 0; n < 2; n++) {
 				float *f = mf[n];
 				f[k4 + 3] = 0.0;

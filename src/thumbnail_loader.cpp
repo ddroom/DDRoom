@@ -2,7 +2,7 @@
  * thumbnail_loader.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -27,8 +27,8 @@ ThumbnailLoader::ThumbnailLoader() {
 
 	// list_whole - complete list of the thumbnails
 	// list_view - thumbnails that are visible now
-	list_whole = NULL;
-	list_view = NULL;
+	list_whole = nullptr;
+	list_view = nullptr;
 
 	// configuration
 	// preload invisible thumbnails
@@ -37,15 +37,18 @@ ThumbnailLoader::ThumbnailLoader() {
 
 ThumbnailLoader::~ThumbnailLoader() {
 	stop();
-	if(list_whole != NULL) {
+	if(list_whole != nullptr) {
 		delete list_whole;
-		list_whole = NULL;
+		list_whole = nullptr;
 	}
-	if(list_view != NULL) {
+	if(list_view != nullptr) {
 		delete list_view;
-		list_view = NULL;
+		list_view = nullptr;
 	}
-	wait();
+	if(std_thread != nullptr) {
+		std_thread->join();
+		delete std_thread;
+	}
 }
 
 void ThumbnailLoader::set_thumbnail_size(QSize thumbnail_size) {
@@ -59,7 +62,7 @@ void ThumbnailLoader::_start(string _folder, list<thumbnail_record_t> *vlist, Ph
 	tr_folder = _folder;
 
 	mutex_target.lock();
-	if(list_view != NULL)
+	if(list_view != nullptr)
 		delete list_view;
 	list_view = vlist;
 	mutex_target.unlock();
@@ -67,28 +70,45 @@ void ThumbnailLoader::_start(string _folder, list<thumbnail_record_t> *vlist, Ph
 	photo_list = _photo_list;
 	is_run_flag = true;
 	mutex_loader.unlock();
-	this->wait();
-	this->start();
+	if(std_thread != nullptr) {
+		std_thread->join();
+		delete std_thread;
+	}
+	auto obj = this;
+//std::cerr << "..... 1" << std::endl;
+//cerr << " obj == " << (unsigned long)obj << endl;
+	std_thread = new std::thread( [obj](void){obj->run();} );
+//std::cerr << "..... 2" << std::endl;
+}
+
+void ThumbnailLoader::wait(void) {
+	if(std_thread != nullptr) {
+		std_thread->join();
+		delete std_thread;
+		std_thread = nullptr;
+	}
 }
 
 void ThumbnailLoader::stop(void) {
 	mutex_target.lock();
-	if(list_view != NULL)
+	if(list_view != nullptr)
 		delete list_view;
-	list_view = NULL;
+	list_view = nullptr;
 	mutex_target.unlock();
 
-	QMutexLocker locker(&mutex_loader);
+	std::unique_lock<std::mutex> locker(mutex_loader, std::defer_lock);
+	locker.lock();
 	_stop = true;
 	while(is_run_flag)
-		is_run.wait(&mutex_loader);
+		cv_is_run.wait(locker);
+	locker.unlock();
 }
 
 void ThumbnailLoader::list_whole_reset(void) {
 	mutex_target.lock();
 	if(list_whole)
 		delete list_whole;
-	list_whole = NULL;
+	list_whole = nullptr;
 	mutex_target.unlock();
 }
 
@@ -102,10 +122,12 @@ void ThumbnailLoader::list_whole_set(list<thumbnail_record_t> *_list_whole) {
 
 void ThumbnailLoader::run(void) {
 //cerr << "ThumbnailLoader::run()" << endl;
+//cerr << "this == " << (unsigned long)this << endl;
 	mutex_target.lock();
-	if(list_whole == NULL)
+//cerr << "ThumbnailLoader::run() ... 1" << endl;
+	if(list_whole == nullptr)
 		list_whole = new list<thumbnail_record_t>;
-	if(list_view == NULL)
+	if(list_view == nullptr)
 		list_view = new list<thumbnail_record_t>;
 //cerr << "list_whole.size == " << list_whole->size() << endl;
 //cerr << "list_view.size == " << list_view->size() << endl;
@@ -118,14 +140,18 @@ void ThumbnailLoader::run(void) {
 			if(threads > count)
 				threads = count;
 			list<ThumbnailThread *> thl;
+//cerr << "... 01" << endl;
 			for(int i = 0; i < threads; i++)
 				thl.push_back(new ThumbnailThread(_thumb_size));
-			for(list<ThumbnailThread *>::iterator it = thl.begin(); it != thl.end(); it++)
+//cerr << "... 02" << endl;
+			for(list<ThumbnailThread *>::iterator it = thl.begin(); it != thl.end(); ++it)
 				(*it)->_start(folder, (void *)this);
-			for(list<ThumbnailThread *>::iterator it = thl.begin(); it != thl.end(); it++)
-				(*it)->wait();
-			for(list<ThumbnailThread *>::iterator it = thl.begin(); it != thl.end(); it++)
+//cerr << "... 03" << endl;
+//			for(list<ThumbnailThread *>::iterator it = thl.begin(); it != thl.end(); ++it)
+//				(*it)->wait();
+			for(list<ThumbnailThread *>::iterator it = thl.begin(); it != thl.end(); ++it)
 				delete (*it);
+//cerr << "... 04" << endl;
 		} else {
 			thumbnail_record_t target;
 			while(target_next(target)) {
@@ -144,14 +170,14 @@ void ThumbnailLoader::run(void) {
 	mutex_loader.lock();
 	is_run_flag = false;
 	_stop = false;
-	is_run.wakeAll();
+	cv_is_run.notify_all();
 	mutex_loader.unlock();
 
 	mutex_target.lock();
 //	delete list_whole;
-//	list_whole = NULL;
+//	list_whole = nullptr;
 	delete list_view;
-	list_view = NULL;
+	list_view = nullptr;
 	mutex_target.unlock();
 }
 
@@ -165,7 +191,7 @@ bool ThumbnailLoader::target_next(thumbnail_record_t &target) {
 	do {
 		result = false;
 		// thumbs that are shown in view
-		if(list_view != NULL) {
+		if(list_view != nullptr) {
 			if(list_view->size() != 0) {
 //			if(list_view->begin() != list_view->end()) {
 //				target = *(list_view->begin());
@@ -175,7 +201,7 @@ bool ThumbnailLoader::target_next(thumbnail_record_t &target) {
 			}
 		}
 		// all thumbs in list
-		if(list_whole != NULL && result == false && conf_load_in_background) {
+		if(list_whole != nullptr && result == false && conf_load_in_background) {
 			if(list_whole->size() != 0) {
 //cerr << "list_whole->size() == " << list_whole->size() << endl;
 				target = list_whole->front();
@@ -200,18 +226,31 @@ void ThumbnailLoader::target_done(PhotoList_Item_t *item, const thumbnail_record
 }
 
 //------------------------------------------------------------------------------
-ThumbnailThread::ThumbnailThread(QSize thumb_size) {
-	_thumb_size = thumb_size;
+ThumbnailThread::ThumbnailThread(QSize thumb_size) : _thumb_size(thumb_size) {
+//	_thumb_size = thumb_size;
+	//
 }
 
 ThumbnailThread::~ThumbnailThread() {
+	if(std_thread != nullptr) {
+		std_thread->join();
+		delete std_thread;
+	}
 }
 
 void ThumbnailThread::_start(string _folder, void *_thumbnail_loader) {
 	thumbnail_loader = _thumbnail_loader;
 	tr_folder = _folder;
-	this->wait();
-	this->start();
+	if(std_thread != nullptr) {
+		std_thread->join();
+		delete std_thread;
+	}
+//std::cerr << "..... 3" << std::endl;
+	auto obj = this;
+	std_thread = new std::thread( [obj](void){obj->run();} );
+//std::cerr << "..... 4" << std::endl;
+//	this->wait();
+//	this->start();
 }
 
 void ThumbnailThread::run(void) {
@@ -237,7 +276,7 @@ PhotoList_Item_t *ThumbnailThread::load(thumbnail_record_t &target, const string
 	item->tooltip = metadata.get_tooltip(item->name);
 
 	QImage qi;
-	if(thumb_image != NULL) {
+	if(thumb_image != nullptr) {
 		int w = thumb_size.width();
 		int h = thumb_size.height();
 		if(rotation == 90 || rotation == 270) {

@@ -2,7 +2,7 @@
  * f_cm_to_rgb.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -67,14 +67,14 @@ public:
 };
 
 //------------------------------------------------------------------------------
-FP_CM_to_RGB *F_CM_to_RGB::fp = NULL;
+FP_CM_to_RGB *F_CM_to_RGB::fp = nullptr;
 
 F_CM_to_RGB::F_CM_to_RGB(int id) : Filter() {
 	filter_id = id;
 	_id = "F_CM_to_RGB";
 	_name = "F_CM_to_RGB";
 	_is_hidden = true;
-	if(fp == NULL)
+	if(fp == nullptr)
 		fp = new FP_CM_to_RGB();
 }
 
@@ -128,8 +128,8 @@ public:
 	// 2D
 	Area *area_in;
 	Area *area_out;
-	QAtomicInt *flow_p1;
-	QAtomicInt *flow_p2;
+	std::atomic_int *flow_p1;
+	std::atomic_int *flow_p2;
 };
 
 FP_CM_to_RGB::FP_CM_to_RGB(void) : FilterProcess_CP() {
@@ -184,7 +184,7 @@ QVector<class FP_CM_to_RGB::task_t *> FP_CM_to_RGB::task_prepare(int cores, clas
 	mutators_mpass->get("CM_compress_saturation_factor", compress_saturation_factor);
 //	if(mutators_mpass->get("CM_compress_saturation_factor", compress_saturation_factor) == false)
 //		compress_saturation_factor = 1.0;
-	if(fp_cache != NULL)
+	if(fp_cache != nullptr)
 		if(fp_cache->compression_factor_defined)
 			compress_saturation_factor = fp_cache->compression_factor;
 //cerr << "compress_saturation_factor == " << compress_saturation_factor << endl;
@@ -214,7 +214,7 @@ QVector<class FP_CM_to_RGB::task_t *> FP_CM_to_RGB::task_prepare(int cores, clas
 //		matrix[i] = m_xyz_to_output[i];
 	TableFunction *gamma = cms_matrix->get_gamma(ocs_name);
 
-	Saturation_Gamut *sg = NULL;
+	Saturation_Gamut *sg = nullptr;
 	if(compress_saturation)
 		sg = new Saturation_Gamut(cm_type, ocs_name);
 	CM *cm = CM::new_CM(cm_type, CS_White("E"), CS_White(cms_matrix->get_illuminant_name(ocs_name)));
@@ -232,8 +232,8 @@ QVector<class FP_CM_to_RGB::task_t *> FP_CM_to_RGB::task_prepare(int cores, clas
 //			task->cmatrix[j] = matrix[j];
 		//--
 //		task->saturation_max = 0.0;
-		task->smax_count = NULL;
-		task->smax_value = NULL;
+		task->smax_count = nullptr;
+		task->smax_value = nullptr;
 		if(do_analyze) {
 			task->smax_count = new int[101];
 			task->smax_value = new float[101];
@@ -264,7 +264,7 @@ void FP_CM_to_RGB::filter_post(fp_cp_args_t *args) {
 //void FP_CM_to_RGB::filter_post(fp_cp_args_t *args) {
 void FP_CM_to_RGB::task_release(void **tasks, int cores, class DataSet *mutators_mpass, bool do_analyze, FP_CM_to_RGB_Cache_t *fp_cache) {
 	FP_CM_to_RGB::task_t *t = (FP_CM_to_RGB::task_t *)tasks[0];
-	if(t->sg != NULL)
+	if(t->sg != nullptr)
 		delete t->sg;
 
 	if(do_analyze) {
@@ -303,7 +303,7 @@ void FP_CM_to_RGB::task_release(void **tasks, int cores, class DataSet *mutators
 			if(mutators_mpass->get("CM_compress_saturation_factor", _v) == false) {
 				_v = smax_factor;
 				mutators_mpass->set("CM_compress_saturation_factor", _v);
-				if(fp_cache != NULL) {
+				if(fp_cache != nullptr) {
 					fp_cache->compression_factor_defined = true;
 					fp_cache->compression_factor = smax_factor;
 				}
@@ -337,7 +337,7 @@ void FP_CM_to_RGB::filter(float *pixel, void *data) {
 	if(pixel[2] < 0.0)	pixel[2] += 1.0;
 	// TODO: add two-pass thumbnail processing - first one to determine maximum saturation level, second - to apply it;
 	// TODO: use real 'x_max' value;
-	if(task->sg != NULL) {
+	if(task->sg != nullptr) {
 		// compress saturation
 		// should we check brightness of that pixel or not
 		float J_edge, s_edge;
@@ -380,10 +380,10 @@ Area *FP_CM_to_RGB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filt
 //	PS_CM_to_RGB *ps = (PS_CM_to_RGB *)(filter_obj->ps_base);
 	FP_CM_to_RGB_Cache_t *fp_cache = (FP_CM_to_RGB_Cache_t *)process_obj->fp_cache;
 
-	Area *_area_out = NULL;
-	task_t **tasks = NULL;
-	QAtomicInt *_flow_p1 = NULL;
-	QAtomicInt *_flow_p2 = NULL;
+	Area *_area_out = nullptr;
+	task_t **tasks = nullptr;
+	std::atomic_int *_flow_p1 = nullptr;
+	std::atomic_int *_flow_p2 = nullptr;
 	int cores = subflow->cores();
 
 	if(subflow->sync_point_pre()) {
@@ -398,8 +398,8 @@ Area *FP_CM_to_RGB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filt
 		// TODO: check here destructive processing
 		_area_out = new Area(*area_in);
 D_AREA_PTR(_area_out)
-		_flow_p1 = new QAtomicInt(0);
-		_flow_p2 = new QAtomicInt(0);
+		_flow_p1 = new std::atomic_int(0);
+		_flow_p2 = new std::atomic_int(0);
 		tasks = new task_t *[cores];
 		for(int i = 0; i < cores; i++) {
 //			tasks[i] = (FP_CM_to_RGB::task_t *)t_tasks[i];
@@ -444,7 +444,7 @@ D_AREA_PTR(_area_out)
 
 	int y;
 	// pass 1: collect information, get histogram;
-	while((y = _mt_qatom_fetch_and_add(task->flow_p1, 1)) < y_max) {
+	while((y = task->flow_p1->fetch_add(1)) < y_max) {
 		int in_index = ((y + in_my) * in_width + in_mx) * 4;
 		int out_index = ((y + out_my) * out_width + out_mx) * 4;
 		for(int x = 0; x < x_max; x++) {
@@ -453,7 +453,7 @@ D_AREA_PTR(_area_out)
 			if(pixel[0] > 1.0)	pixel[0] = 1.0;
 			if(pixel[2] >= 1.0)	pixel[2] -= 1.0;
 			if(pixel[2] < 0.0)	pixel[2] += 1.0;
-			if(task->sg != NULL && pixel[3] > 0.01) {
+			if(task->sg != nullptr && pixel[3] > 0.01) {
 				// compress saturation
 				float J_edge, s_edge;
 				task->sg->lightness_edge_Js(J_edge, s_edge, pixel[2]);
@@ -465,7 +465,7 @@ D_AREA_PTR(_area_out)
 				float _J = (pixel[0] < J_edge) ? pixel[0] : J_edge;
 				index = ((J_edge - _J) / J_edge) * 100 + 1;
 				if(index > 0 && index <= 100) {
-//				_clip(index, 0, 100);
+//				ddr::clip(index, 0, 100);
 /*
 				if(pixel[0] < J_edge) {
 					index = ((J_edge - pixel[0]) / J_edge) * 100 + 1;
@@ -508,7 +508,7 @@ D_AREA_PTR(_area_out)
 
 	// pass 2: apply compression with CP process function
 	task = (task_t *)subflow->get_private();
-	while((y = _mt_qatom_fetch_and_add(task->flow_p2, 1)) < y_max) {
+	while((y = task->flow_p2->fetch_add(1)) < y_max) {
 		int in_index = ((y + in_my) * in_width + in_mx) * 4;
 		int out_index = ((y + out_my) * out_width + out_mx) * 4;
 		for(int x = 0; x < x_max; x++) {

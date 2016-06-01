@@ -2,7 +2,7 @@
  * view.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -17,6 +17,7 @@ TODO:
 */
 
 #include <iostream>
+#include <mutex>
 
 #include "area_helper.h"
 #include "config.h"
@@ -98,7 +99,8 @@ public:
 	void reset_tiles_deferred_execute(void);	// do a real reset from main thread (draw::()) that was asked from slave, because of delete of QT pixmaps.
 
 	bool is_empty;
-	QMutex lock;
+	std::recursive_mutex lock;
+//	std::mutex lock;
 	View::zoom_t zoom_type;
 	float zoom_scale;
 	bool zoom_ui_disabled;
@@ -171,8 +173,8 @@ void image_t::photo_to_image(double &im_x, double &im_y, double ph_x, double ph_
 }
 
 image_t::image_t(void) {
-	thumb_area = NULL;
-	thumb_pixmap = NULL;
+	thumb_area = nullptr;
+	thumb_pixmap = nullptr;
 	thumb_scaled = QPixmap();
 	is_empty = true;
 	tiles_len_x = QVector<int>(0);
@@ -184,7 +186,7 @@ image_t::image_t(void) {
 	offset_y = 0;
 	dx = 0;
 	dy = 0;
-	zoom_type = View::zoom_fit;
+	zoom_type = View::zoom_t::zoom_fit;
 	zoom_scale = 0.0;
 	zoom_ui_disabled = true;
 	scale_x = 1.0;
@@ -199,37 +201,40 @@ image_t::~image_t() {
 }
 
 void image_t::reset_thumb(void) {
-	bool lock_flag = lock.tryLock();
-//	if(thumb_pixmap != NULL)
+//	bool lock_flag = lock.tryLock();
+	lock.lock();
+//	if(thumb_pixmap != nullptr)
 //		delete thumb_pixmap;
-	if(thumb_pixmap != NULL)
+	if(thumb_pixmap != nullptr)
 		tiles_pixmaps_to_delete.append(thumb_pixmap);
-	thumb_pixmap = NULL;
+	thumb_pixmap = nullptr;
 	thumb_scaled = QPixmap();
-	if(thumb_area != NULL)
+	if(thumb_area != nullptr)
 		delete thumb_area;
-	thumb_area = NULL;
-	if(lock_flag)
-		lock.unlock();
+	thumb_area = nullptr;
+//	if(lock_flag)
+//		lock.unlock();
+	lock.unlock();
 }
 
 // Pixmaps objects should be deleted from the main thread only
 // for processing thread should be used deferred deletion
 // via signal/slot system.
 void image_t::reset_tiles(bool deferred) {
-	bool lock_flag = lock.tryLock();
+//	bool lock_flag = lock.tryLock();
+	lock.lock();
 	d_rotation = 0;
 	tiles_len_x = QVector<int>(0);
 	tiles_len_y = QVector<int>(0);
 	tiles_d_len_x = QVector<int>(0);
 	tiles_d_len_y = QVector<int>(0);
 	for(int i = 0; i < tiles_areas.size(); i++)
-		if(tiles_areas[i] != NULL)
+		if(tiles_areas[i] != nullptr)
 			delete tiles_areas[i];
 	tiles_areas = QVector<Area *>(0);
 	if(deferred == false) {
 		for(int i = 0; i < tiles_pixmaps.size(); i++)
-			if(tiles_pixmaps[i] != NULL)
+			if(tiles_pixmaps[i] != nullptr)
 				delete tiles_pixmaps[i];
 	} else {
 		for(int i = 0; i < tiles_pixmaps.size(); i++)
@@ -237,8 +242,9 @@ void image_t::reset_tiles(bool deferred) {
 	}
 	tiles_pixmaps = QVector<QPixmap *>(0);
 	tiles_d_index_map = QVector<int>(0);
-	if(lock_flag)
-		lock.unlock();
+//	if(lock_flag)
+//		lock.unlock();
+	lock.unlock();
 }
 
 void image_t::reset_tiles_deferred(void) {
@@ -247,17 +253,20 @@ void image_t::reset_tiles_deferred(void) {
 
 // should be called from the main thread
 void image_t::reset_tiles_deferred_execute(void) {
-	bool lock_flag = lock.tryLock();
+//	bool lock_flag = lock.tryLock();
+	lock.lock();
 	while(!tiles_pixmaps_to_delete.isEmpty())
 		delete tiles_pixmaps_to_delete.takeFirst();
-	if(lock_flag)
-		lock.unlock();
+//	if(lock_flag)
+//		lock.unlock();
+	lock.unlock();
 }
 
 // !!! destructive on argument
 QVector<int> image_t::arrange_tiles_indexes(QVector<int> &raw_index_vector) {
 	QVector<int> arranged_index_list;
-	bool flag_lock = lock.tryLock();
+//	bool flag_lock = lock.tryLock();
+	lock.lock();
 	int raw_count = raw_index_vector.size();
 	int count = tiles_d_index_map.size();
 	for(int i = 0; i < count; i++) {
@@ -270,8 +279,9 @@ QVector<int> image_t::arrange_tiles_indexes(QVector<int> &raw_index_vector) {
 			}
 		}
 	}
-	if(flag_lock)
-		lock.unlock();
+//	if(flag_lock)
+//		lock.unlock();
+	lock.unlock();
 	return arranged_index_list;
 }
 
@@ -376,7 +386,7 @@ View::View(ViewHeader *_view_header, QScrollBar *_sb_x, QScrollBar *_sb_y, Edit 
 
 	request_ID = 0;
 	image = new image_t;
-//	set_zoom_type(zoom_fit);
+//	set_zoom_type(zoom_t::zoom_fit);
 
 	cursor = Cursor::arrow;
 	set_cursor(Cursor::arrow);
@@ -473,7 +483,7 @@ bool View::helper_grid_enabled(void) {
 }
 
 void View::update_photo_name(void) {
-	if(!photo.isNull()) {
+	if(photo) {
 		photo->ids_lock.lock();
 		QString name = photo->name;
 		photo->ids_lock.unlock();
@@ -481,15 +491,15 @@ void View::update_photo_name(void) {
 	}
 }
 
-//void View::photo_open_start(QString photo_name, QImage icon, QSharedPointer<Photo_t> _photo) {
-void View::photo_open_start(QImage icon, QSharedPointer<Photo_t> _photo) {
+void View::photo_open_start(QImage icon, std::shared_ptr<Photo_t> _photo) {
 	request_ID_lock.lock();
 	request_ID = 0;
 	request_IDs.clear();
 	request_ID_lock.unlock();
 //cerr << "photo_open_start()" << endl;
 	photo = _photo;
-	bool flag_photo_close = photo.isNull();
+//	bool flag_photo_close = (photo.use_count() == 0);
+	bool flag_photo_close = !static_cast<bool>(photo);
 	set_cursor(Cursor::arrow);
 	show_helper_grid = false;
 
@@ -504,12 +514,12 @@ void View::photo_open_start(QImage icon, QSharedPointer<Photo_t> _photo) {
 	image->size_scaled = QSize(0, 0);
 
 	image->zoom_ui_disabled = true;
-	image->zoom_type = zoom_fit;
+	image->zoom_type = zoom_t::zoom_fit;
 	image->is_empty = true;
 	image->reset_thumb();
 	image->reset_tiles();
 	image->rotation = 0;
-	if(!photo.isNull())
+	if(photo)
 		image->rotation = photo->cw_rotation;
 	image->lock.unlock();
 
@@ -580,10 +590,10 @@ void View::mouseDoubleClickEvent(QMouseEvent *mouse) {
 	if(image->is_empty)
 		return;
 	// TODO: remove image_t tiles
-	if(image->zoom_type == zoom_fit)
-		set_zoom(zoom_100, 100.0, false, mouse->x(), mouse->y());
+	if(image->zoom_type == zoom_t::zoom_fit)
+		set_zoom(zoom_t::zoom_100, 100.0, false, mouse->x(), mouse->y());
 	else
-		set_zoom(zoom_fit, 0.0, false, mouse->x(), mouse->y());
+		set_zoom(zoom_t::zoom_fit, 0.0, false, mouse->x(), mouse->y());
 	// send signal on zoom update
 	emit signal_zoom_ui_update();
 //	emit signal_zoom((void *)this, (int)image->zoom_type);
@@ -602,11 +612,11 @@ void View::set_zoom(zoom_t zoom_type, float zoom_scale) {
 }
 
 void View::set_zoom(zoom_t zoom_type, float zoom_scale, bool flag_center, int vp_x, int vp_y) {
-	if(image->zoom_type == zoom_type && image->zoom_type != zoom_custom) {
+	if(image->zoom_type == zoom_type && image->zoom_type != zoom_t::zoom_custom) {
 //		cerr << "return 1" << endl;
 		return;
 	}
-	if(image->zoom_type == zoom_custom && zoom_type == zoom_custom && image->zoom_scale == zoom_scale) {
+	if(image->zoom_type == zoom_t::zoom_custom && zoom_type == zoom_t::zoom_custom && image->zoom_scale == zoom_scale) {
 //		cerr << "return 2" << endl;
 		return;
 	}
@@ -628,7 +638,7 @@ void View::set_zoom(zoom_t zoom_type, float zoom_scale, bool flag_center, int vp
 	update_image_to_zoom(vp_x, vp_y, true);
 //	update_image_to_zoom(flag_center, vp_x, vp_y);
 	image->lock.unlock();
-	if(image->zoom_type == zoom_fit || image->zoom_type == zoom_custom)
+	if(image->zoom_type == zoom_t::zoom_fit || image->zoom_type == zoom_t::zoom_custom)
 		normalize_offset();
 	// --
 	set_cursor(Cursor::arrow);
@@ -709,7 +719,7 @@ void View::update_image_to_zoom(double pos_x, double pos_y, bool pos_at_viewport
 		vp_x = vp_w / 2;
 		vp_y = vp_h / 2;
 	}
-	if(image->zoom_type == zoom_custom || image->zoom_type == zoom_100) {
+	if(image->zoom_type == zoom_t::zoom_custom || image->zoom_type == zoom_t::zoom_100) {
 //cerr << "image offset: " << image->offset_x << " - " << image->offset_y << endl;
 		double im_x, im_y;
 		if(pos_at_viewport)
@@ -723,8 +733,8 @@ void View::update_image_to_zoom(double pos_x, double pos_y, bool pos_at_viewport
 		image->image_to_photo(ph_x, ph_y, im_x, im_y);
 
 		QSize new_size_scaled;
-		if(image->zoom_type == zoom_custom) {
-//cerr << "image zoom: zoom_custom" << endl;
+		if(image->zoom_type == zoom_t::zoom_custom) {
+//cerr << "image zoom: zoom_t::zoom_custom" << endl;
 			float scale = image->zoom_scale / 100.0;
 			int limit_w = ceil(scale * image->dimensions_unscaled.width());
 			int limit_h = ceil(scale * image->dimensions_unscaled.height());
@@ -778,7 +788,7 @@ void View::update_image_to_zoom(double pos_x, double pos_y, bool pos_at_viewport
 		//--
 		scrollbars_update();
 	}
-	if(image->zoom_type == zoom_fit) {
+	if(image->zoom_type == zoom_t::zoom_fit) {
 //cerr << "image zoom: zoom_fit" << endl;
 		sb_x_show(false);
 		sb_y_show(false);
@@ -786,7 +796,7 @@ void View::update_image_to_zoom(double pos_x, double pos_y, bool pos_at_viewport
 		int limit_w = vp_w_max;
 		int limit_h = vp_h_max;
 		if(image->rotation == 90 || image->rotation == 270)
-			_swap(limit_w, limit_h);
+			ddr::swap(limit_w, limit_h);
 		image->dimensions_scaled = Area::t_dimensions();
 		image->dimensions_scaled.position = image->dimensions_unscaled.position;
 		image->dimensions_scaled.size.w = image->dimensions_unscaled.width();
@@ -820,7 +830,7 @@ void View::update_rotation(bool clockwise) {
 	// if 'image->scale == false' - rotate tiles and update center position;
 	// reset tiles and emit update as whith resize otherwise.
 	for(int i = 0; i < image->tiles_pixmaps.size(); i++) {
-		if(image->tiles_pixmaps[i] != NULL) {
+		if(image->tiles_pixmaps[i] != nullptr) {
 			*image->tiles_pixmaps[i] = rotate_pixmap(image->tiles_pixmaps[i], angle);
 		}
 	}
@@ -837,17 +847,17 @@ void View::update_rotation(bool clockwise) {
 	update_image_to_zoom(im_x, im_y, false);
 	image->lock.unlock();
 	//--
-	if(!photo.isNull()) {
+	if(photo) {
 		photo->cw_rotation += angle;
 		if(photo->cw_rotation < 0)
 			photo->cw_rotation += 360;
 		if(photo->cw_rotation >= 360)
 			photo->cw_rotation -= 360;
 	}
-	if(image->zoom_type == zoom_fit || image->zoom_type == zoom_custom)
+	if(image->zoom_type == zoom_t::zoom_fit || image->zoom_type == zoom_t::zoom_custom)
 		normalize_offset();
 	//--
-	if(image->zoom_type != zoom_fit) {
+	if(image->zoom_type != zoom_t::zoom_fit) {
 		scrollbars_update();
 		emit update();
 		process_deferred_tiles();
@@ -885,7 +895,7 @@ void View::resizeEvent(QResizeEvent *event) {
 		bool update = true;
 		QSize size_prev = image->size_scaled;
 		update_image_to_zoom(im_x, im_y, false);
-		if(image->zoom_type == zoom_fit) {
+		if(image->zoom_type == zoom_t::zoom_fit) {
 			if(size_prev != image->size_scaled)
 				image->reset_tiles(); // to prevent drawing of deprecated tiles
 			else
@@ -902,7 +912,7 @@ void View::slot_resize_update_timeout() {
 //cerr << "slot_resize_update_timeout()" << endl;
 //cerr << "resize update!" << endl;
 //cerr << endl << "___________++++++++++++___________" << endl << "  emit signal_process_update() - slot_resize_update_timeout" << endl << endl;
-	if(image->zoom_type == zoom_fit) {
+	if(image->zoom_type == zoom_t::zoom_fit) {
 		// TODO: reset current tiles and redraw ???
 //cerr << "emit: line " << __LINE__ << endl;
 		emit signal_process_update((void *)this, ProcessSource::s_view_refresh);
@@ -937,25 +947,25 @@ void View::slot_update_image(void) {
 	image->lock.lock();
 	image->reset_tiles_deferred_execute();
 	// check thumb
-	if(image->thumb_area != NULL) {
-		if(image->thumb_pixmap != NULL)
+	if(image->thumb_area != nullptr) {
+		if(image->thumb_pixmap != nullptr)
 			delete image->thumb_pixmap;
 //		image->thumb_pixmap = _area_to_qpixmap(image->thumb_area);
 		image->thumb_pixmap = new QPixmap(image->thumb_area->to_qpixmap());
 		image->thumb_scaled = QPixmap();	
 		delete image->thumb_area;
-		image->thumb_area = NULL;
+		image->thumb_area = nullptr;
 		to_update = true;
 	}
 	// check tiles
 	for(int i = 0; i < image->tiles_areas.size(); i++) {
-		if(image->tiles_areas[i] != NULL) {
-			if(image->tiles_pixmaps[i] != NULL)
+		if(image->tiles_areas[i] != nullptr) {
+			if(image->tiles_pixmaps[i] != nullptr)
 				delete image->tiles_pixmaps[i];
 //			image->tiles_pixmaps[i] = _area_to_qpixmap(image->tiles_areas[i]);
 			image->tiles_pixmaps[i] = new QPixmap(image->tiles_areas[i]->to_qpixmap());
 			delete image->tiles_areas[i];
-			image->tiles_areas[i] = NULL;
+			image->tiles_areas[i] = nullptr;
 			to_update = true;
 		}
 	}
@@ -1030,7 +1040,7 @@ cerr << "~~~~~~~~~        View::draw(): image->rotation == " << image->rotation 
 					bool skip_x = (x_off + image->tiles_d_len_x[x] < x1 || x_off > x2);
 					if(!skip_x && !skip_y) {
 						int index = image->tiles_d_index_map[c];
-						if(image->tiles_pixmaps[index] != NULL) {
+						if(image->tiles_pixmaps[index] != nullptr) {
 							if(pass == 1) {
 								// draw tile
 //								painter->drawPixmap(x_off, y_off, *image->tiles_pixmaps[c]);
@@ -1055,7 +1065,7 @@ cerr << "~~~~~~~~~        View::draw(): image->rotation == " << image->rotation 
 				y_off += image->tiles_d_len_y[y];
 			}
 //cerr << "DRAW: size to draw == " << image->size_scaled.width() << " x " << image->size_scaled.height() << "; size of thumb is " << image->thumb_pixmap->width() << " x " << image->thumb_pixmap->height() << endl;
-			if(pass == 0 && draw_thumb && image->thumb_pixmap != NULL) {
+			if(pass == 0 && draw_thumb && image->thumb_pixmap != nullptr) {
 				// draw thumb
 				bool smooth = (viewport_w < image->thumb_pixmap->width() || viewport_h < image->thumb_pixmap->height());
 //				painter->drawPixmap(0, 0, image->dimensions_scaled.width(), image->dimensions_scaled.height(), *image->thumb_pixmap);
@@ -1125,7 +1135,7 @@ cerr << "      pixmap size: " << tp.width() << "x" << tp.height() << endl;
 		float px_size_x = image->dimensions_scaled.position.px_size_x;
 		float px_size_y = image->dimensions_scaled.position.px_size_y;
 		int rotation = 0;
-		if(!photo.isNull())
+		if(photo)
 			rotation = photo->cw_rotation;
 		image_and_viewport_t transform(QSize(viewport_w, viewport_h), QRect(image->offset_x, image->offset_y, image->size_scaled.width(), image->size_scaled.height()), rotation, photo_x, photo_y, px_size_x, px_size_y);
 		image->lock.unlock();
@@ -1208,7 +1218,7 @@ cerr << "    px_size:  " << image->dimensions_scaled.position.px_size << endl;
 	float px_size_x = image->dimensions_scaled.position.px_size_x;
 	float px_size_y = image->dimensions_scaled.position.px_size_y;
 	int rotation = 0;
-	if(!photo.isNull()) {
+	if(photo) {
 		rotation = photo->cw_rotation;
 		et->metadata = photo->metadata;
 	}
@@ -1283,12 +1293,13 @@ void View::normalize_offset(void) {
 	// - don't touch if image size smaller or equal to size of viewport.
 //cerr << "________________________          ::normalize_offset(): offset was: " << image->offset_x << " - " << image->offset_y << endl;
 //cerr << "viewport: " << viewport_w << " x " << viewport_h << endl;
-	bool lock_flag = image->lock.tryLock();
+//	bool lock_flag = image->lock.tryLock();
+	image->lock.lock();
 	int sw = image->size_scaled.width();
 	int sh = image->size_scaled.height();
 //cerr << "   image: " << sw << " x " << sh << endl;
-	if(image->zoom_type == zoom_fit) {
-//	if(image->zoom_type != zoom_100) {
+	if(image->zoom_type == zoom_t::zoom_fit) {
+//	if(image->zoom_type != zoom_t::zoom_100) {
 		if(viewport_w >= sw)
 			image->offset_x = (viewport_w - sw) / 2;
 		if(viewport_h >= sh)
@@ -1312,8 +1323,9 @@ void View::normalize_offset(void) {
 			image->offset_y = (viewport_h - sh) / 2;
 		}
 	}
-	if(lock_flag)
-		image->lock.unlock();
+//	if(lock_flag)
+//		image->lock.unlock();
+	image->lock.unlock();
 //cerr << "________________________          ::normalize_offset(): offset now: " << image->offset_x << " - " << image->offset_y << endl;
 }
 
@@ -1358,7 +1370,7 @@ void View::process_deferred_tiles(void) {
 		int x_off = 0;
 		for(int x = 0; x < count_x; x++) {
 			bool skip_x = (x_off + image->tiles_len_x[x] < x1 || x_off > x2);
-			if(!skip_x && !skip_y && (image->tiles_pixmaps[c] == NULL && image->tiles_areas[c] == NULL)) {
+			if(!skip_x && !skip_y && (image->tiles_pixmaps[c] == nullptr && image->tiles_areas[c] == nullptr)) {
 				raw_index_vector.append(c);
 /*
 //				image->lock.lock();
@@ -1409,7 +1421,7 @@ void View::mouseMoveEvent(QMouseEvent *event) {
 	int max_x = image->size_scaled.width();
 	int max_y = image->size_scaled.height();
 	if(image->rotation == 90 || image->rotation == 270)
-		_swap(max_x, max_y);
+		ddr::swap(max_x, max_y);
 	image->viewport_to_image(im_x, im_y, cursor_pos.x(), cursor_pos.y());
 	if(im_x < 0) im_x = 0;
 	if(im_x >= max_x) im_x = max_x - 1;
@@ -1429,7 +1441,7 @@ void View::mouseMoveEvent(QMouseEvent *event) {
 		return;
 	// change cursor over crop area
 	// pan or resize crop area
-	if(image->zoom_type == zoom_fit)
+	if(image->zoom_type == zoom_t::zoom_fit)
 		return;	// i.e. image scaled 'to fit'
 	if(cursor_pos == mouse_last_pos)
 		return;
@@ -1480,7 +1492,7 @@ void View::wheelEvent(QWheelEvent *event) {
 	int im_w = image->dimensions_unscaled.width();
 	int im_h = image->dimensions_unscaled.height();
 	if(image->rotation == 90 || image->rotation == 270)
-		_swap(im_w, im_h);
+		ddr::swap(im_w, im_h);
 	int s_w = image->size_scaled.width();
 	int s_h = image->size_scaled.height();
 	image->lock.unlock();
@@ -1514,15 +1526,15 @@ void View::wheelEvent(QWheelEvent *event) {
 #endif
 	//--
 //cerr << "  i == " << i << "; steps == " << steps << "; s_max == " << s_max << "; s_now == " << s_now << "; s_new == " << s_new << endl;
-	zoom_t new_zoom = zoom_custom;
+	zoom_t new_zoom = zoom_t::zoom_custom;
 //	float new_scale = s_max / s_new;
 	float new_scale = s_new / s_max;
 	if(s_new >= s_max) {
-		new_zoom = zoom_100;
+		new_zoom = zoom_t::zoom_100;
 		new_scale = 1.0;
 	}
 	if(s_new <= s_min) {
-		new_zoom = zoom_fit;
+		new_zoom = zoom_t::zoom_fit;
 		new_scale = s_min / s_max;
 	}
 //cerr << "new_scale == " << new_scale << endl;
@@ -1534,7 +1546,7 @@ void View::wheelEvent(QWheelEvent *event) {
 /*
 	// deprecated - wheel used for scrolling - now it used for zoom
 	event->accept();
-	if(image->zoom_type == zoom_fit)
+	if(image->zoom_type == zoom_t::zoom_fit)
 		return;
 	int numDegrees = event->delta() / 2;
 	int numSteps = numDegrees;
@@ -1659,9 +1671,9 @@ void View::receive_tile(Tile_t *tile, bool is_thumb) {
 	if(discard) {
 		image->lock.unlock();
 cerr << "reject tile with ID: " << tile->request_ID << " with current request ID: " << ID << endl;
-		if(tile->area != NULL)
+		if(tile->area != nullptr)
 			delete tile->area;
-		tile->area = NULL;
+		tile->area = nullptr;
 		return;
 	}
 	// use tile
@@ -1669,7 +1681,7 @@ cerr << "reject tile with ID: " << tile->request_ID << " with current request ID
 //		image->lock.lock();
 		image->is_empty = false;
 //cerr << "receive thumb: was_requested == " << was_in_request << endl;
-		if(image->thumb_area != NULL) {
+		if(image->thumb_area != nullptr) {
 cerr << "ERROR: receive_tile(): image->thumb_area stil not empty" << endl;
 			delete image->thumb_area;
 		}
@@ -1688,7 +1700,7 @@ cerr << "ERROR: receive_tile(): image->thumb_area stil not empty" << endl;
 		if(update)
 			image->tiles_areas[tile->index] = tile->area;
 		else // apparently request with this tile as result was discarded
-			if(tile->area != NULL)
+			if(tile->area != nullptr)
 				delete tile->area;
 		image->lock.unlock();
 		if(update)
@@ -1733,7 +1745,7 @@ void View::slot_long_wait(bool set) {
 void View::register_forward_dimensions(class Area::t_dimensions *d) {
 	image->lock.lock();
 	int rotation = 0;
-	if(!photo.isNull())
+	if(photo)
 		rotation = photo->cw_rotation;
 	image->dimensions_unscaled = *d;
 /*
@@ -1751,7 +1763,7 @@ cerr << "  px_size_y == " << d->position.px_size_y << endl;
 	int w = d->width();
 	int h = d->height();
 	if(rotation == 90 || rotation == 270)
-		_swap(w, h);
+		ddr::swap(w, h);
 	image->size_unscaled = QSize(w, h);
 //cerr << "register_forward_dimensions --- " << endl;
 	update_image_to_zoom();
@@ -1762,7 +1774,7 @@ cerr << "  px_size_y == " << d->position.px_size_y << endl;
 
 //------------------------------------------------------------------------------
 class TilesDescriptor_t *View::get_tiles(Area::t_dimensions *d, int cw_rotation, bool is_thumb) {
-	if(!photo.isNull())
+	if(photo)
 		cw_rotation = photo->cw_rotation;
 /*
 cerr << "VIEW::GET_TILES              is_thumb == " << is_thumb << endl;
@@ -1798,15 +1810,15 @@ cerr << "position.px_size_y == " << image->dimensions_scaled.position.px_size_y 
 	t->post_width = width;
 	t->post_height = height;
 	int tiles_count[2] = {0, 0};
-	int *tiles_length[2] = {NULL, NULL};
-	int *tiles_weight[2] = {NULL, NULL};
+	int *tiles_length[2] = {nullptr, nullptr};
+	int *tiles_weight[2] = {nullptr, nullptr};
 
 	int w[3] = {0, 0, 0};	// outer, inner[...], outer
 	int wc[3] = {0, 0, 0};	// and so on
-	int *wm[3] = {NULL, NULL, NULL};
+	int *wm[3] = {nullptr, nullptr, nullptr};
 	int h[3] = {0, 0, 0};
 	int hc[3] = {0, 0, 0};
-	int *hm[3] = {NULL, NULL, NULL};
+	int *hm[3] = {nullptr, nullptr, nullptr};
 
 // TODO: determine correct window when "rotation != 0"
 	int offsets[2];
@@ -1963,19 +1975,19 @@ cerr << endl;
 	image->tiles_pixmaps = QVector<QPixmap *>(tiles_size);
 	image->tiles_d_index_map = QVector<int>(tiles_size);
 	for(int i = 0; i < tiles_size; i++) {
-		image->tiles_areas[i] = NULL;
-		image->tiles_pixmaps[i] = NULL;
+		image->tiles_areas[i] = nullptr;
+		image->tiles_pixmaps[i] = nullptr;
 		image->tiles_d_index_map[i] = i;
 	}
 	image->lock.unlock();
 	// cleanup
 	for(int i = 0; i < 3; i++) {
-		if(wm[i] != NULL)	delete[] wm[i];
-		if(hm[i] != NULL)	delete[] hm[i];
+		if(wm[i] != nullptr)	delete[] wm[i];
+		if(hm[i] != nullptr)	delete[] hm[i];
 	}
 	for(int i = 0; i < 2; i++) {
-		if(tiles_length[i] != NULL)	delete[] tiles_length[i];
-		if(tiles_weight[i] != NULL)	delete[] tiles_weight[i];
+		if(tiles_length[i] != nullptr)	delete[] tiles_length[i];
+		if(tiles_weight[i] != nullptr)	delete[] tiles_weight[i];
 	}
 	// apply rotation of tiles
 	// init structures that describe tiles, with values as for rotation == 0
@@ -2036,7 +2048,7 @@ QPixmap View::rotate_pixmap(QPixmap *pixmap, int angle) {
 
 	int i_w = image_in.bytesPerLine() / 4;
 	uint32_t *p_in = (uint32_t *)image_in.bits();
-	Area out(out_w, out_h, Area::type_uint8_p4);
+	Area out(out_w, out_h, Area::type_t::type_uint8_p4);
 	uint32_t *p_out = (uint32_t *)out.ptr();
 	if(angle == -90)
 		for(int y = 0; y < h; y++)

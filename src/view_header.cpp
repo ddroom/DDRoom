@@ -2,7 +2,7 @@
  * view_header.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -20,7 +20,7 @@ ViewHeaderButton::ViewHeaderButton(int size, QWidget *parent) : QToolButton(pare
 
 //------------------------------------------------------------------------------
 list<ViewHeader *> ViewHeader::vh_list;
-QMutex ViewHeader::vh_list_lock;
+std::mutex ViewHeader::vh_list_lock;
 
 ViewHeader::ViewHeader(QWidget *parent) : QWidget(parent) {
 	active = false;
@@ -126,11 +126,11 @@ bool ViewHeader::is_active(void) {
 }
 
 void ViewHeader::vh_set_active(ViewHeader *_this) {
-	for(list<ViewHeader *>::iterator it = vh_list.begin(); it != vh_list.end(); it++)
+	for(list<ViewHeader *>::iterator it = vh_list.begin(); it != vh_list.end(); ++it)
 		if((*it)->active == true && _this == *it)
 			return;
 	// deactivate all, then - set up active to improve visual impression
-	for(list<ViewHeader *>::iterator it = vh_list.begin(); it != vh_list.end(); it++)
+	for(list<ViewHeader *>::iterator it = vh_list.begin(); it != vh_list.end(); ++it)
 		if(_this != *it)
 			(*it)->set_active(false);
 	_this->set_active(true);

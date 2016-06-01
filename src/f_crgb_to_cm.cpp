@@ -2,7 +2,7 @@
  * f_crgb_to_cm.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -131,19 +131,19 @@ bool PS_cRGB_to_CM::save(DataSet *dataset) {
 }
 
 //------------------------------------------------------------------------------
-FP_cRGB_to_CM *F_cRGB_to_CM::fp = NULL;
+FP_cRGB_to_CM *F_cRGB_to_CM::fp = nullptr;
 
 F_cRGB_to_CM::F_cRGB_to_CM(int id) : Filter() {
 	filter_id = id;
 	_id = "F_cRGB_to_CM";
 	_name = tr("Color space and gamut");
 //	_name = tr("Color model and output color space");
-	if(fp == NULL)
+	if(fp == nullptr)
 		fp = new FP_cRGB_to_CM();
 	_ps = (PS_cRGB_to_CM *)newPS();
 	ps = _ps;
 	ps_base = ps;
-	widget = NULL;
+	widget = nullptr;
 	reset();
 }
 
@@ -168,7 +168,7 @@ FS_Base *F_cRGB_to_CM::newFS(void) {
 }
 
 void F_cRGB_to_CM::saveFS(FS_Base *fs_base) {
-    if(fs_base == NULL)
+    if(fs_base == nullptr)
         return;
     FS_cRGB_to_CM *fs = (FS_cRGB_to_CM*)fs_base;
 	fs->compress_saturation_auto_value = label_compress_saturation_auto_value;
@@ -176,7 +176,7 @@ void F_cRGB_to_CM::saveFS(FS_Base *fs_base) {
 
 void F_cRGB_to_CM::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t args) {
 	// PS
-	if(new_ps != NULL) {
+	if(new_ps != nullptr) {
 		ps = (PS_cRGB_to_CM *)new_ps;
 		ps_base = new_ps;
 	} else {
@@ -184,11 +184,11 @@ void F_cRGB_to_CM::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_ar
 		ps_base = ps;
 	}
 	// FS
-	if(widget == NULL)
+	if(widget == nullptr)
 		return;
 	reconnect(false);
 
-	if(fs_base != NULL) {
+	if(fs_base != nullptr) {
 		FS_cRGB_to_CM *fs = (FS_cRGB_to_CM*)fs_base;
 		ui_set_compress_saturation_factor(fs->compress_saturation_auto_value);
 	} else {
@@ -224,7 +224,7 @@ void F_cRGB_to_CM::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_ar
 }
 
 QWidget *F_cRGB_to_CM::controls(QWidget *parent) {
-	if(widget != NULL)
+	if(widget != nullptr)
 		return widget;
 	QGroupBox *q = new QGroupBox(_name);
 	widget = q;
@@ -240,7 +240,7 @@ QWidget *F_cRGB_to_CM::controls(QWidget *parent) {
 	combo_color_model = new QComboBox();
 	// TODO: add and process correctly 'none'
 	list<CM::cm_type_en> cm_types_list = CM::get_types_list();
-	for(list<CM::cm_type_en>::iterator it = cm_types_list.begin(); it != cm_types_list.end(); it++)
+	for(list<CM::cm_type_en>::iterator it = cm_types_list.begin(); it != cm_types_list.end(); ++it)
 		combo_color_model->addItem(QString(CM::get_type_name(*it).c_str()), *it);
 	l->addWidget(combo_color_model, row, 1);
 	row++;
@@ -250,7 +250,7 @@ QWidget *F_cRGB_to_CM::controls(QWidget *parent) {
 	combo_output_color_space = new QComboBox();
 	int index = 0;
 	list<string> cs_names_list = CMS_Matrix::instance()->get_cs_names();
-	for(list<string>::iterator it = cs_names_list.begin(); it != cs_names_list.end(); it++) {
+	for(list<string>::iterator it = cs_names_list.begin(); it != cs_names_list.end(); ++it) {
 		combo_output_color_space->addItem(QString((*it).c_str()), index);
 		index++;
 	}
@@ -425,10 +425,10 @@ void FP_cRGB_to_CM::filter_pre(fp_cp_args_t *args) {
 	if(ps->compress_saturation_manual) {
 		args->mutators->set("CM_compress_saturation_factor", ps->compress_saturation_factor);
 		args->mutators_mpass->set("CM_compress_saturation_factor", ps->compress_saturation_factor);
-		if(args->filter != NULL)
+		if(args->filter != nullptr)
 			filter->ui_set_compress_saturation_factor(factor);
 	} else {
-		if(args->filter != NULL) {
+		if(args->filter != nullptr) {
 			if(args->mutators_mpass->get("CM_compress_saturation_factor", factor))
 				filter->ui_set_compress_saturation_factor(factor);
 		}
@@ -473,9 +473,9 @@ void FP_cRGB_to_CM::filter(float *pixel, void *data) {
 	task_t *task = (task_t *)data;
 
 	float XYZ[3];
-	_clip(pixel[0], 0.0, 1.0);
-	_clip(pixel[1], 0.0, 1.0);
-	_clip(pixel[2], 0.0, 1.0);
+	ddr::clip(pixel[0]);
+	ddr::clip(pixel[1]);
+	ddr::clip(pixel[2]);
 /*
 	if(pixel[0] > 1.0)	pixel[0] = 1.0;
 	if(pixel[0] < 0.0)	pixel[0] = 0.0;

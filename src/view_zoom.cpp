@@ -2,7 +2,7 @@
  * view_zoom.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -23,7 +23,7 @@ using namespace std;
 
 //------------------------------------------------------------------------------
 View_Zoom::View_Zoom(void) : QObject() {
-	view = NULL;
+	view = nullptr;
 	ui_exist = false;
 //	default_zoom_scale = 100.0;
 	default_zoom_scale = 50.0;
@@ -92,36 +92,36 @@ void View_Zoom::slot_slider_value_changed(int value) {
 }
 
 void View_Zoom::button_fit_toggled(bool checked, bool update_view) {
-	if(view == NULL) checked = false;
+	if(view == nullptr) checked = false;
 	reconnect(false);
 	button_100->setChecked(false);
 	button_custom->setChecked(false);
 	button_fit->setChecked(checked);
 	reconnect(true);
 	if(update_view)
-		set_state(View::zoom_fit);
+		set_state(View::zoom_t::zoom_fit);
 }
 
 void View_Zoom::button_custom_toggled(bool checked, bool update_view) {
-	if(view == NULL) checked = false;
+	if(view == nullptr) checked = false;
 	reconnect(false);
 	button_100->setChecked(false);
 	button_custom->setChecked(checked);
 	button_fit->setChecked(false);
 	reconnect(true);
 	if(update_view)
-		set_state(View::zoom_custom);
+		set_state(View::zoom_t::zoom_custom);
 }
 
 void View_Zoom::button_100_toggled(bool checked, bool update_view) {
-	if(view == NULL) checked = false;
+	if(view == nullptr) checked = false;
 	reconnect(false);
 	button_100->setChecked(checked);
 	button_custom->setChecked(false);
 	button_fit->setChecked(false);
 	reconnect(true);
 	if(update_view)
-		set_state(View::zoom_100);
+		set_state(View::zoom_t::zoom_100);
 }
 
 void View_Zoom::button_custom_set_value(int value) {
@@ -137,19 +137,19 @@ void View_Zoom::slider_value_changed(int value, bool update_view) {
 	zoom_scale = value;
 //	button_custom_toggled(true);
 	bool checked = true;
-	if(view == NULL) checked = false;
+	if(view == nullptr) checked = false;
 	reconnect(false);
 	button_100->setChecked(false);
 	button_custom->setChecked(checked);
 	button_fit->setChecked(false);
 	reconnect(true);
 	if(update_view)
-		set_state(View::zoom_custom);
+		set_state(View::zoom_t::zoom_custom);
 }
 
-void View_Zoom::set_state(int state) {
-	if(view != NULL)
-		view->set_zoom((View::zoom_t)state, zoom_scale);
+void View_Zoom::set_state(View::zoom_t state) {
+	if(view != nullptr)
+		view->set_zoom(state, zoom_scale);
 }
 
 // set state according to active View
@@ -169,7 +169,7 @@ void View_Zoom::ui_disable(bool disable) {
 
 // signal from View, on photo load/close or zoom changed from mouse double click, etc...
 void View_Zoom::update(void) {
-	if(view == NULL)
+	if(view == nullptr)
 		return;
 	// read status
 	View::zoom_t zoom_type;
@@ -187,16 +187,16 @@ void View_Zoom::update(void) {
 		reconnect(true);
 	} else {
 		// update enabled UI
-		if(zoom_type == View::zoom_100)
+		if(zoom_type == View::zoom_t::zoom_100)
 			button_100_toggled(true, false);
-		if(zoom_type == View::zoom_custom) {
+		if(zoom_type == View::zoom_t::zoom_custom) {
 			button_custom_toggled(true, false);
 			reconnect(false);
 			slider->setValue(zoom_scale);
 			reconnect(true);
 			button_custom_set_value(zoom_scale);
 		}
-		if(zoom_type == View::zoom_fit)
+		if(zoom_type == View::zoom_t::zoom_fit)
 			button_fit_toggled(true, false);
 	}
 }

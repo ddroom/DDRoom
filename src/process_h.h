@@ -4,7 +4,7 @@
  * process.h - renamed from "process.h" to "process_h.h" for compatibility with MinGW.
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
@@ -13,9 +13,10 @@
 #include <string>
 #include <list>
 #include <map>
+#include <memory>
+#include <mutex>
 
 #include <QtCore>
-#include <QSharedPointer>
 
 #include "area.h"
 #include "filter.h"
@@ -44,8 +45,7 @@ public:
 	// is_inactive - flag, "some filters should know how process is run - like for histogram update etc..."
 	// TilesReceiver * - receiver of resulting thumbnail/tiles
 	// map<...> - processing settings for filters
-//	void process_online(void *ptr, QSharedPointer<class Photo_t>, int request_ID, bool is_inactive, class TilesReceiver *, class std::map<class Filter *, ddr_shared_ptr<PS_Base> >);
-	void process_online(void *ptr, QSharedPointer<class Photo_t>, int request_ID, bool is_inactive, class TilesReceiver *, class std::map<class Filter *, QSharedPointer<PS_Base> >);
+	void process_online(void *ptr, std::shared_ptr<class Photo_t>, int request_ID, bool is_inactive, class TilesReceiver *, class std::map<class Filter *, std::shared_ptr<PS_Base> >);
 	void process_export(Photo_ID photo_id, std::string fname_export, class export_parameters_t *ep);
 
 	static void quit(void);
@@ -60,10 +60,10 @@ signals:
 
 protected:
 	static bool to_quit;
-	static QMutex quit_lock;
+	static std::mutex quit_lock;
 	//
 	static int ID_counter;
-	static QMutex ID_counter_lock;
+	static std::mutex ID_counter_lock;
 	static QSet<int> IDs_in_process;
 	static void ID_add(int ID);
 	static void ID_remove(int ID);
@@ -80,7 +80,7 @@ protected:
 	static void process_filters(SubFlow *subflow, Process::task_run_t *task, std::list<class filter_record_t> &pl_filters, bool is_thumb, class Profiler *prof);
 
 	void assign_filters(std::list<class filter_record_t> &filters, class task_run_t *task);
-	void allocate_process_caches(std::list<class filter_record_t> &filters, QSharedPointer<class Photo_t> photo_ptr);
+	void allocate_process_caches(std::list<class filter_record_t> &filters, std::shared_ptr<class Photo_t> photo_ptr);
 
 protected:
 	static class Filter_Store *fstore;

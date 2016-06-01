@@ -10067,7 +10067,7 @@ cleanup:
 //  changed functions...
 
 DCRaw::~DCRaw() {
-	if(file_cache != NULL)
+	if(file_cache != nullptr)
 		free((void *)file_cache);
 }
 
@@ -10076,7 +10076,7 @@ std::string DCRaw::get_version(void) {
 }
 
 void DCRaw::free_raw(void *ptr) {
-	if(ptr != NULL)
+	if(ptr != nullptr)
 		free(ptr);
 }
 
@@ -10097,9 +10097,9 @@ void *DCRaw::jpeg_thumb_memory(long &length) {
 
 	length = thumb_length + sizeof exif + sizeof th;
 	char *thumb = new char[length];
-	if(thumb == NULL) {
+	if(thumb == nullptr) {
 		length = 0;
-		return NULL;
+		return nullptr;
 	}
 	// read it to check "Exif" pattern
 	int l = thumb_length > 16 ? 16 : thumb_length;
@@ -10144,7 +10144,7 @@ Area *DCRaw::demosaic_xtrans(const uint16_t *_image, int _width, int _height, co
 	for(int j = 0; j < 6; j++)
 		for(int i = 0; i < 6; i++)
 			xtrans[j][i] = metadata->sensor_xtrans_pattern[j][i];
-	Area area_image(width, height, Area::type_uint16_p4);
+	Area area_image(width, height, Area::type_t::type_uint16_p4);
 	uint16_t *image_ptr = (uint16_t *)area_image.ptr();
 	float c_scale[3];
 	for(int i = 0; i < 3; i++)
@@ -10164,8 +10164,8 @@ Area *DCRaw::demosaic_xtrans(const uint16_t *_image, int _width, int _height, co
 	image = (ushort (*)[4])image_ptr;
 	xtrans_interpolate(passes);
 	// convert and return result
-	if(area_out == NULL) {
-		area_out = new Area(width, height, Area::type_float_p4);
+	if(area_out == nullptr) {
+		area_out = new Area(width, height, Area::type_t::type_float_p4);
 		if(!area_out->valid())
 			return area_out;
 	}
@@ -10189,13 +10189,13 @@ void *DCRaw::__load(long &length, load_type_t type, std::string fname) {
 //	image = 0;
 //	oprof = 0;
 //	meta_data = 0;
-//	raw_image = NULL;
+//	raw_image = nullptr;
 
 	document_mode = 1;
 	width = 0;
 	height = 0;
 	shrink = 0;
-	void *res = NULL;
+	void *res = nullptr;
 	length = 0;
 	for(int i = 0; i < 4102; i++)
 		cblack[i] = 0;
@@ -10376,7 +10376,7 @@ for( ; arg < argc; arg++) {
 	//==
 	ifname = const_cast<char *>(fname.c_str());
 	if(!(ifp = fopen(fname.c_str(), "rb")))
-		return NULL;
+		return nullptr;
 	//--
 	status = (identify(), !is_raw);
 //	if(user_flip >= 0)
@@ -10427,11 +10427,11 @@ for( ; arg < argc; arg++) {
 	if(type == load_type_thumb) {
 		if((status = !thumb_offset)) {
 			__cleanup();
-			return NULL;
+			return nullptr;
 		} else
 			if(thumb_load_raw) {
 				__cleanup();
-				return NULL;
+				return nullptr;
 			} else {
 				fseek(ifp, thumb_offset, SEEK_SET);
 				write_fun = write_thumb;
@@ -10442,7 +10442,7 @@ for( ; arg < argc; arg++) {
 			return res;
 		}
 		__cleanup();
-		return NULL;
+		return nullptr;
 	}
 	//--
 	if(load_raw == &CLASS kodak_ycbcr_load_raw) {
@@ -10483,7 +10483,7 @@ for( ; arg < argc; arg++) {
 */
 	if(!is_raw) {
 		__cleanup();
-		return NULL;
+		return nullptr;
 	}
 //	shrink = filters && (half_size || (!identify_only && (threshold || aber[0] != 1 || aber[2] != 1)));
 	shrink = filters && (half_size || threshold || aber[0] != 1 || aber[2] != 1);
@@ -10493,7 +10493,7 @@ for( ; arg < argc; arg++) {
 		_sensor_fuji_45 = true;
 	if(type == DCRaw::load_type_metadata) {
 		__cleanup();
-		return NULL;
+		return nullptr;
 	}
 /*
 	if(identify_only) {
@@ -10639,7 +10639,7 @@ next:
 		pre_interpolate();
 	}
 	res = (void *)image;
-	image = NULL;
+	image = nullptr;
 /*
 	if(is_foveon) {
 		if (document_mode || load_raw == &CLASS foveon_dp_load_raw) {

@@ -1,4 +1,5 @@
 
+1.0.3.8 - switch to C++11: concurrency migration from Qt to C++11 etc.;
 1.0.3.7 - added necessary deep copy at conversion Area to QPixmap - looks like a strange side-effect of C++11 enable in Qt library;
 1.0.3.6 - F_Projection - added diagonal scaling factor to correct image scaling change - keep diagonal length the same;
 1.0.3.5 - F_Projection - used 'stereographic' projection instead of 'gnomonic';

@@ -2,7 +2,7 @@
  * photo_storage.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -95,8 +95,9 @@ PS_Loader::PS_Loader(Photo_ID photo_id) {
 void PS_Loader::load(Photo_ID photo_id, bool use_lock) {
 	string file_name = photo_id.get_file_name();
 	string lock_name = file_name;
+	std::unique_lock<std::mutex> locker(ps_lock, std::defer_lock);
 	if(use_lock)
-		lock(lock_name);
+		lock(lock_name, locker);
 	//--
 	_is_empty = false;
 	int v_index = photo_id.get_version_index();
@@ -205,33 +206,32 @@ void PS_Loader::load(Photo_ID photo_id, bool use_lock) {
 	}
 	//--
 	if(use_lock)
-		unlock(lock_name);
+		unlock(lock_name, locker);
 }
 
 PS_Loader::~PS_Loader() {
 }
 
 //------------------------------------------------------------------------------
-QMutex PS_Loader::ps_lock;
-QWaitCondition PS_Loader::ps_lock_wait;
+std::mutex PS_Loader::ps_lock;
+std::condition_variable PS_Loader::ps_lock_wait;
 std::set<std::string> PS_Loader::ps_lock_set;
 
-void PS_Loader::lock(std::string file_name) {
-	ps_lock.lock();
+void PS_Loader::lock(std::string file_name, std::unique_lock<std::mutex> &locker) {
+	locker.lock();
 //cerr << "  lock: " << photo_id.get_export_file_name() << endl;
 	while(ps_lock_set.find(file_name) != ps_lock_set.end())
-		ps_lock_wait.wait(&ps_lock);
+		ps_lock_wait.wait(locker);
 	ps_lock_set.insert(file_name);
 }
 
-void PS_Loader::unlock(std::string file_name) {
+void PS_Loader::unlock(std::string file_name, std::unique_lock<std::mutex> &locker) {
 	ps_lock_set.erase(file_name);
 //cerr << "unlock: " << photo_id.get_export_file_name << endl;
-//for(set<string>::iterator it = ps_lock_set.begin(); it != ps_lock_set.end(); it++)
+//for(set<string>::iterator it = ps_lock_set.begin(); it != ps_lock_set.end(); ++it)
 //cerr << "... " << *it << endl;
-	ps_lock.unlock();
-	ps_lock_wait.wakeOne();
-//	ps_lock_wait.wakeAll();
+	locker.unlock();
+	ps_lock_wait.notify_one();
 }
 
 void PS_Loader::version_create(Photo_ID photo_id, PS_Loader *ps_loader) {
@@ -245,7 +245,8 @@ void PS_Loader::version_remove(Photo_ID photo_id) {
 
 void PS_Loader::version_rearrange(Photo_ID photo_id, bool remove_not_create, PS_Loader *ps_loader) {
 	string file_name = photo_id.get_file_name();
-	lock(file_name);
+	std::unique_lock<std::mutex> locker(ps_lock, std::defer_lock);
+	lock(file_name, locker);
 	int v_index = photo_id.get_version_index();
 	if(v_index < 1) v_index = 1;
 	// load all versions
@@ -265,7 +266,7 @@ void PS_Loader::version_rearrange(Photo_ID photo_id, bool remove_not_create, PS_
 			if(i <= v_index)
 				ps_map.insert(std::pair<int, PS_Loader *>(i, _ps_map[i]));
 			if(i >= v_index) {
-				if(i == v_index && ps_loader != NULL)
+				if(i == v_index && ps_loader != nullptr)
 					ps_map.insert(std::pair<int, PS_Loader *>(i + 1, ps_loader));
 				else
 					ps_map.insert(std::pair<int, PS_Loader *>(i + 1, _ps_map[i]));
@@ -275,17 +276,18 @@ void PS_Loader::version_rearrange(Photo_ID photo_id, bool remove_not_create, PS_
 	// save all versions
 	versions_save(file_name, ps_map);
 	// delete temporary settings
-	for(map<int, PS_Loader *>::iterator it = ps_map.begin(); it != ps_map.end(); it++) {
+	for(map<int, PS_Loader *>::iterator it = ps_map.begin(); it != ps_map.end(); ++it) {
 		if((*it).second != ps_base)
 			delete (*it).second;
 	}
 	delete ps_base;
-	unlock(file_name);
+	unlock(file_name, locker);
 }
 
 void PS_Loader::save(Photo_ID photo_id) {
 	string file_name = photo_id.get_file_name();
-	lock(file_name);
+	std::unique_lock<std::mutex> locker(ps_lock, std::defer_lock);
+	lock(file_name, locker);
 	int v_index = photo_id.get_version_index();
 	if(v_index < 1) v_index = 1;
 	// load all versions, if any, but this version
@@ -295,17 +297,17 @@ void PS_Loader::save(Photo_ID photo_id) {
 	// save all versions
 	versions_save(file_name, ps_map);
 	// delete temporary settings
-	for(map<int, PS_Loader *>::iterator it = ps_map.begin(); it != ps_map.end(); it++) {
+	for(map<int, PS_Loader *>::iterator it = ps_map.begin(); it != ps_map.end(); ++it) {
 		if((*it).second != this)
 			delete (*it).second;
 	}
-	unlock(file_name);
+	unlock(file_name, locker);
 }
 
 map<int, PS_Loader *> PS_Loader::versions_load(string file_name, int index_to_skip) {
 	list<int> v_list = versions_list(file_name);
 	map<int, PS_Loader *> ps_map;
-	for(list<int>::iterator it = v_list.begin(); it != v_list.end(); it++) {
+	for(list<int>::iterator it = v_list.begin(); it != v_list.end(); ++it) {
 		if(*it == index_to_skip)
 			continue;
 //		QString v_index(QString("%1").arg(*it));
@@ -330,7 +332,7 @@ void PS_Loader::versions_save(string file_name, map<int, PS_Loader *> &ps_map) {
 	xml.writeStartDocument();
 	xml.writeStartElement("ddr");
 	// save all versions
-	for(map<int, PS_Loader *>::iterator it = ps_map.begin(); it != ps_map.end(); it++)
+	for(map<int, PS_Loader *>::iterator it = ps_map.begin(); it != ps_map.end(); ++it)
 		(*it).second->save(xml, (*it).first);
 	// close new settings file 
 	xml.writeEndElement();	// ddr
@@ -351,11 +353,11 @@ void PS_Loader::save(QXmlStreamWriter &xml, int v_index) {
 	}
 	//--
 	xml.writeStartElement("filters");
-	for(map<string, DataSet>::iterator it_f = dataset_map.begin(); it_f != dataset_map.end(); it_f++) {
+	for(map<string, DataSet>::iterator it_f = dataset_map.begin(); it_f != dataset_map.end(); ++it_f) {
 		xml.writeEmptyElement((*it_f).first.c_str());
 //		*ostr << "[" << (*it_f).first << "]" << endl;
 		const map<string, dataset_field_t> *d = (*it_f).second.get_dataset_fields();
-		for(map<string, dataset_field_t>::const_iterator it = d->begin(); it != d->end(); it++)
+		for(map<string, dataset_field_t>::const_iterator it = d->begin(); it != d->end(); ++it)
 			xml.writeAttribute((*it).first.c_str(), (*it).second.serialize().c_str());
 //			*ostr << (*it).first << "=" << (*it).second.serialize() << endl;
 //		*ostr << endl;
@@ -380,10 +382,10 @@ void PS_Loader::_serialize(ostream *ostr) {
 	if(!_cw_rotation_empty)
 		*ostr << "cw_rotation = " << cw_rotation << endl;
 	// dataset
-	for(map<string, DataSet>::iterator it_f = dataset_map.begin(); it_f != dataset_map.end(); it_f++) {
+	for(map<string, DataSet>::iterator it_f = dataset_map.begin(); it_f != dataset_map.end(); ++it_f) {
 		*ostr << "[" << (*it_f).first << "]" << endl;
 		const map<string, dataset_field_t> *d = (*it_f).second.get_dataset_fields();
-		for(map<string, dataset_field_t>::const_iterator it = d->begin(); it != d->end(); it++)
+		for(map<string, dataset_field_t>::const_iterator it = d->begin(); it != d->end(); ++it)
 			*ostr << (*it).first << "=" << (*it).second.serialize() << endl;
 		*ostr << endl;
 	}
@@ -412,9 +414,9 @@ void PS_Loader::set_dataset(const string &name, const DataSet &_dataset) {
 void PS_Loader::set_thumbnail(Area *thumb) {
 	if(!thumbnail.isNull())
 		thumbnail = QImage();
-	if(thumb == NULL)
+	if(thumb == nullptr)
 		return;
-	if(thumb->type() == Area::type_uint8_p4) {
+	if(thumb->type() == Area::type_t::type_uint8_p4) {
 //cerr << "save thumb: " << thumb->mem_width() << "x" << thumb->mem_height() << endl;
 		thumbnail = QImage((uchar *)thumb->ptr(), thumb->mem_width(), thumb->mem_height(), QImage::Format_RGB32).copy();
 //		thumbnail = QImage((uchar *)thumb->ptr(), thumb->mem_width(), thumb->mem_height(), QImage::Format_RGB32).scaled(160, 160, Qt::KeepAspectRatio, Qt::SmoothTransformation).copy();

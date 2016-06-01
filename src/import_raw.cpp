@@ -2,7 +2,7 @@
  * import_raw.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -66,7 +66,7 @@ Import_Raw::Import_Raw(string fname) {
 	file_name = fname;
 }
 
-QMutex Import_Raw::dcraw_lock;
+std::mutex Import_Raw::dcraw_lock;
 
 void Import_Raw::load_metadata(Metadata *metadata) {
 	metadata->is_raw = true;
@@ -81,7 +81,7 @@ void Import_Raw::load_metadata(Metadata *metadata) {
 
 uint8_t *Import_Raw::thumb(Metadata *metadata, long &length) {
 	metadata->is_raw = true;
-	void *thumb = NULL;
+	void *thumb = nullptr;
 	length = 0;
 	dcraw_lock.lock();
 	DCRaw *dcraw = new DCRaw();
@@ -102,7 +102,7 @@ uint8_t *Import_Raw::thumb(Metadata *metadata, long &length) {
 Area *Import_Raw::image(Metadata *metadata) {
 	metadata->is_raw = true;
 	dcraw_lock.lock();
-	Area *area_out = NULL;
+	Area *area_out = nullptr;
 	string prof_name = "Import_Raw::image() \"";
 	prof_name += file_name;
 	prof_name += "\"";
@@ -188,8 +188,8 @@ Area *Import_Raw::load_xtrans(DCRaw *dcraw, Metadata *metadata, const uint16_t *
 	for(int i = 0; i < 4; i++)
 		scale[i] = 1.0f / 65535.0f;
 //		scale[i] = 1.0f / maximum;
-//	Area *area_out = new Area(width, height, Area::type_float_p4);
-	Area *area_out = new Area(width, height, Area::type_uint16_p4);
+//	Area *area_out = new Area(width, height, Area::type_t::type_float_p4);
+	Area *area_out = new Area(width, height, Area::type_t::type_uint16_p4);
 	if(!area_out->valid())
 		return area_out;
 	uint16_t *out = (uint16_t *)area_out->ptr();
@@ -269,7 +269,7 @@ Area *Import_Raw::load_foveon(DCRaw *dcraw, Metadata *metadata, const uint16_t *
 	scale[1] = 1.0f / maximum;
 	scale[2] = 1.0f / maximum;
 	scale[3] = 1.0f / maximum;
-	Area *area_out = new Area(width, height, Area::type_float_p4);
+	Area *area_out = new Area(width, height, Area::type_t::type_float_p4);
 	if(!area_out->valid())
 		return area_out;
 	float *out = (float *)area_out->ptr();
@@ -306,7 +306,7 @@ Area *Import_Raw::dcraw_to_area(DCRaw *dcraw, Metadata *metadata, const uint16_t
 //cerr << "dcraw_to_area():     metadata->rotation == " << metadata->rotation << endl;
 //cerr << "metadata->demosaic_pattern == " << metadata->demosaic_pattern << endl;
 //	metadata->rotation = 0;
-	Area *area_out = new Area(width + 4, height + 4, Area::type_float_p1);
+	Area *area_out = new Area(width + 4, height + 4, Area::type_t::type_float_p1);
 	if(!area_out->valid())
 		return area_out;
 	D_AREA_PTR(area_out);
@@ -567,7 +567,7 @@ cerr << "bayer_signal_maximum[3] == " << bayer_signal_maximum[3] << endl;
 //	const bool sensor_fuji_45 = metadata->sensor_fuji_45;
 //	const int fuji_45_width = metadata->sensor_fuji_45_width;
 //	const float step = 1.0 / (2.0 * sqrt(0.5));
-	Fuji_45 *fuji_45 = NULL;
+	Fuji_45 *fuji_45 = nullptr;
 	if(metadata->sensor_fuji_45)
 		fuji_45 = new Fuji_45(metadata->sensor_fuji_45_width, metadata->width, metadata->height);
 	float cmax[3] = {0.0f, 0.0f, 0.0f};
@@ -607,7 +607,7 @@ cerr << "bayer_signal_maximum[3] == " << bayer_signal_maximum[3] << endl;
 //			if(max1[s] < value)
 //				max1[s] = value;
 			// code based on dcraw's fuji_rotate() - check 'f_demosaic.cpp'
-			if(fuji_45 != NULL) {
+			if(fuji_45 != nullptr) {
 //				if(fuji_45->raw_is_outside(i, j, 2)) {
 				if(fuji_45->raw_is_outside(i, j, 0)) {
 					*out = 0.0;
@@ -787,7 +787,7 @@ void Import_Raw::auto_wb(DCRaw *dcraw, Metadata *metadata, const uint16_t *dcraw
 void Import_Raw::get_metadata(DCRaw *dcraw, Metadata *metadata, const uint16_t *dcraw_raw) {
 //cerr << "dcraw->is_raw == " << dcraw->is_raw << endl;
 	metadata->is_raw = dcraw->is_raw;
-	if(dcraw == NULL)
+	if(dcraw == nullptr)
 		return;
 	// load metadata information
 	// geometry
@@ -862,7 +862,7 @@ void Import_Raw::get_metadata(DCRaw *dcraw, Metadata *metadata, const uint16_t *
 			metadata->demosaic_unsupported = true;
 			break;
 	}
-	if(dcraw_raw == NULL || dcraw->cdesc[0] != 'R' || dcraw->cdesc[1] != 'G' || dcraw->cdesc[2] != 'B') {
+	if(dcraw_raw == nullptr || dcraw->cdesc[0] != 'R' || dcraw->cdesc[1] != 'G' || dcraw->cdesc[2] != 'B') {
 		metadata->demosaic_pattern = DEMOSAIC_PATTERN_NONE;
 		metadata->demosaic_unknown = true;
 		metadata->demosaic_unsupported = true;
@@ -924,7 +924,7 @@ cerr << "metadata->demosaic_unsupported == " << metadata->demosaic_unsupported <
 QImage Import_Raw::thumb(Metadata *metadata, int thumb_width, int thumb_height) {
 	long length = 0;
 	uint8_t *data = load_thumb(file_name, thumb_width, thumb_height, length, metadata);
-	if(data == NULL)
+	if(data == nullptr)
 		return QImage();
 //	QImage qimage = QImage::fromData((const uchar *)data, length);
 	QImage qimage;
@@ -934,14 +934,14 @@ QImage Import_Raw::thumb(Metadata *metadata, int thumb_width, int thumb_height) 
 }
 
 uint8_t *Import_Raw::load_thumb(string filename, int thumb_width, int thumb_height, long &length, Metadata *metadata) {
-	uint8_t *data = NULL;
+	uint8_t *data = nullptr;
 	long length_exiv2 = 0;
 	uint8_t *data_exiv2 = Exiv2_load_thumb(filename, thumb_width, thumb_height, length_exiv2, metadata);
 	float speed_shutter = metadata->speed_shutter;
 	string str_shutter_html = metadata->str_shutter_html;
 
 	// TODO: check how to get metadata
-	if(data_exiv2 == NULL) {
+	if(data_exiv2 == nullptr) {
 //cerr << "file: " << filename << "; load thumb with dcraw" << endl;
 		// load thumb and metadata with DCRaw
 		data = thumb(metadata, length);
@@ -955,7 +955,7 @@ uint8_t *Import_Raw::load_thumb(string filename, int thumb_width, int thumb_heig
 	// last hope - try to look for IMG_NNNN.JPG files - from IMG_NNNN.CRW/CRW_NNNN.CR2 etc...
 	string valid_ext[4] = {"CRW", "CR2", "crw", "cr2"};
 	int valid_ext_len = 4;
-	if(data == NULL) {
+	if(data == nullptr) {
 		const char *cptr = filename.c_str();
 		int len = filename.length();
 		string part_folder;
@@ -1016,7 +1016,7 @@ uint8_t *Import_Raw::load_thumb(string filename, int thumb_width, int thumb_heig
 		if(newfn != "") {
 //cerr << "newfn == " << newfn << endl;
 			data_exiv2 = Exiv2_load_thumb(newfn, thumb_width, thumb_height, length_exiv2, metadata);
-			if(data_exiv2 != NULL) {
+			if(data_exiv2 != nullptr) {
 				data = data_exiv2;
 				length = length_exiv2;
 			}

@@ -4,7 +4,7 @@
  * tiles.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
@@ -14,7 +14,9 @@
 #include <QUuid>
 #include <QSize>
 #include <QPoint>
+
 #include <map>
+#include <mutex>
 
 #include "area.h"
 
@@ -34,7 +36,7 @@ protected:
 	bool empty;
 
 	static void _generate(ID_t *_this);
-	static QMutex _mutex;
+	static std::mutex _mutex;
 	static long long _counter;
 };
 
@@ -74,7 +76,7 @@ public:
 	class TilesReceiver *receiver;
 	QVector<Tile_t> tiles;
 	QList<int> index_list; // list of tiles indexes to process; TODO: replace it with a real tiles object (?)
-	QMutex index_list_lock;
+	std::mutex index_list_lock;
 	// something to indicate that process is run or not
 
 	int post_width;		// whole size of tiled photo (before splitting)
@@ -129,7 +131,7 @@ protected:
 	int request_ID;
 	// IDs for View, on panning event
 	QList<int> request_IDs;
-	QMutex request_ID_lock;
+	std::mutex request_ID_lock;
 
 	int split_line(int l, int **m);
 	TilesDescriptor_t tiles_descriptor;

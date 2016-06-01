@@ -3,7 +3,7 @@
 --== Linux build ==--
 
 To build DDRoom under Linux, install all necessary libraries:
-Qt 5.5.0 or newer; zlib; jpeglib; libpng; libtiff; openjpeg 1.x.x; expat; libexiv2; lensfun.
+Qt 5.6.0 or newer; zlib; jpeglib; libpng; libtiff; openjpeg 1.x.x; expat; libexiv2; lensfun.
 Run 'qmake' from the Qt 5.5 installation at folder with sources (where is 'ddroom.pro');
 then build with a command 'make install' - and result would be file 'ddroom'.
 
@@ -23,7 +23,7 @@ GL:			'libgl1-mesa-dev';
 
 Mandatory external libraries to build with:
 
-Qt           (5.5.0): http://www.qt.io/download-open-source/
+Qt           (5.6.0): http://www.qt.io/download-open-source/
 zlib         (1.2.8): http://zlib.net/
 jpeglib         (9a): http://www.ijg.org/
 libpng      (1.6.17): http://www.libpng.org/pub/png/libpng.html
@@ -37,7 +37,7 @@ Description of build process with Qt 5.5.0 and MinGW. That looks like the easies
     considering external libraries dependency;
 
 I Install tools (assuming install into "C:\" directory as default).
-I.1 Install Qt 5.5.0 and MinGW 4.9.2 (select component "MinGW 4.9.2" to install, which is unselected by default) with
+I.1 Install Qt 5.6.0 and MinGW 4.9.2 (select component "MinGW 4.9.2" to install, which is unselected by default) with
     file "qt-opensource-windows-x86-mingw492-5.5.0.exe" from "http://www.qt.io/download-open-source/";
 I.2 Download "MSYS" for "MinGW-w64" from sourceforge, with file "MSYS-20111123.zip", and link:
 http://sourceforge.net/projects/mingw-w64/files/External%20binary%20packages%20%28Win64%20hosted%29/MSYS%20%2832-bit%29/

@@ -2,7 +2,7 @@
  * thumbnail_view.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -87,7 +87,7 @@ void PhotoList_Delegate::paint(QPainter *painter, const QStyleOptionViewItem &op
 	int font_height = fmt.height();	// text height
 	QRect rect = option.rect;
 
-	if(item == NULL) {
+	if(item == nullptr) {
 		QRect r = rect;
 		r.setX(r.x() + 1);
 		r.setY(r.y() + 1);
@@ -297,12 +297,37 @@ void PhotoList_Delegate::paint(QPainter *painter, const QStyleOptionViewItem &op
 }
 
 //==============================================================================
-PhotoList_LoadThread::PhotoList_LoadThread(PhotoList *_photo_list) {
-	photo_list = _photo_list;
+PhotoList_LoadThread::PhotoList_LoadThread(PhotoList *pl) : photo_list(pl) {
 }
 
-void PhotoList_LoadThread::run(void) {
-	photo_list->set_folder_f();
+PhotoList_LoadThread::~PhotoList_LoadThread() {
+	std::unique_lock<std::mutex> locker(running_lock);
+	if(std_thread != nullptr) {
+		std_thread->join();
+		delete std_thread;
+	}
+}
+
+void PhotoList_LoadThread::start(void) {
+	std::unique_lock<std::mutex> locker(running_lock);
+	if(std_thread == nullptr) {
+		auto pl = photo_list;
+		std_thread = new std::thread( [pl](void){pl->set_folder_f();} );
+	}
+}
+
+void PhotoList_LoadThread::wait(void) {
+	std::unique_lock<std::mutex> locker(running_lock);
+	if(std_thread != nullptr) {
+		std_thread->join();
+		delete std_thread;
+		std_thread = nullptr;
+	}
+}
+
+bool PhotoList_LoadThread::isRunning(void) {
+	std::unique_lock<std::mutex> locker(running_lock);
+	return (std_thread != nullptr);
 }
 
 //==============================================================================
@@ -461,7 +486,7 @@ PhotoList::PhotoList(QSize thumbnail_size, QWidget *_parent) : QAbstractListMode
 	parent = _parent;
 	thumbnail_delegate = new PhotoList_Delegate(thumbnail_size);
 	thumbnail_delegate->set_model(this);
-	edit = NULL;
+	edit = nullptr;
 	// create widget
 	view = new PhotoList_View(thumbnail_delegate, this, parent);
 	view->setModel(this);
@@ -513,10 +538,10 @@ PhotoList::~PhotoList() {
 }
 
 void PhotoList::set_edit(Edit *_edit) {
-	if(edit != NULL)
+	if(edit != nullptr)
 		disconnect(this, SIGNAL(signal_update_opened_photo_ids(QList<Photo_ID>)), edit, SLOT(slot_update_opened_photo_ids(QList<Photo_ID>)));
 	edit = _edit;
-	if(edit != NULL)
+	if(edit != nullptr)
 		connect(this, SIGNAL(signal_update_opened_photo_ids(QList<Photo_ID>)), edit, SLOT(slot_update_opened_photo_ids(QList<Photo_ID>)));
 }
 
@@ -583,7 +608,7 @@ void PhotoList::set_position(Browser::thumbnails_position position) {
 PhotoList_Item_t *PhotoList::item_from_index(const QModelIndex &index) {
 	int i = index.row();
 	if(i < 0 || i >= items.size())
-		return NULL;
+		return nullptr;
 	return &items[i];
 }
 
@@ -648,7 +673,7 @@ void PhotoList::set_folder_f(void) {
 //cerr << "set_folder_f thread id: " << (unsigned long)QThread::currentThreadId() << endl;
 //cerr << "scroll_list_to == " << scroll_list_to << endl;
 	const static string separator = QDir::toNativeSeparators("/").toLocal8Bit().constData();
-	std::list<thumbnail_record_t> *list_whole = NULL;
+	std::list<thumbnail_record_t> *list_whole = nullptr;
 	bool folder_not_empty = false;
 	setup_folder_lock.lock();
 	QString folder_id = setup_folder_id;
@@ -658,10 +683,10 @@ void PhotoList::set_folder_f(void) {
 	int index_scroll_to = -1;
 	QStringList filter;
 	QList<QString> list_import = Import::extensions();
-	for(QList<QString>::iterator it = list_import.begin(); it != list_import.end(); it++)
+	for(QList<QString>::iterator it = list_import.begin(); it != list_import.end(); ++it)
 		filter << QString("*.") + *it;
 	do {
-		if(list_whole != NULL)
+		if(list_whole != nullptr)
 			delete list_whole;
 		folder_not_empty = false;
 		// check for new items
@@ -697,7 +722,7 @@ void PhotoList::set_folder_f(void) {
 					std::list<int> v_list = PS_Loader::versions_list(file_name);
 					if(v_list.size() == 0)
 						v_list.push_back(1);
-					for(std::list<int>::iterator it = v_list.begin(); it != v_list.end(); it++) {
+					for(std::list<int>::iterator it = v_list.begin(); it != v_list.end(); ++it) {
 						PhotoList_Item_t item;
 						// create QIcon from the QPixmap - from the preview small pics at RAW file
 //cerr << "file: " << name.c_str() << endl;
@@ -792,7 +817,7 @@ void PhotoList::update_item(PhotoList_Item_t *item, int index, std::string folde
 		items[index].is_loaded = true;
 //		delete item;
 		// check thumbnail image from thumbnails cache
-		for(std::map<Photo_ID, class thumbnail_desc_t>::iterator it = thumbnails_cache.begin(); it != thumbnails_cache.end(); it++) {
+		for(std::map<Photo_ID, class thumbnail_desc_t>::iterator it = thumbnails_cache.begin(); it != thumbnails_cache.end(); ++it) {
 			if((*it).first == items[index].photo_id) {
 				items[index].image = (*it).second.image;
 				break;
@@ -818,7 +843,7 @@ void PhotoList::update_thumbnail(Photo_ID photo_id, QImage thumbnail) {
 //cerr << "PhotoList::update_thumbnail(\"" << photo_id << "\", ...)" << endl;
 	items_lock.lock();
 	std::map<Photo_ID, class thumbnail_desc_t>::iterator it;
-//	for(it = thumbnails_cache.begin(); it != thumbnails_cache.end(); it++)
+//	for(it = thumbnails_cache.begin(); it != thumbnails_cache.end(); ++it)
 //		cerr << "in the cache: \"" << (*it).second.photo_id
 	it = thumbnails_cache.find(photo_id);
 	int index = -1;
@@ -998,7 +1023,7 @@ void PhotoList::fill_context_menu(QMenu &menu, int item_index) {
 	bool allow_remove = true;
 	if(v_list.size() <= 1)
 		allow_remove = false;
-	if(edit != NULL)
+	if(edit != nullptr)
 		if(edit->version_is_open(items[item_index].photo_id))
 			allow_remove = false;
 	action_version_remove->setEnabled(allow_remove);
@@ -1010,8 +1035,8 @@ void PhotoList::fill_context_menu(QMenu &menu, int item_index) {
 
 void PhotoList::slot_version_add(void) {
 	Photo_ID context_menu_photo_id = items[context_menu_index].photo_id;
-	PS_Loader *ps_loader = NULL;
-	if(edit != NULL)
+	PS_Loader *ps_loader = nullptr;
+	if(edit != nullptr)
 		ps_loader = edit->version_get_current_ps_loader(context_menu_photo_id);
 	// if photo is open in edit use current settings for a new version instead of saved ones
 	PS_Loader::version_create(context_menu_photo_id, ps_loader);
@@ -1028,7 +1053,7 @@ void PhotoList::slot_version_add(void) {
 	// update index in thumbnails_cache if necessary
 	QList<Photo_ID> photo_ids;
 	std::map<Photo_ID, class thumbnail_desc_t> thumbnails_cache_new;
-	for(std::map<Photo_ID, class thumbnail_desc_t>::iterator it = thumbnails_cache.begin(); it != thumbnails_cache.end(); it++) {
+	for(std::map<Photo_ID, class thumbnail_desc_t>::iterator it = thumbnails_cache.begin(); it != thumbnails_cache.end(); ++it) {
 		Photo_ID _key = (*it).first;
 		class thumbnail_desc_t _value = (*it).second;
 		if(_value.folder_id == current_folder_id) {
@@ -1091,7 +1116,7 @@ void PhotoList::slot_version_remove(void) {
 	// update index in thumbnails_cache if necessary
 	QList<Photo_ID> photo_ids;
 	std::map<Photo_ID, class thumbnail_desc_t> thumbnails_cache_new;
-	for(std::map<Photo_ID, class thumbnail_desc_t>::iterator it = thumbnails_cache.begin(); it != thumbnails_cache.end(); it++) {
+	for(std::map<Photo_ID, class thumbnail_desc_t>::iterator it = thumbnails_cache.begin(); it != thumbnails_cache.end(); ++it) {
 		Photo_ID _key = (*it).first;
 		class thumbnail_desc_t _value = (*it).second;
 		if(_value.folder_id == current_folder_id) {

@@ -2,26 +2,25 @@
  * filter_gp.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
 
 /*
  *	TODO:
-	? - notice all mutators, to correct tiles size asked by tiles_receiver (View);
+	? - notice all mutators with correct tiles size asked by tiles_receiver (View);
 
  *	NOTES:
 	- to prevent downscaled cache abuse in workflow, use 'downscaled' rotation - when result image dimensions will be the same as original, w/o magnification.
-	- after research there was made decision to avoid using of Sinc2 upscaling resampling algorithm as there no visible improvement in image quality than minor
-		increase in sharpness and possibly minor increase in color noise too; but speed drop is significant. In case of downscale - there is a significant performance
-		drop with no visible image improvement with barely visible sharpness increase (with artifacts that should be additionally supressed in cost of speed).
+	- after research there was made decision to avoid usage of the Sinc2 upscaling resampling algorithm as there is no visible improvement in the image quality but minor
+		increase of the sharpness and possibly minor increase in the color noise too, with significant slowdown. In case of the downscale - there is a significant performance
+		drop with no visible image improvement but barely visible sharpness increase (and artifacts too).
  */	
 
 #include <iostream>
 
 #include "filter_gp.h"
-//#include "shared_ptr.h"
 #include "process_h.h"
 #include "ddr_math.h"
 
@@ -70,7 +69,7 @@ FP_Cache_t *FilterProcess_GP::new_FP_Cache(void) {
 }
 
 class FP_GP *FilterProcess_GP::get_new_FP_GP(const class FP_GP_data_t &data) {
-	return NULL;
+	return nullptr;
 }
 
 //------------------------------------------------------------------------------
@@ -80,7 +79,7 @@ FilterProcess_GP_Wrapper::FilterProcess_GP_Wrapper(const vector<class FP_GP_Wrap
 		_name = "FP_GP_Wrapper for resampling";
 	} else {
 		_name = "FP_GP_Wrapper for filters: ";
-		for(vector<class FP_GP_Wrapper_record_t>::iterator it = fp_gp_vector.begin(); it != fp_gp_vector.end(); it++) {
+		for(vector<class FP_GP_Wrapper_record_t>::iterator it = fp_gp_vector.begin(); it != fp_gp_vector.end(); ++it) {
 			_name += (*it).fp_gp->name();
 			if(it + 1 != fp_gp_vector.end())
 				_name += ", ";
@@ -106,8 +105,7 @@ void FilterProcess_GP_Wrapper::init_gp(class Metadata *metadata) {
 			data.metadata = metadata;
 			data.filter = fp_gp_vector[i].filter;
 			data.fs_base = fp_gp_vector[i].fs_base;
-//			data.ps_base = fp_gp_vector[i].ps_base.ptr();
-			data.ps_base = fp_gp_vector[i].ps_base.data();
+			data.ps_base = fp_gp_vector[i].ps_base.get();
 			data.cache = fp_gp_vector[i].cache;
 			gp_vector.push_back(fp_gp_vector[i].fp_gp->get_new_FP_GP(data));
 		}
@@ -435,7 +433,7 @@ public:
 
 Area *FilterProcess_GP_Wrapper::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj) {
 	SubFlow *subflow = mt_obj->subflow;
-	task_t **tasks = NULL;
+	task_t **tasks = nullptr;
 	int cores = subflow->cores();
 	if(subflow->sync_point_pre()) {
 		bool just_copy = (fp_gp_vector.size() == 0 && process_obj->position.px_size_x == 1.0 && process_obj->position.px_size_y == 1.0);
@@ -469,7 +467,7 @@ class FilterProcess_GP_Wrapper::task_copy_t {
 public:
 	Area *area_in;  // (read only) input pixels
 	Area *area_out; // (write only) resulting pixels
-	QAtomicInt *y_flow;
+	std::atomic_int *y_flow;
 
 	int in_x_offset;
 	int in_y_offset;
@@ -482,9 +480,9 @@ Area *FilterProcess_GP_Wrapper::process_copy(MT_t *mt_obj, Process_t *process_ob
 	Area *area_in = process_obj->area_in;
 //	Metadata *metadata = process_obj->metadata;
 
-	Area *area_out = NULL;
-	task_copy_t **tasks = NULL;
-	QAtomicInt *y_flow = NULL;
+	Area *area_out = nullptr;
+	task_copy_t **tasks = nullptr;
+	std::atomic_int *y_flow = nullptr;
 
 	int cores = subflow->cores();
 	// --==--
@@ -524,7 +522,7 @@ Area *FilterProcess_GP_Wrapper::process_copy(MT_t *mt_obj, Process_t *process_ob
 		process_obj->mutators->get("wb_B_b", wb_b[2]);
 
 		tasks = new task_copy_t *[cores];
-		y_flow = new QAtomicInt(0);
+		y_flow = new std::atomic_int(0);
 		for(int i = 0; i < cores; i++) {
 			tasks[i] = new task_copy_t;
 			tasks[i]->area_in = area_in;
@@ -601,7 +599,7 @@ void FilterProcess_GP_Wrapper::process_copy(SubFlow *subflow) {
 #endif
 
 	int it_y = 0;
-	while((it_y = _mt_qatom_fetch_and_add(task->y_flow, 1)) < out_y_max) {
+	while((it_y = task->y_flow->fetch_add(1)) < out_y_max) {
 		for(int it_x = 0; it_x < out_x_max; it_x++) {
 			float *out = &_out[(it_y * out_width + it_x) * 4 + 0];
 			const int in_x = in_x_offset + it_x;
@@ -649,7 +647,7 @@ void FilterProcess_GP_Wrapper::process_copy(SubFlow *subflow) {
 class FilterProcess_GP_Wrapper::task_coordinates_prep_t {
 public:
 	Area *area_out;	// (write only) area with initial coordinates, farther to demosaic
-	QAtomicInt *y_flow;
+	std::atomic_int *y_flow;
 
 	float start_x;
 	float start_y;
@@ -662,7 +660,7 @@ public:
 	Area *area_in;  // (read only) area with coordinates to be changed, farther to demosaic
 	Area *area_out;	// (write only) area with changed coordinates, nearer to demosaic
 	bool coordinates_rgb;
-	QAtomicInt *y_flow;
+	std::atomic_int *y_flow;
 };
 
 class FilterProcess_GP_Wrapper::task_sampling_t {
@@ -671,14 +669,14 @@ public:
 	Area *area_coordinates; // 'area_out' from 'task_coordinates_t'
 	bool coordinates_rgb;
 	Area *area_out; // (write only) resulting pixels
-	QAtomicInt *y_flow;
+	std::atomic_int *y_flow;
 
 	float px_size_x;
 	float px_size_y;
 	float offset_x;
 	float offset_y;
 
-	// y = _clip((wb_a * x + wb_b), 0.0, 1.0);
+	// y = ddr::clip((wb_a * x + wb_b));
 //	float wb_a[4];
 //	float wb_b[4];
 };
@@ -694,18 +692,18 @@ Area *FilterProcess_GP_Wrapper::process_sampling(MT_t *mt_obj, Process_t *proces
 		subflow->sync_point_post();
 	}
 
-	Area *area_coordinates_prep = NULL;
-	task_coordinates_prep_t **tasks_coordinates_prep = NULL;
-	QAtomicInt *y_flow_coordinates_prep = NULL;
+	Area *area_coordinates_prep = nullptr;
+	task_coordinates_prep_t **tasks_coordinates_prep = nullptr;
+	std::atomic_int *y_flow_coordinates_prep = nullptr;
 
-	Area *area_out_coordinates = NULL;
-	task_coordinates_t **tasks_coordinates = NULL;
-	QAtomicInt *y_flow_coordinates = NULL;
+	Area *area_out_coordinates = nullptr;
+	task_coordinates_t **tasks_coordinates = nullptr;
+	std::atomic_int *y_flow_coordinates = nullptr;
 	bool coordinates_rgb = false;
 
-	Area *area_out_sampling = NULL;
-	task_sampling_t **tasks_sampling = NULL;
-	QAtomicInt *y_flow_sampling = NULL;
+	Area *area_out_sampling = nullptr;
+	task_sampling_t **tasks_sampling = nullptr;
+	std::atomic_int *y_flow_sampling = nullptr;
 
 	float px_size_in_x = 1.0;
 	float px_size_in_y = 1.0;
@@ -748,7 +746,7 @@ cerr << endl;
 		d_out.edges.x2 = 0;
 		d_out.edges.y1 = 0;
 		d_out.edges.y2 = 0;
-		area_coordinates_prep = new Area(&d_out, Area::type_float_p2);
+		area_coordinates_prep = new Area(&d_out, Area::type_t::type_float_p2);
 		process_obj->OOM |= !area_coordinates_prep->valid();
 
 		float start_x = d_out.position.x;
@@ -758,7 +756,7 @@ cerr << endl;
 
 		int cores = subflow->cores();
 		tasks_coordinates_prep = new task_coordinates_prep_t *[cores];
-		y_flow_coordinates_prep = new QAtomicInt(0);
+		y_flow_coordinates_prep = new std::atomic_int(0);
 		for(int i = 0; i < cores; i++) {
 			tasks_coordinates_prep[i] = new task_coordinates_prep_t;
 			tasks_coordinates_prep[i]->area_out = area_coordinates_prep;
@@ -799,14 +797,14 @@ cerr << endl;
 			for(int i = 0; i < gp_vector.size(); i++)
 				coordinates_rgb |= gp_vector[i]->is_rgb();
 			if(coordinates_rgb)
-				area_out_coordinates = new Area(&d_out, Area::type_float_p6);
+				area_out_coordinates = new Area(&d_out, Area::type_t::type_float_p6);
 			else
-				area_out_coordinates = new Area(&d_out, Area::type_float_p2);
+				area_out_coordinates = new Area(&d_out, Area::type_t::type_float_p2);
 			process_obj->OOM |= !area_out_coordinates->valid();
 
 			int cores = subflow->cores();
 			tasks_coordinates = new task_coordinates_t *[cores];
-			y_flow_coordinates = new QAtomicInt(0);
+			y_flow_coordinates = new std::atomic_int(0);
 			for(int i = 0; i < cores; i++) {
 				tasks_coordinates[i] = new task_coordinates_t;
 				tasks_coordinates[i]->area_in = area_coordinates_prep;
@@ -862,7 +860,7 @@ cerr << endl;
 */
 		int cores = subflow->cores();
 		tasks_sampling = new task_sampling_t *[cores];
-		y_flow_sampling = new QAtomicInt(0);
+		y_flow_sampling = new std::atomic_int(0);
 		for(int i = 0; i < cores; i++) {
 			tasks_sampling[i] = new task_sampling_t;
 			tasks_sampling[i]->area_in = area_in;
@@ -940,7 +938,7 @@ void FilterProcess_GP_Wrapper::prepare_coordinates(SubFlow *subflow) {
 	int it_y = 0;
 	int it_y_prev = 0;
 	float value_y = start_y;
-	while((it_y = _mt_qatom_fetch_and_add(task->y_flow, 1)) < out_y_max) {
+	while((it_y = task->y_flow->fetch_add(1)) < out_y_max) {
 		value_y += delta_y * (it_y - it_y_prev);
 		it_y_prev = it_y;
 		float value_x = start_x;
@@ -978,7 +976,7 @@ void FilterProcess_GP_Wrapper::process_coordinates(SubFlow *subflow) {
 	int it_y = 0;
 	const int j_max = gp_vector.size() - 1;
 	if(task->coordinates_rgb) {
-		while((it_y = _mt_qatom_fetch_and_add(task->y_flow, 1)) < out_y_max) {
+		while((it_y = task->y_flow->fetch_add(1)) < out_y_max) {
 			for(int it_x = 0; it_x < out_x_max; it_x++) {
 				float in[6];
 				float out[6];
@@ -1009,7 +1007,7 @@ void FilterProcess_GP_Wrapper::process_coordinates(SubFlow *subflow) {
 			}
 		}
 	} else {
-		while((it_y = _mt_qatom_fetch_and_add(task->y_flow, 1)) < out_y_max) {
+		while((it_y = task->y_flow->fetch_add(1)) < out_y_max) {
 			for(int it_x = 0; it_x < out_x_max; it_x++) {
 				float in[2];
 				float out[2];
@@ -1092,7 +1090,7 @@ void FilterProcess_GP_Wrapper::process_sampling(SubFlow *subflow) {
 	const float offset_y = task->offset_y;
 	const int rgb_count = task->coordinates_rgb ? 4 : 1;
 	const int rgb_size = task->coordinates_rgb ? 6 : 2;
-	while((it_y = _mt_qatom_fetch_and_add(task->y_flow, 1)) < out_y_max) {
+	while((it_y = task->y_flow->fetch_add(1)) < out_y_max) {
 		for(int it_x = 0; it_x < out_x_max; it_x++) {
 			float *rez = &_out[(it_y * out_width + it_x) * 4];
 			float px_sum[4];
@@ -1194,7 +1192,7 @@ cerr << "..." << endl;
 									px_sum[3] += 1.0 * w;
 								else {
 									// apply WB and [0.0, 1.0] clip
-//									px_sum[k] += _clip(_in[((y) * _w + x) * 4 + k] * task->wb_a[k] + task->wb_b[k]) * w;
+//									px_sum[k] += ddr::clip(_in[((y) * _w + x) * 4 + k] * task->wb_a[k] + task->wb_b[k]) * w;
 									px_sum[k] += _in[((y) * _w + x) * 4 + k] * w;
 								}
 							} else {
@@ -1219,15 +1217,15 @@ cerr << "..." << endl;
 									g = 1.0f;
 									b = 1.0f;
 								}
-								px_sum[0] += _clip(r) * w;
-								px_sum[1] += _clip(g) * w;
-								px_sum[2] += _clip(b) * w;
+								px_sum[0] += ddr::clip(r) * w;
+								px_sum[1] += ddr::clip(g) * w;
+								px_sum[2] += ddr::clip(b) * w;
 //								px_sum[0] += r * w;
 //								px_sum[1] += g * w;
 //								px_sum[2] += b * w;
 								for(int i = 0; i < 3; i++) {
 									// apply WB and [0.0, 1.0] clip
-									px_sum[i] += _clip(_in[((y) * _w + x) * 4 + i] * task->wb_a[i] + task->wb_b[i]) * w;
+									px_sum[i] += ddr::clip(_in[((y) * _w + x) * 4 + i] * task->wb_a[i] + task->wb_b[i]) * w;
 //									px_sum[i] += _in[((y) * _w + x) * 4 + i] * w;
 								}
 #endif

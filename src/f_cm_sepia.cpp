@@ -2,7 +2,7 @@
  * f_cm_sepia.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -102,18 +102,18 @@ protected:
 };
 
 //------------------------------------------------------------------------------
-FP_CM_Sepia *F_CM_Sepia::fp = NULL;
+FP_CM_Sepia *F_CM_Sepia::fp = nullptr;
 
 F_CM_Sepia::F_CM_Sepia(int id) : Filter() {
 	_id = "F_CM_Sepia";
 	_name = tr("Sepia");
 	filter_id = id;
-	if(fp == NULL)
+	if(fp == nullptr)
 		fp = new FP_CM_Sepia();
 	_ps = (PS_CM_Sepia *)newPS();
 	ps = _ps;
 	ps_base = ps;
-	widget = NULL;
+	widget = nullptr;
 	reset();
 }
 
@@ -139,7 +139,7 @@ FS_Base *F_CM_Sepia::newFS(void) {
 
 void F_CM_Sepia::saveFS(FS_Base *fs_base) {
 /*
-	if(fs_base == NULL)
+	if(fs_base == nullptr)
 		return;
 	FS_CM_Sepia *fs = (FS_CM_Sepia *)fs_base;
 */
@@ -147,7 +147,7 @@ void F_CM_Sepia::saveFS(FS_Base *fs_base) {
 
 void F_CM_Sepia::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t args) {
 	// PS
-	if(new_ps != NULL) {
+	if(new_ps != nullptr) {
 		ps = (PS_CM_Sepia *)new_ps;
 		ps_base = new_ps;
 	} else {
@@ -155,13 +155,13 @@ void F_CM_Sepia::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args
 		ps_base = ps;
 	}
 	// FS
-	if(widget == NULL)
+	if(widget == nullptr)
 		return;
 	reconnect(false);
 
 	// apply settings from FS to GUI
 /*
-	if(fs_base == NULL) {
+	if(fs_base == nullptr) {
 	} else {
 		// load
 		FS_CM_Sepia *fs = (FS_CM_Sepia *)fs_base;
@@ -176,7 +176,7 @@ void F_CM_Sepia::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args
 }
 
 QWidget *F_CM_Sepia::controls(QWidget *parent) {
-	if(widget != NULL)
+	if(widget != nullptr)
 		return widget;
 	QGroupBox *q = new QGroupBox(_name);
 	widget = q;
@@ -286,12 +286,12 @@ public:
 };
 
 FP_CM_Sepia_Cache_t::FP_CM_Sepia_Cache_t(void) {
-//	tf_rainbow = NULL;
+//	tf_rainbow = nullptr;
 //	tf_rainbow_is_one = true;
 }
 
 FP_CM_Sepia_Cache_t::~FP_CM_Sepia_Cache_t() {
-//	if(tf_rainbow != NULL)
+//	if(tf_rainbow != nullptr)
 //		delete tf_rainbow;
 }
 
@@ -343,7 +343,7 @@ void FP_CM_Sepia::filter_pre(fp_cp_args_t *args) {
 
 void FP_CM_Sepia::filter_post(fp_cp_args_t *args) {
 	task_t *task = (task_t *)args->ptr_private[0];
-	if(task->sg != NULL)
+	if(task->sg != nullptr)
 		delete task->sg;
 //	task_t **tasks = (task_t **)&args->ptr_private[0];
 	for(int i = 0; i < args->cores; i++) {

@@ -2,7 +2,7 @@
  * tiles.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -27,7 +27,7 @@ using namespace std;
 #define TILE_LENGTH_MAX (65535 * 255)
 
 //------------------------------------------------------------------------------
-QMutex ID_t::_mutex;
+std::mutex ID_t::_mutex;
 long long ID_t::_counter = 0;
 
 ID_t::ID_t(void) : empty(true) {
@@ -58,7 +58,7 @@ void ID_t::_generate(ID_t *_this) {
 
 //------------------------------------------------------------------------------
 Tile_t::Tile_t(void) {
-	area = NULL;
+	area = nullptr;
 	index = -1;
 	priority = -1;
 }
@@ -68,7 +68,7 @@ void TilesDescriptor_t::reset(void) {
 	is_empty = true;
 	index_list_lock.lock();
 //	for(int i = 0; i < tiles.size(); i++)
-//		if(tiles[i].area != NULL)
+//		if(tiles[i].area != nullptr)
 //			delete tiles[i].area;
 	index_list.clear();
 	post_width = 0;
@@ -76,14 +76,14 @@ void TilesDescriptor_t::reset(void) {
 	scale_factor_x = 1.0;
 	scale_factor_y = 1.0;
 	index_list_lock.unlock();
-};
+}
 
 //------------------------------------------------------------------------------
 void TilesReceiver::_init(void) {
 	tiles_descriptor.is_empty = true;
 	request_ID = 0;
-	area_thumb = NULL;
-	area_image = NULL;
+	area_thumb = nullptr;
+	area_image = nullptr;
 	tiling_enabled = true;
 	Config::instance()->get(CONFIG_SECTION_DEBUG, "tiling", tiling_enabled);
 //	tiling_enabled = false;
@@ -103,9 +103,9 @@ TilesReceiver::TilesReceiver(bool _scale_to_fit, int _scaled_width, int _scaled_
 }
 
 TilesReceiver::~TilesReceiver() {
-	if(area_thumb != NULL)
+	if(area_thumb != nullptr)
 		delete area_thumb;
-	if(area_image != NULL)
+	if(area_image != nullptr)
 		delete area_image;
 	Config::instance()->set(CONFIG_SECTION_DEBUG, "tiling", tiling_enabled);
 }
@@ -189,7 +189,7 @@ cerr << endl;
 /*
 void TilesReceiver::set_thumb(Area *_area_thumb, class Metadata *metadata, int real_width, int real_height) {
 	// convert thumb to 8bit RGB for export
-//	area_thumb = AreaHelper::convert(_area_thumb, Area::format_rgb_8, metadata->rotation);
+//	area_thumb = AreaHelper::convert(_area_thumb, Area::format_t::format_rgb_8, metadata->rotation);
 }
 */
 
@@ -213,17 +213,17 @@ void TilesReceiver::receive_tile(Tile_t *tile, bool is_thumb) {
 	if(keep_it == false) {
 //	if(tile->request_ID != ID) {
 //		cerr << "TilesReceiver::receive_tile(): request_ID == " << request_ID << ", tile's request_ID == " << tile->request_ID << endl;
-		if(tile->area != NULL)
+		if(tile->area != nullptr)
 			delete tile->area;
-		tile->area = NULL;
+		tile->area = nullptr;
 		return;
 	}
 	if(is_thumb) {
-		if(area_thumb != NULL)
+		if(area_thumb != nullptr)
 			delete area_thumb;
 		area_thumb = tile->area;
 	} else {
-		if(area_image != NULL)
+		if(area_image != nullptr)
 			delete area_image;
 		area_image = tile->area;
 	}

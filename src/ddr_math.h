@@ -4,7 +4,7 @@
  * ddr_match.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
@@ -12,7 +12,7 @@
 
 #include <map>
 
-#include <QMutex>
+//#include <mutex>
 #include <QVector>
 #include <QPointF>
 
@@ -191,16 +191,6 @@ template<class T> void m3_dump(T *m) {
 float compression_function(float x, float x_max);
 
 //------------------------------------------------------------------------------
-template<class T> void d_swap(T &a1, T &a2) {
-	T t = a2;
-	a2 = a1;
-	a1 = t;
-}
-
-template<class T> T d_abs(T arg) {
-	return (arg < 0.0) ? -arg : arg;
-}
-
 // Gaussian elimination method to solve system of 3 linear equations.
 // input: matrix 'm' 3x3 and vector 'v' 1x3:
 // m[0] * x + m[1] * y + m[2] * z = v[0];
@@ -217,9 +207,9 @@ template<class T> void m3_gaussian_elimination(T *v_rez, const T *m_in, const T 
 	int mi[3] = {0, 1, 2};
 	T scale;
 	// sort (around zero) by first column
-	if(d_abs(m[mi[0] * 3 + 0]) < d_abs(m[mi[1] * 3 + 0])) d_swap(mi[0], mi[1]);
-	if(d_abs(m[mi[0] * 3 + 0]) < d_abs(m[mi[2] * 3 + 0])) d_swap(mi[0], mi[2]);
-	if(d_abs(m[mi[1] * 3 + 0]) < d_abs(m[mi[2] * 3 + 0])) d_swap(mi[1], mi[2]);
+	if(ddr::abs(m[mi[0] * 3 + 0]) < ddr::abs(m[mi[1] * 3 + 0])) ddr::swap(mi[0], mi[1]);
+	if(ddr::abs(m[mi[0] * 3 + 0]) < ddr::abs(m[mi[2] * 3 + 0])) ddr::swap(mi[0], mi[2]);
+	if(ddr::abs(m[mi[1] * 3 + 0]) < ddr::abs(m[mi[2] * 3 + 0])) ddr::swap(mi[1], mi[2]);
 	// eliminate 'x'
 	for(int i = 1; i < 3; i++) {
 		if(m[mi[0] * 3 + 0] != 0.0)
@@ -232,7 +222,7 @@ template<class T> void m3_gaussian_elimination(T *v_rez, const T *m_in, const T 
 		v[mi[i]] -= v[mi[0]] * scale;
 	}
 	// sort (around zero) by second column
-	if(d_abs(m[mi[1] * 3 + 1]) < d_abs(m[mi[2] * 3 + 1])) d_swap(mi[1], mi[2]);
+	if(ddr::abs(m[mi[1] * 3 + 1]) < ddr::abs(m[mi[2] * 3 + 1])) ddr::swap(mi[1], mi[2]);
 	// eliminate 'y'
 	if(m[mi[1] * 3 + 1] != 0.0)
 		scale = m[mi[2] * 3 + 1] / m[mi[1] * 3 + 1];

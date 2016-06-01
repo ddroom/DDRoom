@@ -4,7 +4,7 @@
  * dcraw.h
  *
  * Used modified 'dcraw.c' with corresponding credits.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
@@ -203,8 +203,8 @@ bool _sensor_fuji_45;
 		greybox[3] = UINT_MAX;
 		//--
 		flip = 0;
-		ifp = NULL;
-		file_cache = NULL;
+		ifp = nullptr;
+		file_cache = nullptr;
 		file_cache_pos = 0;
 		//--
 		for(int i = 0; i < 12; i++)
@@ -421,12 +421,12 @@ int CLASS _main (int argc, const char **argv);
 	 * API for friends
 	 */
 	// Load thumb - to memory, receiver need to free memory by "delete";
-	// check the result pointer - == NULL - no tumbnail;
+	// check the result pointer - == nullptr - no tumbnail;
 	void *_load_thumb(std::string fname, long &length);
 	void *_load_raw(std::string fname, long &length);
 	void _load_metadata(std::string fname);
 	static void free_raw(void *ptr);
-	class Area *demosaic_xtrans(const uint16_t *_image, int _width, int _height, const class Metadata *metadata, int passes, class Area *area_out = NULL);
+	class Area *demosaic_xtrans(const uint16_t *_image, int _width, int _height, const class Metadata *metadata, int passes, class Area *area_out = nullptr);
 
 	enum load_type_t {
 		load_type_metadata,

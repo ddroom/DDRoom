@@ -4,19 +4,21 @@
  * edit.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
 
-
-#include <string>
+#include <condition_variable>
 #include <list>
-#include <vector>
+#include <memory>
+#include <mutex>
 #include <set>
+#include <string>
+#include <thread>
+#include <vector>
 
 #include <QtWidgets>
-#include <QSharedPointer>
 
 //#include "area.h"
 #include "dataset.h"
@@ -25,11 +27,12 @@
 #include "photo.h"
 
 //------------------------------------------------------------------------------
-class Process_Runner : public QThread {
+class Process_Runner {
 
 public:
 	Process_Runner(class Process *);
-	void queue(void *ptr, QSharedPointer<Photo_t>, class TilesReceiver *tiles_receiver, bool is_inactive);
+	virtual ~Process_Runner();
+	void queue(void *ptr, std::shared_ptr<Photo_t>, class TilesReceiver *tiles_receiver, bool is_inactive);
 
 protected:
 	class task_t;
@@ -37,9 +40,10 @@ protected:
 	QList<class task_t *> tasks_list;
 //	std::list<class task_t *> tasks_list;
 	class Process *process;
-	QMutex task_lock;
-	QWaitCondition process_wait;
-	QMutex process_lock;
+	std::thread *std_thread = nullptr;
+	std::mutex task_lock;
+	std::condition_variable process_wait;
+	std::mutex process_lock;
 };
 
 //------------------------------------------------------------------------------
@@ -98,8 +102,8 @@ protected:
 	QAction *q_action_rotate_minus;
 	QAction *q_action_rotate_plus;
 
-	class PS_Loader *get_current_ps_loader(QSharedPointer<Photo_t> photo);
-	bool flush_current_ps(QSharedPointer<Photo_t> photo);
+	class PS_Loader *get_current_ps_loader(std::shared_ptr<Photo_t> photo);
+	bool flush_current_ps(std::shared_ptr<Photo_t> photo);
 
 	// photo open/close, thumbnail
 public:
@@ -126,7 +130,7 @@ public:
 	//-----------------
 	// filters UI (controls)
 public:
-	QWidget *get_controls_widget(QWidget *parent = NULL);
+	QWidget *get_controls_widget(QWidget *parent = nullptr);
 	QList<QAction *> get_actions(void);
 public slots:
 	void slot_update_filter(void *, void *, void *);
@@ -222,7 +226,7 @@ class Copy_Paste_Dialog : public QDialog {
 	Q_OBJECT
 
 public:
-	Copy_Paste_Dialog(bool to_copy, std::set<std::string> *copy_paste_set, QWidget *parent = NULL);
+	Copy_Paste_Dialog(bool to_copy, std::set<std::string> *copy_paste_set, QWidget *parent = nullptr);
 	~Copy_Paste_Dialog(void);
 
 protected:

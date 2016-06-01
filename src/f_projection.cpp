@@ -112,7 +112,7 @@ protected:
 };
 
 FP_Projection_Gnomonic::~FP_Projection_Gnomonic() {
-	if(backward_tf_obj != NULL)
+	if(backward_tf_obj != nullptr)
 		delete backward_tf_obj;
 }
 
@@ -206,7 +206,7 @@ protected:
 };
 
 FP_Projection_Stereographic::~FP_Projection_Stereographic() {
-	if(backward_tf_obj != NULL)
+	if(backward_tf_obj != nullptr)
 		delete backward_tf_obj;
 }
 
@@ -250,11 +250,11 @@ public:
 FP_Projection_Cache::FP_Projection_Cache(void) {
 	radians_per_pixel = 0.0;
 	focal_length_px = 0.0;
-	fp_projection = NULL;
+	fp_projection = nullptr;
 }
 
 FP_Projection_Cache::~FP_Projection_Cache(void) {
-	if(fp_projection != NULL)
+	if(fp_projection != nullptr)
 		delete fp_projection;
 }
 
@@ -292,8 +292,8 @@ FP_GP_Projection::FP_GP_Projection(const class Metadata *metadata, double streng
 	const double mh = 0.5l * metadata->height;
 	const double len = sqrt(mw * mw + mh * mh) * 1.2;
 
-	if(cache->fp_projection == NULL || (cache->radians_per_pixel != radians_per_pixel || cache->focal_length_px != focal_length_px)) {
-		if(cache->fp_projection != NULL)
+	if(cache->fp_projection == nullptr || (cache->radians_per_pixel != radians_per_pixel || cache->focal_length_px != focal_length_px)) {
+		if(cache->fp_projection != nullptr)
 			delete cache->fp_projection;
 #if 0
 cerr << "radians_per_pixel == " << radians_per_pixel << endl;
@@ -396,18 +396,18 @@ bool PS_Projection::save(DataSet *dataset) {
 }
 
 //------------------------------------------------------------------------------
-FP_Projection *F_Projection::fp = NULL;
+FP_Projection *F_Projection::fp = nullptr;
 
 F_Projection::F_Projection(int id) : Filter() {
 	filter_id = id;
 	_id = "F_Projection";
 	_name = tr("Projection");
-	if(fp == NULL)
+	if(fp == nullptr)
 		fp = new FP_Projection();
 	_ps = (PS_Projection *)newPS();
 	ps = _ps;
 	ps_base = ps;
-	widget = NULL;
+	widget = nullptr;
 	reset();
 }
 
@@ -420,7 +420,7 @@ PS_Base *F_Projection::newPS(void) {
 
 void F_Projection::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t args) {
 	// PS
-	if(new_ps != NULL) {
+	if(new_ps != nullptr) {
 		ps = (PS_Projection *)new_ps;
 		ps_base = new_ps;
 	} else {
@@ -428,7 +428,7 @@ void F_Projection::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_ar
 		ps_base = ps;
 	}
 	// FS
-	if(widget != NULL) {
+	if(widget != nullptr) {
 		reconnect(false);
 		checkbox_enable->setCheckState(ps->enabled ? Qt::Checked : Qt::Unchecked);
 		slider_strength->setValue(ps->strength);
@@ -437,7 +437,7 @@ void F_Projection::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_ar
 }
 
 QWidget *F_Projection::controls(QWidget *parent) {
-	if(widget != NULL)
+	if(widget != nullptr)
 		return widget;
 	QGroupBox *q = new QGroupBox(_name);
 	QGridLayout *l = new QGridLayout(q);

@@ -4,15 +4,16 @@
  * thumbnail_view.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
 
-
 #include <list>
+#include <mutex>
 #include <stdlib.h>
 #include <string>
+#include <thread>
 
 #include <QtWidgets>
 
@@ -73,13 +74,19 @@ private:
 };
 
 //------------------------------------------------------------------------------
-class PhotoList_LoadThread : public QThread {
+class PhotoList_LoadThread {
 public:
 	PhotoList_LoadThread(class PhotoList *_photo_list);
+	virtual ~PhotoList_LoadThread();
+
+	void start(void);
+	void wait(void);
+	bool isRunning(void);
 
 protected:
+	std::thread *std_thread = nullptr;
+	std::mutex running_lock;
 	class PhotoList *photo_list;
-	void run(void);
 };
 
 //------------------------------------------------------------------------------
@@ -148,7 +155,7 @@ public:
 	void update_thumbnail(Photo_ID photo_id, QImage thumbnail);
 	void photo_close(Photo_ID photo_id, bool was_changed);
 
-	QMutex items_lock;			// to prevent delete item until icon update, and change items till redraw; access from PhotoList_Delegate
+	std::mutex items_lock;			// to prevent delete item until icon update, and change items till redraw; access from PhotoList_Delegate
 
 private:
 	PhotoList_Delegate *thumbnail_delegate;
@@ -168,7 +175,7 @@ private:
 
 	class ThumbnailLoader *thumbnail_loader;
 
-	QMutex setup_folder_lock;
+	std::mutex setup_folder_lock;
 	QString setup_folder_id;
 	bool setup_folder_flag;
 	PhotoList_LoadThread *load_thread;

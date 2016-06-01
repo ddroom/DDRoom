@@ -2,7 +2,7 @@
  * edit_history.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -16,7 +16,7 @@
 	Organization:
 		- is singleton that provide GUI controls and accept signals from those
 		- history container stored as 'void *' at photo_t of current session, responsible for container creation and destruction
-		- accept signal about current session change from Edit class, reference at current session should be stored as pointer that can be == NULL
+		- accept signal about current session change from Edit class, reference at current session should be stored as pointer that can be == nullptr
 
 */
 /*
@@ -46,7 +46,7 @@ using namespace std;
 #define COMPRESSION_TIME_DELTA 500
 
 //==============================================================================
-eh_filter_record_t::eh_filter_record_t(void) : filter(NULL) {
+eh_filter_record_t::eh_filter_record_t(void) : filter(nullptr) {
 }
 
 eh_filter_record_t::eh_filter_record_t(class Filter *_filter, const list<class field_delta_t> &_deltas) : filter(_filter), deltas(_deltas) {
@@ -58,7 +58,7 @@ QStringList eh_filter_record_t::get_description(void) const {
 //cerr << "__ add description: " << endl;
 //cerr << "filter->id().c_str()" << endl;
 	description.push_back(filter->id().c_str());
-	for(list<field_delta_t>::const_iterator it = deltas.begin(); it != deltas.end(); it++) {
+	for(list<field_delta_t>::const_iterator it = deltas.begin(); it != deltas.end(); ++it) {
 		const field_delta_t &d = *it;
 		// TODO: force filter to provide readable localized description - with correct localized field name and readable value name like points at curve etc...
 		description.push_back(d.field_name.c_str());
@@ -146,8 +146,8 @@ void EditHistory_ItemDelegate::update_colors(const QStyleOptionViewItem &option)
 }
 
 void EditHistory_ItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const {
-	if(edit_history == NULL) {
-cerr << "edit_history == NULL" << endl;
+	if(edit_history == nullptr) {
+cerr << "edit_history == nullptr" << endl;
 		return;
 	}
 	EditHistory_ItemDelegate *_this = const_cast<EditHistory_ItemDelegate *>(this);
@@ -346,7 +346,7 @@ QSize EditHistory_ItemDelegate::sizeHint(const QStyleOptionViewItem &option, con
 }
 
 int EditHistory_ItemDelegate::get_item_height(int index, int font_height) const {
-	if(edit_history == NULL)
+	if(edit_history == nullptr)
 		return 0;
 	int c = 0;
 	QVector<QStringList> *p = edit_history->get_description_list(index);
@@ -354,10 +354,10 @@ int EditHistory_ItemDelegate::get_item_height(int index, int font_height) const 
 		QVariant value = index.data(Qt::DisplayRole);
 	instead, but that way is faster. Anyway QStringList provide additional link to data model class...
 */
-//	if(p != NULL) {
+//	if(p != nullptr) {
 //		c = (p->size() - 1) / 3;	// TODO: fix GUI drawing
 //	}
-	if(p != NULL)
+	if(p != nullptr)
 		c = p->size();
 	if(c < 0)	c = 0;
 //cerr << "c == " << c << endl;
@@ -379,8 +379,8 @@ int EditHistory_ItemDelegate::get_item_height(int index, int font_height) const 
 
 //==============================================================================
 QVector<QStringList> *EditHistory::get_description_list(int index) const {
-	if(edit_history == NULL)
-		return NULL;
+	if(edit_history == nullptr)
+		return nullptr;
 //	index--;
 	int index_pointer = edit_history->h_before.size();
 //cerr << "index == " << index << "; index_pointer == " << index_pointer << endl;
@@ -397,7 +397,7 @@ QVector<QStringList> *EditHistory::get_description_list(int index) const {
 //			return &edit_history->h_after.at(i).description;
 		}
 	}
-	return NULL;
+	return nullptr;
 }
 
 void EditHistory::set_view_model(void) {
@@ -413,14 +413,14 @@ void EditHistory::set_view_model(void) {
 //	emit scrollTo();
 //	dataChanged(index_begin, index_end);
 	emit layoutChanged();
-	if(edit_history != NULL) {
+	if(edit_history != nullptr) {
 		int index = edit_history->h_before.size();
 		view->scrollTo(createIndex(index, 0));
 	}
 }
 
 int EditHistory::get_rows_count(void) const {
-	if(edit_history == NULL)
+	if(edit_history == nullptr)
 		return 0;
 	int c = 1;
 	c += edit_history->h_before.size();
@@ -449,7 +449,7 @@ int EditHistory::rowCount(const QModelIndex &parent) const {
 }
 
 QVariant EditHistory::data(const QModelIndex &qm_index, int role) const {
-	if(edit_history == NULL || !qm_index.isValid())
+	if(edit_history == nullptr || !qm_index.isValid())
 		return QVariant();
 	if(role == Qt::TextAlignmentRole) {
 		return int(Qt::AlignLeft | Qt::AlignVCenter);
@@ -457,8 +457,8 @@ QVariant EditHistory::data(const QModelIndex &qm_index, int role) const {
 #if 0
 		QList<QVariant> l;
 		QVector<QStringList> *p = get_description_list(qm_index.row());
-		if(p == NULL) {
-cerr << "NULL; qm_index.row() == " << qm_index.row() << endl;
+		if(p == nullptr) {
+cerr << "nullptr; qm_index.row() == " << qm_index.row() << endl;
 			QStringList sl;
 			sl.push_back("");
 			l.push_back(QVariant(sl));
@@ -475,8 +475,8 @@ cerr << "...2" << endl;
 		QStringList l;
 //		QList<QVariant> l;
 		QVector<QStringList> *p = get_description_list(qm_index.row());
-		if(p == NULL) {
-//cerr << "NULL; qm_index.row() == " << qm_index.row() << endl;
+		if(p == nullptr) {
+//cerr << "nullptr; qm_index.row() == " << qm_index.row() << endl;
 //			QStringList sl;
 			l.push_back("");
 //			l.push_back(QVariant(sl));
@@ -500,16 +500,16 @@ EditHistory::EditHistory(void) {
 EditHistory::EditHistory(class Edit *_edit, QWidget *_parent) {
 	edit = _edit;
 	parent = _parent;
-	edit_history = NULL;
+	edit_history = nullptr;
 
 	_create_widgets();
 }
 
 EditHistory::~EditHistory() {
-	item_delegate->set_edit_history(NULL);
-	view->setItemDelegate(NULL);
+	item_delegate->set_edit_history(nullptr);
+	view->setItemDelegate(nullptr);
 	delete item_delegate;
-	edit_history = NULL;
+	edit_history = nullptr;
 }
 
 void EditHistory::fill_toolbar(QToolBar *t) {
@@ -544,7 +544,7 @@ void EditHistory::_create_widgets(void) {
 
 	// toolbar
 /*
-	QToolBar *tb = new QToolBar("Edit history", NULL);
+	QToolBar *tb = new QToolBar("Edit history", nullptr);
 	l->addWidget(tb);
 //	tb->setMovable(false);
 //	tb->setFloatable(false);
@@ -594,30 +594,31 @@ void EditHistory::photo_constructor(Photo_t *photo) {
 }
 
 void EditHistory::photo_destructor(Photo_t *photo) {
-	if(photo->edit_history != NULL)
+	if(photo->edit_history != nullptr)
 		delete (edit_history_t *)photo->edit_history;
 }
 
 // switch GUI to edit history state saved at Photo_t object
 // TODO: acquire signal from edit class on active view change to switch actions disable and upgrade history view
-void EditHistory::set_current_photo(QSharedPointer<Photo_t> photo) {
-	edit_history = NULL;
-	if(!photo.isNull())
+void EditHistory::set_current_photo(std::shared_ptr<Photo_t> photo) {
+	edit_history = nullptr;
+//	if(!photo.isNull())
+	if(photo)
 		edit_history = (edit_history_t *)photo->edit_history;
 	update_gui_state();
 }
 
 void EditHistory::update_gui_state(void) {
 	// update actions
-	if(action_undo != NULL) {
+	if(action_undo != nullptr) {
 		bool disabled = true;
-		if(edit_history != NULL)
+		if(edit_history != nullptr)
 			disabled = (edit_history->h_before.size() == 0);
 		action_undo->setDisabled(disabled);
 	}
-	if(action_redo != NULL) {
+	if(action_redo != nullptr) {
 		bool disabled = true;
-		if(edit_history != NULL)
+		if(edit_history != nullptr)
 			disabled = (edit_history->h_after.size() == 0);
 		action_redo->setDisabled(disabled);
 	}
@@ -642,8 +643,8 @@ void EditHistory::add_eh_filter_records(const QVector<eh_filter_record_t> &filte
 	if(!edit_history->h_before.empty() && edit_history_compression) {
 		eh_record_t &last_record = edit_history->h_before.last();
 		// check time delta
-//cerr << "time delta: " << _abs(last_record.time.msecsTo(record.time)) << endl;
-		if(_abs(last_record.time.msecsTo(record.time)) <= compression_time_delta) {
+//cerr << "time delta: " << ddr::abs(last_record.time.msecsTo(record.time)) << endl;
+		if(ddr::abs(last_record.time.msecsTo(record.time)) <= compression_time_delta) {
 			// check filters
 			std::set<std::string> set_1;
 			for(int i = 0; i < last_record.filter_records.size(); i++)
@@ -660,8 +661,8 @@ void EditHistory::add_eh_filter_records(const QVector<eh_filter_record_t> &filte
 						if(record.filter_records[j].filter->id() == fr_last.filter->id()) {
 							//--
 							eh_filter_record_t &fr = record.filter_records[j];
-							for(std::list<class field_delta_t>::iterator it_last = fr_last.deltas.begin(); it_last != fr_last.deltas.end(); it_last++) {
-								for(std::list<class field_delta_t>::iterator it = fr.deltas.begin(); it != fr.deltas.end(); it++) {
+							for(std::list<class field_delta_t>::iterator it_last = fr_last.deltas.begin(); it_last != fr_last.deltas.end(); ++it_last) {
+								for(std::list<class field_delta_t>::iterator it = fr.deltas.begin(); it != fr.deltas.end(); ++it) {
 									if((*it_last).field_name == (*it).field_name) {
 										(*it_last).field_after = (*it).field_after;
 										break;
@@ -682,7 +683,7 @@ void EditHistory::add_eh_filter_records(const QVector<eh_filter_record_t> &filte
 cerr << "add record" << endl;
 		for(int i = 0; i < filter_records.size(); i++) {
 			const std::list<class field_delta_t> &deltas = filter_records[i].deltas;
-			for(std::list<class field_delta_t>::const_iterator it = deltas.begin(); it != deltas.end(); it++) {
+			for(std::list<class field_delta_t>::const_iterator it = deltas.begin(); it != deltas.end(); ++it) {
 cerr << "field: " << (*it).field_name << endl;
 cerr << "       " << (*it).field_before.serialize() << endl;
 cerr << "       " << (*it).field_after.serialize() << endl;

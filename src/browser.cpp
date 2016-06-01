@@ -2,7 +2,7 @@
  * browser.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
@@ -69,7 +69,7 @@ Browser::Browser(void) {
 	flag = Config::instance()->get(CONFIG_SECTION_BROWSER, "thumb_size", _thumb_size);
 	if(!flag)
 		_thumb_size = THUMB_SIZE_DEFAULT;
-	_clip(_thumb_size, THUMB_SIZE_MIN, THUMB_SIZE_MAX);
+	ddr::clip(_thumb_size, THUMB_SIZE_MIN, THUMB_SIZE_MAX);
 	if(!flag)
 		Config::instance()->set(CONFIG_SECTION_BROWSER, "thumb_size", _thumb_size);
 
@@ -115,7 +115,7 @@ Browser::Browser(void) {
 	connect(photo_list, SIGNAL(item_clicked(Photo_ID, QString, QImage)), this, SLOT(slot_item_clicked(Photo_ID, QString, QImage)));
 	connect(photo_list, SIGNAL(signal_selection_changed(int)), this, SLOT(slot_selection_changed(int)));
 	connect(photo_list, SIGNAL(signal_export(void)), this, SLOT(slot_export(void)));
-	active_item = NULL;
+	active_item = nullptr;
 
 //	image_is_loading = false;
 
@@ -129,7 +129,7 @@ Browser::Browser(void) {
 	l1->setContentsMargins(0, 0, 0, 0);
 #endif
 /*
-	QToolBar *tb = new QToolBar("browser", NULL);
+	QToolBar *tb = new QToolBar("browser", nullptr);
 	tb->setMovable(false);
 	tb->setFloatable(false);
 	// TODO: add some styles management
@@ -138,11 +138,11 @@ Browser::Browser(void) {
 	tb->setContentsMargins(2, 2, 2, 2);
 #endif
 */
-	action_backward = new QAction(QIcon(":/resources/br_backward.svg"), QString("Back"), NULL);
+	action_backward = new QAction(QIcon(":/resources/br_backward.svg"), QString("Back"), nullptr);
 	action_backward->setDisabled(true);
-	action_forward = new QAction(QIcon(":/resources/br_forward.svg"), QString("Forward"), NULL);
+	action_forward = new QAction(QIcon(":/resources/br_forward.svg"), QString("Forward"), nullptr);
 	action_forward->setDisabled(true);
-	action_home = new QAction(QIcon(":/resources/br_home.svg"), QString("Home"), NULL);
+	action_home = new QAction(QIcon(":/resources/br_home.svg"), QString("Home"), nullptr);
 /*
 	tb->addAction(action_backward);
 	tb->addAction(action_forward);

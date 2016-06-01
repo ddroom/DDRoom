@@ -2,7 +2,7 @@
  * batch.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
@@ -40,12 +40,12 @@ Batch::Batch(QWidget *parent, class Process *_process, class Edit *_edit, class 
 	connect(browser, SIGNAL(signal_selection_changed(int)), this, SLOT(slot_selection_changed(int)));
 	selected_photos_count = 0;
 	
-	was_run = false;
+//	was_run = false;
 	to_leave = false;
 	to_pause = false;
 	c_done = 0;
 	c_total = 0;
-	widget = NULL;
+	widget = nullptr;
 	// setup destination dir
 	bool flag = Config::instance()->get(CONFIG_SECTION_BATCH, "destination_dir", destination_dir);
 	if(flag)
@@ -55,13 +55,39 @@ Batch::Batch(QWidget *parent, class Process *_process, class Edit *_edit, class 
 }
 
 Batch::~Batch() {
+	// save destination dir
+	Config::instance()->set(CONFIG_SECTION_BATCH, "destination_dir", destination_dir);
+	if(std_thread != nullptr) {
+		to_leave = true;
+		task_wait.notify_all();
+		std_thread->join();
+		delete std_thread;
+		std_thread = nullptr;
+	}
+/*
 	if(was_run) {
 		to_leave = true;
-		task_wait.wakeAll();
-		wait();
+		task_wait.notify_all();
+//		wait();
 	}
 	// save destination dir
 	Config::instance()->set(CONFIG_SECTION_BATCH, "destination_dir", destination_dir);
+cerr << "~Batch ...1" << endl;
+	if(std_thread != nullptr) {
+cerr << "~Batch ...1.1" << endl;
+//		std_thread->join();
+cerr << "~Batch ...1.2" << endl;
+		delete std_thread;
+cerr << "~Batch ...1.3" << endl;
+//		std_thread = nullptr;
+	}
+cerr << "~Batch ...2" << endl;
+*/
+}
+
+void Batch::start(void) {
+	auto ptr = this;
+	std_thread = new std::thread( [ptr](void){ptr->run();} );
 }
 
 //------------------------------------------------------------------------------
@@ -131,17 +157,19 @@ void Batch::slot_active_photo_changed(void) {
 //------------------------------------------------------------------------------
 // status GUI
 void Batch::do_pause(void) {
-	if(!was_run)
+//	if(!was_run)
+	if(std_thread == nullptr)
 		return;
 	to_pause = true;
 }
 
 void Batch::do_continue(void) {
-	if(!was_run)
+//	if(!was_run)
+	if(std_thread == nullptr)
 		return;
 	task_list_lock.lock();
 	if(task_list.begin() != task_list.end())
-		task_wait.wakeAll();
+		task_wait.notify_all();
 	task_list_lock.unlock();
 }
 
@@ -149,12 +177,12 @@ void Batch::do_abort(void) {
 	task_list_lock.lock();
 	task_list.erase(task_list.begin(), task_list.end());
 	// to update status if was on the pause
-	task_wait.wakeAll();
+	task_wait.notify_all();
 	task_list_lock.unlock();
 }
 
 QWidget *Batch::controls(QWidget *parent) {
-	if(widget != NULL)
+	if(widget != nullptr)
 		return widget;
 	widget = new QWidget(parent);
 	QHBoxLayout *h = new QHBoxLayout(widget);
@@ -282,7 +310,7 @@ void Batch::slot_status(long done, long total, bool to_disable) {
 void Batch::slot_pause(bool checked) {
 	if(to_pause) {
 		button_pause_as_pause();
-		task_wait.wakeAll();
+		task_wait.notify_all();
 	} else {
 		do_pause();
 	}
@@ -296,12 +324,17 @@ void Batch::slot_abort(bool checked) {
 void Batch::run_batch(void) {
 	// TODO: where that exactly should be ???
 	edit->flush_current_ps();
+	if(std_thread == nullptr) {
+		auto ptr = this;
+		std_thread = new std::thread( [ptr](void){ptr->run();} );
+/*
 	if(was_run == false) {
 		was_run = true;
 		start();
+*/
 	} else {
 		// wake up thread
-		task_wait.wakeAll();
+		task_wait.notify_all();
 	}
 }
 
@@ -311,11 +344,11 @@ void Batch::task_add(list<Batch::task_t> &tasks, bool ASAP) {
 	// weird - there is no lists append or insert, so do it by hand
 	if(ASAP) {
 		for(list<Batch::task_t>::iterator it = tasks.end(); it != tasks.begin();) {
-			it--;
+			--it;
 			task_list.push_front(*it);
 		}
 	} else {
-		for(list<Batch::task_t>::iterator it = tasks.begin(); it != tasks.end(); it++)
+		for(list<Batch::task_t>::iterator it = tasks.begin(); it != tasks.end(); ++it)
 			task_list.push_back(*it);
 	}
 	long _c_total = c_total;
@@ -329,7 +362,7 @@ void Batch::task_add(list<Batch::task_t> &tasks, bool ASAP) {
 // TODO: change GUI update schema.
 void Batch::run(void) {
 	// run in background - so user can edit images in the same time
-	setPriority(QThread::LowestPriority);
+//	setPriority(QThread::LowestPriority);
 	while(!to_leave) {
 		long _c_total = c_total;
 		// show "0 / total" at start
@@ -344,12 +377,13 @@ void Batch::run(void) {
 			task_list.pop_front();
 			_c_total = c_total;
 			task_list_lock.unlock();
-cerr << "batch process: import: " << task.photo_id.get_export_file_name() << endl;
-cerr << "               export: " << task.fname_export << endl;
+//cerr << "batch process: import: " << task.photo_id.get_export_file_name() << endl;
+//cerr << "               export: " << task.fname_export << endl;
 			// synchronous call here
 			process->process_export(task.photo_id, task.fname_export, &task.ep);
-			if(to_leave)
+			if(to_leave) {
 				break;
+			}
 			task_list_lock.lock();
 			c_done++;
 			long _c_done = c_done;
@@ -365,17 +399,17 @@ cerr << "               export: " << task.fname_export << endl;
 cerr << endl << "batch process: DONE" << endl << endl;
 		if(to_leave)
 			break;
-
-		task_list_lock.lock();
+		std::unique_lock<std::mutex> locker(task_list_lock, std::defer_lock);
+		locker.lock();
 		if(!to_pause) {
 			c_done = 0;
 			c_total = 0;
 			emit signal_status(c_done, c_total, false);
 		}
 		if((task_list.begin() == task_list.end() && !to_leave) || to_pause)
-			task_wait.wait(&task_list_lock);
+			task_wait.wait(locker);
 		to_pause = false;
-		task_list_lock.unlock();
+		locker.unlock();
 	}
 //cerr << "leave!!!" << endl;
 }
@@ -465,11 +499,11 @@ void Batch::process_export(list<Photo_ID> _list) {
 			task.photo_id = photo_id;
 			task.fname_export = out_file_name;
 			task.ep = *ep;
-//			task.ep = QSharedPointer<export_parameters_t>(ep);
+//			task.ep = std::shared_ptr<export_parameters_t>(ep);
 			tasks.push_back(task);
 		} else {
 			string separator = QDir::toNativeSeparators("/").toLocal8Bit().constData();
-			for(list<Photo_ID>::iterator it = _list.begin(); it != _list.end(); it++) {
+			for(list<Photo_ID>::iterator it = _list.begin(); it != _list.end(); ++it) {
 				// create target filename
 				task_t task;
 				task.photo_id = *it;
@@ -478,7 +512,7 @@ void Batch::process_export(list<Photo_ID> _list) {
 				string rez_fn = ep->folder + separator + ep->get_file_name();
 				task.fname_export = rez_fn;
 				task.ep = *ep;
-//				task.ep = QSharedPointer<export_parameters_t>(ep);
+//				task.ep = std::shared_ptr<export_parameters_t>(ep);
 				tasks.push_back(task);
 			}
 		}

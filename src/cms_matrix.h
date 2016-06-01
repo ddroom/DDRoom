@@ -4,7 +4,7 @@
  * cms_matrix.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
@@ -13,8 +13,7 @@
 //#include <stdint.h>
 #include <string>
 #include <list>
-
-#include <QMutex>
+#include <mutex>
 
 //------------------------------------------------------------------------------
 class CS_White {
@@ -37,7 +36,7 @@ class CMS_Matrix {
 public:
 	virtual ~CMS_Matrix();
 	static CMS_Matrix *instance(void) {
-		if(_this == NULL)
+		if(_this == nullptr)
 			_this = new CMS_Matrix();
 		return _this;
 	}
@@ -71,11 +70,11 @@ protected:
 	// matrix + gamma output color spaces
 	static void load_color_spaces(void);
 	static std::list<class gamma_function_t *> gamma_list;
-	static QMutex gamma_list_lock;
+	static std::mutex gamma_list_lock;
 	static std::list<class gamma_function_t *> inverse_gamma_list;
-	static QMutex inverse_gamma_list_lock;
+	static std::mutex inverse_gamma_list_lock;
 
-	class TableFunction *_get_gamma(std::string cs_name, std::list<gamma_function_t *> *ptr_list, QMutex *ptr_list_lock, bool inverse);
+	class TableFunction *_get_gamma(std::string cs_name, std::list<gamma_function_t *> *ptr_list, std::mutex *ptr_list_lock, bool inverse);
 };
 
 #endif //__H_F_CMS_MATRIX__

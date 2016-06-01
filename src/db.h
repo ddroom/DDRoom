@@ -4,7 +4,7 @@
  * db.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
@@ -16,8 +16,9 @@
 #include <QtWidgets>
 #include <QAbstractTableModel>
 
-#include <string>
 #include <map>
+#include <mutex>
+#include <string>
 
 //------------------------------------------------------------------------------
 class DB_lens_links_record_t {
@@ -45,7 +46,7 @@ class Lens_Link_edit_dialog : public QDialog {
 	Q_OBJECT
 
 public:
-	Lens_Link_edit_dialog(const DB_lens_links_record_t &rec_t, const DB_lens_links_record_Q_t &rec, QString footprint, QWidget *_parent = NULL);
+	Lens_Link_edit_dialog(const DB_lens_links_record_t &rec_t, const DB_lens_links_record_Q_t &rec, QString footprint, QWidget *_parent = nullptr);
 	void get_lens(std::string &lens_maker, std::string &lens_model);
 
 protected slots:
@@ -82,7 +83,7 @@ class Lens_Links_browse_dialog : public QDialog {
 	Q_OBJECT
 
 public:
-	Lens_Links_browse_dialog(std::map<std::string, DB_lens_links_record_t> *lens_links_db, QWidget *_parent = NULL);
+	Lens_Links_browse_dialog(std::map<std::string, DB_lens_links_record_t> *lens_links_db, QWidget *_parent = nullptr);
 
 protected slots:
 //	void slot_button_ok(void);
@@ -114,7 +115,7 @@ class DB_lens_links {
 public:
 	static DB_lens_links *instance(void);
 	bool get_lens_link(DB_lens_links_record_t &record, const std::string &exiv2_lens_footprint, const std::string &camera_maker, const std::string &camera_model);
-	void UI_browse_lens_links(QWidget *parent = NULL);
+	void UI_browse_lens_links(QWidget *parent = nullptr);
 	bool UI_edit_lens_link(DB_lens_links_record_t &record, bool save);
 
 protected:
@@ -122,7 +123,7 @@ protected:
 	DB_lens_links(void);
 //	std::map<std::string, DB_lens_links_record_t> map_footprints;
 	std::map<std::string, DB_lens_links_record_t> map_db;
-	QMutex db_lock;
+	std::mutex db_lock;
 
 	std::map<std::string, DB_lens_links_record_t> db_load(std::string file_name);
 	bool db_save(std::string file_name, const std::map<std::string, DB_lens_links_record_t> &db);

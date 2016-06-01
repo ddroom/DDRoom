@@ -2,7 +2,7 @@
  * f_chromatic_aberration.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -160,7 +160,7 @@ protected:
 
 _CA_MappingFunction::_CA_MappingFunction(const Metadata *metadata) {
 	radius = 2500.0;
-	if(metadata != NULL) {
+	if(metadata != nullptr) {
 		double w = 0.5 * metadata->width;
 		double h = 0.5 * metadata->height;
 		double r = sqrt(w * w + h * h) / 500.0;
@@ -183,18 +183,18 @@ double _CA_MappingFunction::PS_to_UI(double arg) {
 }
 
 //------------------------------------------------------------------------------
-FP_ChromaticAberration *F_ChromaticAberration::fp = NULL;
+FP_ChromaticAberration *F_ChromaticAberration::fp = nullptr;
 
 F_ChromaticAberration::F_ChromaticAberration(int id) {
 	filter_id = id;
 	_id = "F_ChromaticAberration";
 	_name = tr("Chromatic aberration");
-	if(fp == NULL)
+	if(fp == nullptr)
 		fp = new FP_ChromaticAberration();
 	_ps = (PS_ChromaticAberration *)newPS();
 	ps = _ps;
 	ps_base = ps;
-	widget = NULL;
+	widget = nullptr;
 	reset();
 }
 
@@ -211,7 +211,7 @@ PS_Base *F_ChromaticAberration::newPS(void) {
 
 void F_ChromaticAberration::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t args) {
 	// PS
-	if(new_ps != NULL) {
+	if(new_ps != nullptr) {
 		ps = (PS_ChromaticAberration *)new_ps;
 		ps_base = new_ps;
 	} else {
@@ -219,7 +219,7 @@ void F_ChromaticAberration::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_
 		ps_base = ps;
 	}
 	// FS
-	if(widget == NULL)
+	if(widget == nullptr)
 		return;
 	reconnect(false);
 
@@ -229,7 +229,7 @@ void F_ChromaticAberration::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_
 
 	// update UI
 	const Metadata *metadata = args.metadata;
-//if(metadata != NULL) {
+//if(metadata != nullptr) {
 //cerr << "metadata->width == " << metadata->width << endl;
 //}
 	_CA_MappingFunction *mf = new _CA_MappingFunction(metadata);
@@ -255,7 +255,7 @@ void F_ChromaticAberration::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_
 }
 
 QWidget *F_ChromaticAberration::controls(QWidget *parent) {
-	if(widget != NULL)
+	if(widget != nullptr)
 		return widget;
 
 	QGroupBox *q = new QGroupBox(_name);

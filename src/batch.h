@@ -4,14 +4,15 @@
  * batch.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
 
-
-#include <string>
+#include <condition_variable>
 #include <list>
+#include <string>
+#include <thread>
 
 #include <QtWidgets>
 
@@ -19,7 +20,7 @@
 #include "export.h"
 
 //------------------------------------------------------------------------------
-class Batch : public QThread {
+class Batch : public QObject {
 	Q_OBJECT
 
 public:
@@ -28,6 +29,8 @@ public:
 	void fill_menu(class QMenu *menu);
 	void process_save_as(Photo_ID photo_id);
 	void process_batch(std::list<Photo_ID> _list);
+
+	void start(void);
 
 	void do_pause(void);
 	void do_continue(void);
@@ -70,7 +73,7 @@ protected:
 		Photo_ID photo_id;
 		std::string fname_export;
 		export_parameters_t ep;
-//		QSharedPointer<export_parameters_t> ep;
+//		std::shared_ptr<export_parameters_t> ep;
 	};
 	void process_export(std::list<Photo_ID> _list);
 
@@ -78,13 +81,14 @@ protected:
 	void task_add(std::list<Batch::task_t> &tasks, bool ASAP = false);
 	void run_batch(void);
 	void run(void);
+	std::thread *std_thread = nullptr;
 	void load_default_ep(export_parameters_t *ep);
 	void save_default_ep(export_parameters_t *ep);
 
-	QMutex task_list_lock;
+	std::mutex task_list_lock;
 	std::list<Batch::task_t> task_list;
 	bool was_run;
-	QWaitCondition task_wait;
+	std::condition_variable task_wait;
 	volatile bool to_leave;
 	volatile bool to_pause;
 	volatile long c_done;

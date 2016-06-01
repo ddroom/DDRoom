@@ -4,7 +4,7 @@
  * misc.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
@@ -51,61 +51,71 @@ public:
 };
 
 //------------------------------------------------------------------------------
-template<class T> void _swap(T &arg1, T &arg2) {
+
+//--
+namespace ddr {
+
+template<class T> inline void swap(T &arg1, T &arg2) {
 	T t = arg1;
 	arg1 = arg2;
 	arg2 = t;
 }
 
-template<class T> T _max(const T arg1, const T arg2) {
+template<class T> inline const T& max(const T& arg1, const T& arg2) {
 	return (arg1 > arg2 ? arg1 : arg2);
 }
 
-template<class T> T _min(const T arg1, const T arg2) {
+template<class T> inline const T& min(const T& arg1, const T& arg2) {
 	return (arg1 < arg2 ? arg1 : arg2);
 }
 
-template<class T> T _abs(const T arg) {
+template<class T> inline T abs(const T& arg) {
 	return (arg > T(0) ? arg : -arg);
 }
 
-template<class T> void _clip_min(T &arg, T min) {
+template<class T> inline bool clip(T &arg, const T& min, const T& max) {
+	if(arg > max) {
+		arg = max;
+		return true;
+	}
+	if(arg < min) {
+		arg = min;
+		return true;
+	}
+	return false;
+}
+
+template<class T1, class T2, class T3> inline bool clip(T1 &arg, const T2& min, const T3& max) {
+	if(arg > max) {
+		arg = max;
+		return true;
+	}
+	if(arg < min) {
+		arg = min;
+		return true;
+	}
+	return false;
+}
+
+inline float clip(const float& arg) {
+	return (arg < 0.0f) ? 0.0f : (arg > 1.0f ? 1.0f : arg);
+}
+
+inline double clip(const double& arg) {
+	return (arg < 0.0) ? 0.0 : (arg > 1.0 ? 1.0 : arg);
+}
+
+template<class T> inline void clip_min(T &arg, const T& min) {
 	if(arg < min)
 		arg = min;
 }
 
-template<class T> void _clip_max(T &arg, T max) {
+template<class T> inline void clip_max(T &arg, const T& max) {
 	if(arg > max)
 		arg = max;
 }
 
-template<class T> bool _clip(T &arg, T min, T max) {
-	if(arg > max) {
-		arg = max;
-		return true;
-	}
-	if(arg < min) {
-		arg = min;
-		return true;
-	}
-	return false;
-}
-
-template<class T1, class T2, class T3> bool _clip(T1 &arg, T2 min, T3 max) {
-	if(arg > max) {
-		arg = max;
-		return true;
-	}
-	if(arg < min) {
-		arg = min;
-		return true;
-	}
-	return false;
-}
-
-inline float _clip(float arg) {
-	return (arg < 0.0f) ? 0.0f : (arg > 1.0f ? 1.0f : arg);
-}
+} // namespace ddr
 //------------------------------------------------------------------------------
 
 #endif	// __H_MISC__

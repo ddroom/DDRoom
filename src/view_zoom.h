@@ -4,13 +4,13 @@
  * view_zoom.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
 
-
 #include <QtWidgets>
+#include "view.h"
 
 //------------------------------------------------------------------------------
 class View_Zoom : public QObject {
@@ -30,7 +30,7 @@ protected slots:
 	void slot_slider_value_changed(int value);
 
 protected:
-	void set_state(int state);
+	void set_state(View::zoom_t state);
 	void ui_disable(bool disable);
 	void reconnect(bool);
 	QToolButton *button_100;

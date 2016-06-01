@@ -4,11 +4,12 @@
  * gui_curve_histogram.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
 
+#include <mutex>
 
 #include <QtWidgets>
 
@@ -43,7 +44,7 @@ public:
 	void set_settings(bool _show_hist_before, bool _show_hist_after, bool _show_hist_linear);
 
 protected:
-	QMutex data_lock;
+	std::mutex data_lock;
 	class GUI_Curve_Histogram_data *data;
 	bool lightness_only;
 };

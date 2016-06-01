@@ -2,7 +2,7 @@
  * f_cm_rainbow.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -60,9 +60,9 @@ public:
 double cm_rainbow_slider_map::UI_to_PS(double arg) {
 	// consider 'arg' in range [0.0 - 2.0], so
 	double value = arg;
-	double v = _abs(arg - 1.0);
+	double v = ddr::abs(arg - 1.0);
 	v = pow(v, 1.3);
-	_clip(v, 0.0, 1.0);
+	ddr::clip(v);
 	if(value < 1.0)
 		v = 1.0 - v;
 	else
@@ -145,18 +145,18 @@ protected:
 };
 
 //------------------------------------------------------------------------------
-FP_CM_Rainbow *F_CM_Rainbow::fp = NULL;
+FP_CM_Rainbow *F_CM_Rainbow::fp = nullptr;
 
 F_CM_Rainbow::F_CM_Rainbow(int id) : Filter() {
 	_id = "F_CM_Rainbow";
 	_name = tr("Rainbow");
 	filter_id = id;
-	if(fp == NULL)
+	if(fp == nullptr)
 		fp = new FP_CM_Rainbow();
 	_ps = (PS_CM_Rainbow *)newPS();
 	ps = _ps;
 	ps_base = ps;
-	widget = NULL;
+	widget = nullptr;
 	reset();
 }
 
@@ -182,7 +182,7 @@ FS_Base *F_CM_Rainbow::newFS(void) {
 
 void F_CM_Rainbow::saveFS(FS_Base *fs_base) {
 /*
-	if(fs_base == NULL)
+	if(fs_base == nullptr)
 		return;
 	FS_CM_Rainbow *fs = (FS_CM_Rainbow *)fs_base;
 */
@@ -190,7 +190,7 @@ void F_CM_Rainbow::saveFS(FS_Base *fs_base) {
 
 void F_CM_Rainbow::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t args) {
 	// PS
-	if(new_ps != NULL) {
+	if(new_ps != nullptr) {
 		ps = (PS_CM_Rainbow *)new_ps;
 		ps_base = new_ps;
 	} else {
@@ -198,13 +198,13 @@ void F_CM_Rainbow::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_ar
 		ps_base = ps;
 	}
 	// FS
-	if(widget == NULL)
+	if(widget == nullptr)
 		return;
 	reconnect(false);
 
 	// apply settings from FS to GUI
 /*
-	if(fs_base == NULL) {
+	if(fs_base == nullptr) {
 	} else {
 		// load
 		FS_CM_Rainbow *fs = (FS_CM_Rainbow *)fs_base;
@@ -220,7 +220,7 @@ void F_CM_Rainbow::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_ar
 }
 
 QWidget *F_CM_Rainbow::controls(QWidget *parent) {
-	if(widget != NULL)
+	if(widget != nullptr)
 		return widget;
 	QGroupBox *q = new QGroupBox(_name);
 	widget = q;
@@ -397,9 +397,9 @@ TF_Rainbow::TF_Rainbow(QVector<bool> v_enabled, QVector<double> v_saturation) : 
 	for(int i = 0; i < 12; i++) {
 		float value = v_saturation[i];
 /*
-		float v = _abs(value - 1.0);
+		float v = ddr::abs(value - 1.0);
 		v = powf(v, 1.3);
-		_clip(v, 0.0, 1.0);
+		ddr::clip(v);
 		if(value < 1.0)
 			v = 1.0 - v;
 		else
@@ -504,12 +504,12 @@ public:
 };
 
 FP_CM_Rainbow_Cache_t::FP_CM_Rainbow_Cache_t(void) {
-	tf_rainbow = NULL;
+	tf_rainbow = nullptr;
 	tf_rainbow_is_one = true;
 }
 
 FP_CM_Rainbow_Cache_t::~FP_CM_Rainbow_Cache_t() {
-	if(tf_rainbow != NULL)
+	if(tf_rainbow != nullptr)
 		delete tf_rainbow;
 }
 
@@ -541,7 +541,7 @@ void FP_CM_Rainbow::filter_pre(fp_cp_args_t *args) {
 	//--
 	string cm_name;
 	args->mutators->get("CM", cm_name);
-	if(filter != NULL)
+	if(filter != nullptr)
 		filter->set_CM(cm_name);
 //	cm::cm_type_en cm_type = cm::get_type(cm_name);
 	string cs_name = "";
@@ -553,7 +553,7 @@ void FP_CM_Rainbow::filter_pre(fp_cp_args_t *args) {
 			tf_rainbow_is_one = false;
 	}
 	fp_cache->tf_rainbow_is_one = tf_rainbow_is_one;
-	fp_cache->tf_rainbow = NULL;
+	fp_cache->tf_rainbow = nullptr;
 	if(!tf_rainbow_is_one)
 		fp_cache->tf_rainbow = new TF_Rainbow(ps->color_enabled, ps->color_saturation);
 	//--

@@ -2,7 +2,7 @@
  * config.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -34,7 +34,7 @@ using namespace std;
 // should be extended for (file) serialization, and GUI (control/settings) interface
 //
 map<string, DataSet> Config::config_dataset;
-Config *Config::_this = NULL;
+Config *Config::_this = nullptr;
 // At application's close time the name of application would be lost, so cache it;
 // and locations too.
 QString Config::application_name = "";
@@ -190,10 +190,10 @@ void Config::finalize(void) {
 	ofstream ofile(config_file_location().c_str());
 	if(!ofile.is_open())
 		return;
-	for(map<string, DataSet>::iterator it_f = dataset->begin(); it_f != dataset->end(); it_f++) {
+	for(map<string, DataSet>::iterator it_f = dataset->begin(); it_f != dataset->end(); ++it_f) {
 		ofile << "[" << (*it_f).first << "]" << endl;
 		const map<string, dataset_field_t> *d = (*it_f).second.get_dataset_fields();
-		for(map<string, dataset_field_t>::const_iterator it = d->begin(); it != d->end(); it++)
+		for(map<string, dataset_field_t>::const_iterator it = d->begin(); it != d->end(); ++it)
 			ofile << (*it).first << "=" << (*it).second.serialize() << endl;
 		ofile << endl;
 	}

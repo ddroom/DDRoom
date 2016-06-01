@@ -4,12 +4,13 @@
  * f_demosaic_int.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
 
 
+#include <atomic>
 #include <iostream>
 
 #include "demosaic_pattern.h"
@@ -128,7 +129,7 @@ public:
 	class Area *fuji_45_area;
 	class Fuji_45 *fuji_45;
 //	int fuji_45_width;
-	class QAtomicInt *fuji_45_flow;
+	std::atomic_int *fuji_45_flow;
 };
 
 //------------------------------------------------------------------------------

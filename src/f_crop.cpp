@@ -2,7 +2,7 @@
  * f_crop.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -23,7 +23,6 @@ TODO:
 	- check correctness of 'inclusiveness' of coordinates in processing and editing chain
 
 */
-
 
 #include <iostream>
 #include <sstream>
@@ -168,9 +167,9 @@ bool PS_Crop::load(DataSet *dataset) {
 	// verify
 	if(defined) {
 		if(crop_x1 > crop_x2)
-			_swap(crop_x2, crop_x1);
+			ddr::swap(crop_x2, crop_x1);
 		if(crop_y1 > crop_y2)
-			_swap(crop_y2, crop_y1);
+			ddr::swap(crop_y2, crop_y1);
 		const double min_size = _MIN_SIZE_PX;
 		if(crop_x2 - crop_x1 < min_size) {
 			double cx = (crop_x2 + crop_x1) / 2.0;
@@ -212,19 +211,19 @@ cerr << "crop_y2 == " << crop_y2 << endl;
 }
 
 //------------------------------------------------------------------------------
-FP_Crop *F_Crop::fp = NULL;
+FP_Crop *F_Crop::fp = nullptr;
 
 F_Crop::F_Crop(int id) {
 	filter_id = id;
 	_id = "F_Crop";
 	_name = tr("Crop and scale");
-	if(fp == NULL)
+	if(fp == nullptr)
 		fp = new FP_Crop();
 	_ps = (PS_Crop *)newPS();
 	ps = _ps;
 	ps_base = ps;
-	widget = NULL;
-	q_action_edit = NULL;
+	widget = nullptr;
+	q_action_edit = nullptr;
 	connect(this, SIGNAL(signal_le_aspect_update(void)), this, SLOT(slot_le_aspect_update(void)));
 	reset();
 	mouse_is_pressed = false;
@@ -261,7 +260,7 @@ FS_Base *F_Crop::newFS(void) {
 }
 
 void F_Crop::saveFS(FS_Base *fs_base) {
-	if(fs_base != NULL) {
+	if(fs_base != nullptr) {
 		FS_Crop *fs = (FS_Crop *)fs_base;
 		fs->crop_move = crop_move;
 		fs->s_width = s_width;
@@ -272,7 +271,7 @@ void F_Crop::saveFS(FS_Base *fs_base) {
 // TODO
 void F_Crop::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t args) {
 	// PS
-	if(new_ps != NULL) {
+	if(new_ps != nullptr) {
 		ps = (PS_Crop *)new_ps;
 		ps_base = new_ps;
 	} else {
@@ -280,7 +279,7 @@ void F_Crop::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t a
 		ps_base = ps;
 	}
 	// FS
-	if(fs_base == NULL) {
+	if(fs_base == nullptr) {
 		crop_move = _CROP_MOVE_UNDEFINED;
 		edit_mode_enabled = false;
 		edit_mode_enabled = false;
@@ -291,7 +290,7 @@ void F_Crop::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t a
 		s_height = fs->s_height;
 	}
 	// apply settings to UI
-	if(widget != NULL) {
+	if(widget != nullptr) {
 		reconnect(false);
 		checkbox_crop->setCheckState(ps->enabled_crop ? Qt::Checked : Qt::Unchecked);
 		checkbox_aspect->setCheckState(ps->fixed_aspect ? Qt::Checked : Qt::Unchecked);
@@ -312,13 +311,13 @@ void F_Crop::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t a
 		reconnect_scale_radio(true);
 		reconnect(true);
 	}
-	if(q_action_edit != NULL) {
+	if(q_action_edit != nullptr) {
 		q_action_edit->setChecked(false);
 	}
 }
 
 QWidget *F_Crop::controls(QWidget *parent) {
-	if(widget != NULL)
+	if(widget != nullptr)
 		return widget;
 	QGroupBox *crop_q = new QGroupBox(_name, parent);
 
@@ -472,7 +471,7 @@ void F_Crop::reconnect_scale_radio(bool to_connect) {
 }
 
 QList<QAction *> F_Crop::get_actions_list(void) {
-	if(q_action_edit == NULL) {
+	if(q_action_edit == nullptr) {
 		q_action_edit = new QAction(QIcon(":/resources/crop_icon.svg"), tr("&Crop"), this);
 //		q_action_edit->setShortcut(tr("Ctrl+C"));
 		q_action_edit->setStatusTip(tr("Crop photo"));
@@ -529,7 +528,7 @@ void FP_Crop::size_forward(FP_size_t *fp_size, const Area::t_dimensions *d_befor
 //cerr << "FP_Crop::size_before()... 1" << endl;
 //d_after->dump();
 	bool edit_mode = false;
-	if(fp_size->filter != NULL)
+	if(fp_size->filter != nullptr)
 		edit_mode = ((F_Crop *)fp_size->filter)->is_edit_mode_enabled();
 
 	if(ps->enabled_crop) {
@@ -537,7 +536,7 @@ void FP_Crop::size_forward(FP_size_t *fp_size, const Area::t_dimensions *d_befor
 		double im_x2 = im_x1 + d_after->width();
 		double im_y1 = d_after->position.y + d_after->edges.y1;
 		double im_y2 = im_y1 + d_after->height();
-		if(fp_size->filter != NULL) {
+		if(fp_size->filter != nullptr) {
 			// send to Filter (if any) for edit purposes
 			PS_Crop *_ps = (PS_Crop *)((F_Crop *)fp_size->filter)->_get_ps();
 			_ps->im_x1 = im_x1;
@@ -636,7 +635,7 @@ d_after->dump();
 		int width = 0;
 		int height = 0;
 		PS_Crop::scale_string_to_size(width, height, ps->scale_str);
-		if(fp_size->mutators != NULL) {
+		if(fp_size->mutators != nullptr) {
 			fp_size->mutators->set("scale_to_size", enabled_scale);
 			fp_size->mutators->set("scale_to_width", width);
 			fp_size->mutators->set("scale_to_height", height);
@@ -651,7 +650,7 @@ void FP_Crop::size_backward(FP_size_t *fp_size, Area::t_dimensions *d_before, co
 }
 
 Area *FP_Crop::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj) {
-	Area *area_out = NULL;
+	Area *area_out = nullptr;
 	SubFlow *subflow = mt_obj->subflow;
 	if(subflow->is_master())
 		area_out = new Area(*process_obj->area_in);
@@ -1079,8 +1078,8 @@ QRect F_Crop::view_crop_rect(const QRect &image, image_and_viewport_t transform)
 	int x1, x2, y1, y2;
 	transform.image_to_viewport(x1, y1, im_x1, im_y1, true);
 	transform.image_to_viewport(x2, y2, im_x2, im_y2, true);
-	if(x1 > x2) _swap(x1, x2);
-	if(y1 > y2) _swap(y1, y2);
+	if(x1 > x2) ddr::swap(x1, x2);
+	if(y1 > y2) ddr::swap(y1, y2);
 	QRect rez(x1, y1, x2 - x1, y2 - y1);
 	return rez;
 #if 0
@@ -1091,8 +1090,8 @@ QRect F_Crop::view_crop_rect(const QRect &image, image_and_viewport_t transform)
 	int x1, x2, y1, y2;
 	transform.image_to_viewport(x1, y1, im_x1, im_y1, false);
 	transform.image_to_viewport(x2, y2, im_x2, im_y2, false);
-	if(x1 > x2) _swap(x1, x2);
-	if(y1 > y2) _swap(y1, y2);
+	if(x1 > x2) ddr::swap(x1, x2);
+	if(y1 > y2) ddr::swap(y1, y2);
 	QRect rez(x1, y1, x2 - x1, y2 - y1);
 	return rez;
 #endif
@@ -1300,7 +1299,7 @@ void F_Crop::edit_mouse_scratch(FilterEdit_event_t *mt, bool press, bool release
 	int rotation = mt->transform.get_cw_rotation();
 	rotated_crop_t rc(ps, mt->transform.get_cw_rotation());
 //	if(rotation == 90 || rotation == 270)
-//		_swap(image_w, image_h);
+//		ddr::swap(image_w, image_h);
 /*
 	const QRect &image = mt->image;
 	int image_w = image.width();
@@ -1341,8 +1340,8 @@ void F_Crop::edit_mouse_scratch(FilterEdit_event_t *mt, bool press, bool release
 		//    | / |
 		//    |/  |
 		// p1 +---+    - fixed
-		double p2w = _abs(rc.crop_x1 - rc.crop_x2);
-		double p2h = _abs(rc.crop_y1 - rc.crop_y2);
+		double p2w = ddr::abs(rc.crop_x1 - rc.crop_x2);
+		double p2h = ddr::abs(rc.crop_y1 - rc.crop_y2);
 		double aspect = crop_aspect();
 		if(rotation == 90 || rotation == 270)
 			aspect = 1.0 / aspect;
@@ -1381,12 +1380,12 @@ void F_Crop::edit_mouse_scratch(FilterEdit_event_t *mt, bool press, bool release
 			rc.crop_y2 = rc.crop_y1 - new_h;
 	}
 	// normalize crop
-	if(rc.crop_x1 > rc.crop_x2) _swap(rc.crop_x1, rc.crop_x2);
-	if(rc.crop_y1 > rc.crop_y2) _swap(rc.crop_y1, rc.crop_y2);
-	_clip_min(rc.crop_x1, rc.im_x1);
-	_clip_max(rc.crop_x2, rc.im_x2);
-	_clip_min(rc.crop_y1, rc.im_y1);
-	_clip_max(rc.crop_y2, rc.im_y2);
+	if(rc.crop_x1 > rc.crop_x2) ddr::swap(rc.crop_x1, rc.crop_x2);
+	if(rc.crop_y1 > rc.crop_y2) ddr::swap(rc.crop_y1, rc.crop_y2);
+	ddr::clip_min(rc.crop_x1, rc.im_x1);
+	ddr::clip_max(rc.crop_x2, rc.im_x2);
+	ddr::clip_min(rc.crop_y1, rc.im_y1);
+	ddr::clip_max(rc.crop_y2, rc.im_y2);
 	rc.apply_to_ps(ps);
 }
 
@@ -1489,7 +1488,7 @@ bool F_Crop::mouseMoveEvent(FilterEdit_event_t *mt, bool &accepted, Cursor::curs
 	long image_drawn_h = image_h;
 	int rotation = mt->transform.get_cw_rotation();
 	if(rotation == 90 || rotation == 270)
-		_swap(image_drawn_w, image_drawn_h);
+		ddr::swap(image_drawn_w, image_drawn_h);
 	double scale_x = (ps->im_x2 - ps->im_x1) / image_drawn_w;
 	double scale_y = (ps->im_y2 - ps->im_y1) / image_drawn_h;
 */

@@ -2,7 +2,7 @@
  * import_tiff.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -41,7 +41,7 @@ QImage Import_TIFF::thumb(Metadata *metadata, int thumb_width, int thumb_height)
 	QImage qimage;
 	long length = 0;
 	uint8_t *data = Exiv2_load_thumb(file_name, thumb_width, thumb_height, length, metadata);
-	if(data != NULL) {
+	if(data != nullptr) {
 		// from Exif
 //		QImage qimage = QImage::fromData((const uchar *)data, length);
 		qimage.loadFromData((const uchar *)data, length);
@@ -50,7 +50,7 @@ QImage Import_TIFF::thumb(Metadata *metadata, int thumb_width, int thumb_height)
 	if(qimage.isNull() == true) {
 		// decompress image
 		Area *area = load_image(metadata, true);
-		if(area != NULL) {
+		if(area != nullptr) {
 			if(area->valid())
 				qimage = QImage((uchar *)area->ptr(), area->mem_width(), area->mem_height(), QImage::Format_RGB32).copy();
 			delete area;
@@ -71,7 +71,7 @@ Area *Import_TIFF::load_image(Metadata *metadata, bool is_thumb) {
 
 	// --==--
 	// load image - with contrib/pngminus/png2pnm.c sources of libpng as reference of usage
-	Area *area = NULL;
+	Area *area = nullptr;
 
 	TIFF *tif = TIFFOpen(file_name.c_str(), "r");
 	if(tif) {
@@ -106,12 +106,12 @@ Area *Import_TIFF::load_image(Metadata *metadata, bool is_thumb) {
 		if(use_read_rgba == false && samplesperpixel == 3)
 			samples_count = 3;
 		// set 'use_read_rgba' to false for 16bit images
-		uint32 *raster = NULL;
+		uint32 *raster = nullptr;
 		if(use_read_rgba) {
 			// load whole image with conversion
 			to_process = false;
 			raster = (uint32 *)_TIFFmalloc(npixels * sizeof(uint32));
-			if(raster != NULL)
+			if(raster != nullptr)
 				if(TIFFReadRGBAImage(tif, width, height, raster, 1))
 					to_process = true;
 		} else {
@@ -121,7 +121,7 @@ Area *Import_TIFF::load_image(Metadata *metadata, bool is_thumb) {
 			if(!is_thumb)
 				area = new Area(width, height);
 			else
-				area = new Area(width, height, Area::type_uint8_p4);    // ARGB 32bit
+				area = new Area(width, height, Area::type_t::type_uint8_p4);    // ARGB 32bit
 		if(area->valid()) {
 			float *ptr = (float *)area->ptr();
 			uint8_t *ptr_u = (uint8_t *)area->ptr();
@@ -186,7 +186,7 @@ Area *Import_TIFF::load_image(Metadata *metadata, bool is_thumb) {
 //			metadata->c_histogram_count = metadata->width * metadata->height;
 		}
 		}
-		if(raster != NULL)
+		if(raster != nullptr)
 			_TIFFfree(raster);
 		// else - convert 'by hand'
 		//--==--

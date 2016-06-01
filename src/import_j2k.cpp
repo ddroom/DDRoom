@@ -2,7 +2,7 @@
  * import_j2k.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -11,7 +11,7 @@
 /*
  * TODO:
  *	- handle in a proper way error "The number of resolutions to remove is higher..." and crash with high reduce value.
- *		- there is an error in OpenJpeg (version 1.3) library: libopenjpeg/jp2.c: 544 - 'Set Image Color Space' should be doing only in 'image != NULL' case;
+ *		- there is an error in OpenJpeg (version 1.3) library: libopenjpeg/jp2.c: 544 - 'Set Image Color Space' should be doing only in 'image != nullptr' case;
  *			verson 1.5.0 is OK.
  */
 #include <stdio.h>
@@ -75,17 +75,17 @@ QImage Import_J2K::thumb(Metadata *metadata, int thumb_width, int thumb_height) 
 	reduce--;
 //reduce=6;
 //cerr << "reduce == " << reduce << endl;
-	Area *area = NULL;
+	Area *area = nullptr;
 	int try_count = 0;
 	while(try_count < 8 && reduce > 0) {
 		area = load_image(metadata, reduce, true);
-		if(area != NULL)
+		if(area != nullptr)
 			break;
 		// here we guess that error was caused by too high reduction factor and try again with decreased one
 		reduce--;
 		try_count++;
 	}
-	if(area != NULL) {
+	if(area != nullptr) {
 //		qimage = QImage((uchar *)area->ptr(), area->mem_width(), area->mem_height(), area->mem_width() * 4, QImage::Format_ARGB32);
 		if(area->valid())
 			qimage = QImage((uchar *)area->ptr(), area->mem_width(), area->mem_height(), QImage::Format_RGB32).copy();
@@ -113,7 +113,7 @@ Area *Import_J2K::image(Metadata *metadata) {
 
 Area *Import_J2K::load_image(Metadata *metadata, int reduce, bool is_thumb, bool load_size_only) {
 //cerr << "Import_J2K::load_image(); file_name == \"" << file_name << "\"" << endl;
-	Area *area = NULL;
+	Area *area = nullptr;
 	was_callback_error = false;
 	// determine codec
 	int j2k_codec = -1;
@@ -133,7 +133,7 @@ Area *Import_J2K::load_image(Metadata *metadata, int reduce, bool is_thumb, bool
 	if(extension == "jpt")
 		j2k_codec = CODEC_JPT;
 	if(j2k_codec == -1)
-		return NULL;
+		return nullptr;
 
 	// load file to memory
 	QString q_file_name = QString::fromLocal8Bit(file_name.c_str());
@@ -142,7 +142,7 @@ Area *Import_J2K::load_image(Metadata *metadata, int reduce, bool is_thumb, bool
 	QByteArray j2k_data_array = ifile.readAll();
 	ifile.close();
 	if(j2k_data_array.size() == 0)
-		return NULL;
+		return nullptr;
 	long j2k_data_length = j2k_data_array.size();
 	unsigned char *j2k_data = (unsigned char *)j2k_data_array.data();
 
@@ -161,11 +161,11 @@ Area *Import_J2K::load_image(Metadata *metadata, int reduce, bool is_thumb, bool
 	opj_cio_t *cio = opj_cio_open((opj_common_ptr)dinfo, j2k_data, j2k_data_length);
 	opj_image_t *image = opj_decode(dinfo, cio);
 	if(was_callback_error)
-		return NULL;
+		return nullptr;
 	opj_destroy_decompress(dinfo);
 	opj_cio_close(cio);
-	if(image == NULL || was_callback_error)
-		return NULL;
+	if(image == nullptr || was_callback_error)
+		return nullptr;
 	bool j2k_ok = false;
 
 	// check color format: suported only 3-components (RGB) and 1-component (greyscale), images
@@ -180,7 +180,7 @@ Area *Import_J2K::load_image(Metadata *metadata, int reduce, bool is_thumb, bool
 	j2k_ok &= (image->comps[0].prec == 8 || image->comps[0].prec == 16);
 	if(j2k_ok == false) {
 		opj_image_destroy(image);
-		return NULL;
+		return nullptr;
 	}
 
 	// process decompressed image data
@@ -191,7 +191,7 @@ Area *Import_J2K::load_image(Metadata *metadata, int reduce, bool is_thumb, bool
     metadata->rotation = 0;
 	if(load_size_only) {
 		opj_image_destroy(image);
-		return NULL;
+		return nullptr;
 	}
 	float zero_offset = image->comps[0].sgnd ? 1 << (image->comps[0].prec - 1) : 0;
 	float scale = 1 << image->comps[0].prec;
@@ -199,7 +199,7 @@ Area *Import_J2K::load_image(Metadata *metadata, int reduce, bool is_thumb, bool
 	if(!is_thumb)
 		area = new Area(width, height);	// RGBA float
 	else
-		area = new Area(width, height, Area::type_uint8_p4);	// ARGB 32bit
+		area = new Area(width, height, Area::type_t::type_uint8_p4);	// ARGB 32bit
 if(area->valid()) {
 //cerr << "Area size: " << width << "x" << height << endl;
 	float *out_f = (float *)area->ptr();

@@ -4,7 +4,7 @@
  * filter.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
@@ -189,11 +189,11 @@ public:
 // filter process and pre-process
 class FP_size_t {
 public:
-	FP_size_t(class PS_Base *_ps_base, class Metadata *_metadata = NULL, class Filter *_filter = NULL) {
+	FP_size_t(class PS_Base *_ps_base, class Metadata *_metadata = nullptr, class Filter *_filter = nullptr) {
 		ps_base = _ps_base;
 		metadata = _metadata;
 		filter = _filter;
-		mutators = NULL;
+		mutators = nullptr;
 	}
 	PS_Base *ps_base;	// mandatory
 	class Metadata *metadata;	// used for lens correction detection 
@@ -267,7 +267,7 @@ TODO: improve widget-container:
 */
 class PS_and_FS_args_t {
 public:
-	PS_and_FS_args_t(void) {metadata = NULL; cw_rotation = 0;}
+	PS_and_FS_args_t(void) {metadata = nullptr; cw_rotation = 0;}
 	PS_and_FS_args_t(class Metadata *_metadata, int _cw_rotation) {metadata = _metadata; cw_rotation = _cw_rotation;}
 	const class Metadata *metadata;
 	int cw_rotation;
@@ -312,10 +312,10 @@ public:
 	virtual void set_session_id(void *id) {session_id = id;}
 	virtual void reset(void);
 
-	virtual class FilterProcess *getFP(void) {return NULL;}
+	virtual class FilterProcess *getFP(void) {return nullptr;}
 
-	virtual QWidget *controls(QWidget *parent = NULL);
-//	virtual QList<QWidget *>controls(QWidget *parent = NULL);
+	virtual QWidget *controls(QWidget *parent = nullptr);
+//	virtual QList<QWidget *>controls(QWidget *parent = nullptr);
 
 	virtual void emit_signal_update(void);
 
@@ -341,7 +341,7 @@ class Filter_Control : public Filter {
 
 public:
 	Filter_Control(void);
-	virtual void get_mutators(class DataSet *dataset, class DataSet *ps_dataset = NULL);
+	virtual void get_mutators(class DataSet *dataset, class DataSet *ps_dataset = nullptr);
 };
 
 //------------------------------------------------------------------------------

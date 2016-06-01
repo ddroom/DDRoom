@@ -2,7 +2,7 @@
  * f_rotation.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -145,19 +145,19 @@ bool PS_Rotation::save(DataSet *dataset) {
 }
 
 //------------------------------------------------------------------------------
-FP_Rotation *F_Rotation::fp = NULL;
+FP_Rotation *F_Rotation::fp = nullptr;
 
 F_Rotation::F_Rotation(int id) : Filter() {
 	filter_id = id;
 	_id = "F_Rotation";
 	_name = tr("Rotation");
-	if(fp == NULL)
+	if(fp == nullptr)
 		fp = new FP_Rotation();
 	_ps = (PS_Rotation *)newPS();
 	ps = _ps;
 	ps_base = ps;
-	widget = NULL;
-	q_action_precise = NULL;
+	widget = nullptr;
+	q_action_precise = nullptr;
 	reset();
 	guide_min_length = 100.0;
 }
@@ -171,7 +171,7 @@ PS_Base *F_Rotation::newPS(void) {
 
 void F_Rotation::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t args) {
 	// PS
-	if(new_ps != NULL) {
+	if(new_ps != nullptr) {
 		ps = (PS_Rotation *)new_ps;
 		ps_base = new_ps;
 	} else {
@@ -181,7 +181,7 @@ void F_Rotation::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args
 	// FS
 	edit_mode_enabled = false;
 	edit_active = false;
-	if(widget != NULL) {
+	if(widget != nullptr) {
 		reconnect(false);
 		bool en = ps->enabled;	// store value
 		slider_angle->setValue(ps->rotation_angle);
@@ -190,13 +190,13 @@ void F_Rotation::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args
 //		checkbox_fold->setCheckState(ps->fold ? Qt::Checked : Qt::Unchecked);
 		reconnect(true);
 	}
-	if(q_action_precise != NULL) {
+	if(q_action_precise != nullptr) {
 		q_action_precise->setChecked(false);
 	}
 }
 
 QWidget *F_Rotation::controls(QWidget *parent) {
-	if(widget != NULL)
+	if(widget != nullptr)
 		return widget;
 	QGroupBox *q = new QGroupBox(_name);
 	QGridLayout *l = new QGridLayout(q);
@@ -236,7 +236,7 @@ void F_Rotation::reconnect(bool to_connect) {
 
 QList<QAction *> F_Rotation::get_actions_list(void) {
 	QList<QAction *> l;
-	if(q_action_precise == NULL) {
+	if(q_action_precise == nullptr) {
 		q_action_precise = new QAction(QIcon(":/resources/rotate_free.svg"), tr("&Rotate"), this);
 //		q_action_precise->setShortcut(tr("Ctrl+R"));
 		q_action_precise->setStatusTip(tr("Rotate photo"));

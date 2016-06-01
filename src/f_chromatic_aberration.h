@@ -4,7 +4,7 @@
  * f_chromatic_aberration.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
@@ -30,7 +30,7 @@ public:
 	Filter::type_t type(void);
 
 	// controls
-	QWidget *controls(QWidget *parent = NULL);
+	QWidget *controls(QWidget *parent = nullptr);
 	PS_Base *newPS(void);
 	void set_PS_and_FS(PS_Base *new_ps_base, FS_Base *new_fs_base, PS_and_FS_args_t args);
 

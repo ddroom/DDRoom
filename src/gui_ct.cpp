@@ -2,7 +2,7 @@
  * gui_ct.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -164,11 +164,11 @@ GUI_Curve::GUI_Curve(GUI_Curve::channels_type_en _channels_type, QWidget *parent
 	setFixedWidth(s.width());
 	setFixedHeight(s.height());
 
-	histogram = NULL;
+	histogram = nullptr;
 }
 
 void GUI_Curve::set_histogram(GUI_Histogram *_histogram) {
-	if(histogram != NULL) {
+	if(histogram != nullptr) {
 		disconnect(histogram, SIGNAL(signal_update(void)), this, SLOT(slot_update_from_histogram(void)));
 	}
 	histogram = _histogram;
@@ -600,7 +600,7 @@ void GUI_Curve::draw(QPainter *_painter) {
 	};
 
 	// histograms
-	if(enabled && histogram != NULL)
+	if(enabled && histogram != nullptr)
 		histogram->draw_histogram(painter, size_w, size_h);
 
 	painter->setCompositionMode(QPainter::CompositionMode_SourceOver);

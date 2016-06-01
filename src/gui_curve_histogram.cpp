@@ -2,7 +2,7 @@
  * gui_curve_histogram.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -23,10 +23,10 @@ void GUI_Curve_Histogram::draw_histogram(QPainter *painter, int size_w, int size
 	int ry_4 = 1.00 * y_max;
 	bool show_hist_before = false;
 	bool show_hist_after = false;
-	QVector<long> *hist_ptr[2] = {NULL, NULL};
+	QVector<long> *hist_ptr[2] = {nullptr, nullptr};
 	int hist_size = size_w;
 	data_lock.lock();
-	if(data != NULL) {
+	if(data != nullptr) {
 		if(lightness_only) {
 			if(data->hist_before_scaled.size() != size_w)
 				data->hist_before_scaled = GUI_Histogram::rescale_histogram(data->hist_before, size_w);
@@ -74,7 +74,7 @@ void GUI_Curve_Histogram::draw_histogram(QPainter *painter, int size_w, int size
 	painter->setOpacity(1.0);
 	painter->setCompositionMode(QPainter::CompositionMode_Plus);
 	for(int j = 0; j < 2; j++) {
-		if(hist_ptr[j] == NULL)
+		if(hist_ptr[j] == nullptr)
 			continue;
 		QVector<long> &hist = *hist_ptr[j];
 		int dy = hist_dy[j];
@@ -128,7 +128,7 @@ GUI_Curve_Histogram_data::GUI_Curve_Histogram_data(void) {
 }
 
 GUI_Curve_Histogram::GUI_Curve_Histogram(bool _lightness_only) {
-	data = NULL;
+	data = nullptr;
 	lightness_only = _lightness_only;
 }
 
@@ -143,7 +143,7 @@ void GUI_Curve_Histogram::set_histograms(GUI_Curve_Histogram_data *_data, const 
 	bool flag = false;
 	data_lock.lock();
 	flag = (data == _data);
-	if(_data != NULL) {
+	if(_data != nullptr) {
 		_data->hist_before = before;
 		_data->hist_after = after;
 		_data->hist_before_scaled = QVector<long>(0);
@@ -156,7 +156,7 @@ void GUI_Curve_Histogram::set_histograms(GUI_Curve_Histogram_data *_data, const 
 
 void GUI_Curve_Histogram::set_settings(bool _show_hist_before, bool _show_hist_after, bool _show_hist_linear) {
 	data_lock.lock();
-	if(data != NULL) {
+	if(data != nullptr) {
 		data->show_hist_before = _show_hist_before;
 		data->show_hist_after = _show_hist_after;
 		data->show_hist_linear = _show_hist_linear;

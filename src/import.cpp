@@ -2,7 +2,7 @@
  * import.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -38,7 +38,7 @@
 using namespace std;
 //------------------------------------------------------------------------------
 Area *Import_Performer::image(class Metadata *metadata) {
-	return NULL;
+	return nullptr;
 }
 
 QImage Import_Performer::thumb(class Metadata *metadata, int thumb_width, int thumb_height) {
@@ -58,7 +58,7 @@ QList<QString> Import::extensions(void) {
 }
 
 Import_Performer *Import::import_performer(std::string file_name) {
-	Import_Performer *performer = NULL;
+	Import_Performer *performer = nullptr;
 	// --==--
 	const char *c = file_name.c_str();
 	std::string extension;
@@ -86,9 +86,9 @@ Import_Performer *Import::import_performer(std::string file_name) {
 }
 
 class Area *Import::image(std::string file_name, class Metadata *metadata) {
-	Area *area = NULL;
+	Area *area = nullptr;
 	Import_Performer *performer = import_performer(file_name);
-	if(performer != NULL) {
+	if(performer != nullptr) {
 		area = performer->image(metadata);
 		fill_metadata(file_name, metadata);
 		delete performer;
@@ -140,7 +140,7 @@ bool Import::fill_metadata(std::string file_name, class Metadata *metadata) {
 }
 
 class QImage *Import::thumb(Photo_ID photo_id, class Metadata *metadata, int &thumb_rotation, int thumb_width, int thumb_height) {
-	QImage *thumbnail = NULL;
+	QImage *thumbnail = nullptr;
 	// try to load thumbnail from .ddr
 	PS_Loader ps_loader(photo_id);
 	bool thumb_rotation_defined = false;
@@ -150,7 +150,7 @@ class QImage *Import::thumb(Photo_ID photo_id, class Metadata *metadata, int &th
 			thumbnail = new QImage(thumb);
 		}
 		if(!ps_loader.cw_rotation_empty()) {
-			if(thumbnail == NULL)
+			if(thumbnail == nullptr)
 				thumb_rotation = ps_loader.get_cw_rotation();
 			else
 				thumb_rotation = 0;
@@ -159,12 +159,12 @@ class QImage *Import::thumb(Photo_ID photo_id, class Metadata *metadata, int &th
 	}
 	// Exiv2 metadata is necessary for thumbnail
 	Import_Performer *performer = import_performer(photo_id.get_file_name());
-	if(performer != NULL) {
+	if(performer != nullptr) {
 //cerr << "thumb: " << file_name << endl;
 		QImage qi = performer->thumb(metadata, thumb_width, thumb_height);
 		if(thumb_rotation_defined == false)
 			thumb_rotation = metadata->rotation;
-		if(thumbnail == NULL && qi.isNull() == false) {
+		if(thumbnail == nullptr && qi.isNull() == false) {
 			// downscale thumbnail if necessary
 			if(qi.width() > 384 * 2 && qi.height() > 384 * 2)
 				thumbnail = new QImage(qi.scaled(384, 384, Qt::KeepAspectRatio, Qt::SmoothTransformation).copy());

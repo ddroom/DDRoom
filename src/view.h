@@ -4,18 +4,17 @@
  * view.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
 
-
 #include <list>
+#include <memory>
 
 #include <QtWidgets>
 //#include <QGLWidget>
 //#include <QtOpenGL>
-#include <QSharedPointer>
 
 #include "area.h"
 #include "widgets.h"
@@ -34,10 +33,10 @@ class View : public QWidget, public TilesReceiver {
 
 //== zoom section
 public:
-	enum zoom_t {
+	enum class zoom_t {
 		zoom_fit,	// fit image into view
 		zoom_100,	// 1:1
-		zoom_custom,// zoom defined as 'zoom_scale' value
+		zoom_custom // zoom defined as 'zoom_scale' value
 	};
 	// call from 'Edit' as response to UI change
 	void set_zoom(zoom_t zoom_type, float zoom_scale);
@@ -67,7 +66,7 @@ public:
 	void set_active(bool _active);
 
 	void update_photo_name(void);
-	void photo_open_start(QImage, QSharedPointer<Photo_t> photo = QSharedPointer<Photo_t>());
+	void photo_open_start(QImage, std::shared_ptr<Photo_t> photo = std::shared_ptr<Photo_t>());
 	void photo_open_finish(class PhotoProcessed_t *);
 	void view_refresh(void);
 	void set_cursor(const Cursor::cursor &_cursor);
@@ -116,7 +115,7 @@ protected:
 	void paintEvent(QPaintEvent *event);
 
 //	class Photo_t *photo;
-	QSharedPointer<Photo_t> photo;
+	std::shared_ptr<Photo_t> photo;
 	class Edit *edit;
 	QWidget *parent_widget;
 	// image

@@ -2,7 +2,7 @@
  * gui_slider.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -56,13 +56,13 @@ MappingFunction::~MappingFunction() {
 }
 
 double GuiSlider::map_ui_to_ps(double arg) {
-	if(mapping_function != NULL)
+	if(mapping_function != nullptr)
 		return mapping_function->UI_to_PS(arg);
 	return arg;
 }
 
 double GuiSlider::map_ps_to_ui(double arg) {
-	if(mapping_function != NULL)
+	if(mapping_function != nullptr)
 		return mapping_function->PS_to_UI(arg);
 	return arg;
 }
@@ -145,14 +145,14 @@ GuiSlider::GuiSlider(double min, double max, double value, int _spin_step, int _
 }
 
 GuiSlider::~GuiSlider() {
-	if(mapping_function != NULL) {
+	if(mapping_function != nullptr) {
 		delete mapping_function;
-		mapping_function = NULL;
+		mapping_function = nullptr;
 	}
 }
 
 void GuiSlider::setMappingFunction(MappingFunction *mp) {
-	if(mapping_function != NULL)
+	if(mapping_function != nullptr)
 		delete mapping_function;
 	mapping_function = mp;
 }

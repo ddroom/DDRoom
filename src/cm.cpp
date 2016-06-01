@@ -2,7 +2,7 @@
  * cm.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
@@ -140,7 +140,7 @@ void Jsh_to_sRGB(float *sRGB, const float *Jsh) {
 	static CM_to_CS *cm_to_cs = new CM_to_CS(CM::cm_type_CIECAM02, "sRGB");
 	cm_to_cs->convert(sRGB, Jsh);
 }
-};	// namespace cm
+}	// namespace cm
 
 //--------------------------------------------------------------------------
 void CM::initialize(void) {
@@ -305,10 +305,10 @@ void CIELab_Jsh_to_XYZ::convert(float *XYZ, const float *Jsh) {
 }
 
 //--------------------------------------------------------------------------
-class TF_CIELab *CIELab::tf_CIELab = NULL;
+class TF_CIELab *CIELab::tf_CIELab = nullptr;
 
 void CIELab::initialize(void) {
-	if(tf_CIELab == NULL)
+	if(tf_CIELab == nullptr)
 		tf_CIELab = new TF_CIELab();
 }
 
@@ -389,7 +389,7 @@ protected:
 };
 
 //------------------------------------------------------------------------------
-//CIECAM02 *CIECAM02::_this = NULL;
+//CIECAM02 *CIECAM02::_this = nullptr;
 
 class CAT02_t {
 public:
@@ -449,7 +449,7 @@ public:
 	double m_CAT02_to_XYZ[9];
 };
 
-CIECAM02_priv *CIECAM02::priv = NULL;
+CIECAM02_priv *CIECAM02::priv = nullptr;
 void CIECAM02::initialize(void) {
 	priv = new CIECAM02_priv();
 }

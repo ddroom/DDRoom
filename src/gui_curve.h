@@ -4,7 +4,7 @@
  * gui_curve.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
@@ -48,8 +48,8 @@ public:
 		channels_lightness,		// one channel only shown as white
 	};
 
-	GUI_Curve(GUI_Curve::channels_type_en _channels_type, QWidget *parent = NULL);
-	GUI_Curve(GUI_Curve::channels_type_en _channels_type, int width, int height, QWidget *parent = NULL);
+	GUI_Curve(GUI_Curve::channels_type_en _channels_type, QWidget *parent = nullptr);
+	GUI_Curve(GUI_Curve::channels_type_en _channels_type, int width, int height, QWidget *parent = nullptr);
 	void set_histogram(GUI_Histogram *_histogram);
 	QSize sizeHint(void) const;
 	void set_spline_options(int _left_type, float _left_df, int _right_type, float _right_df);

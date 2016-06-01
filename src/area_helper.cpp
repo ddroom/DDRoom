@@ -2,7 +2,7 @@
  * area_helper.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
@@ -19,7 +19,7 @@ using namespace std;
 Area *AreaHelper::convert(Area *area_in, Area::format_t out_format, int rotation) {
 //cerr << "AreaHelper::convert(): rotation == " << rotation << endl;
 //rotation = 0;
-	Area *area_out = NULL;
+	Area *area_out = nullptr;
 	Area::t_dimensions d_out;
 	d_out.size.w = area_in->dimensions()->width();
 	d_out.size.h = area_in->dimensions()->height();
@@ -28,14 +28,14 @@ Area *AreaHelper::convert(Area *area_in, Area::format_t out_format, int rotation
 		d_out.size.h = area_in->dimensions()->width();
 	}
 
-	if(out_format == Area::format_rgba_16) {
-		area_out = new Area(&d_out, Area::type_int16_p4);
-	} else if(out_format == Area::format_rgb_16) {
-		area_out = new Area(&d_out, Area::type_int16_p3);
-	} else if(out_format == Area::format_rgba_8 || out_format == Area::format_bgra_8) {
-		area_out = new Area(&d_out, Area::type_uint8_p4);
-	} else if(out_format == Area::format_rgb_8) {
-		area_out = new Area(&d_out, Area::type_uint8_p3);
+	if(out_format == Area::format_t::format_rgba_16) {
+		area_out = new Area(&d_out, Area::type_t::type_int16_p4);
+	} else if(out_format == Area::format_t::format_rgb_16) {
+		area_out = new Area(&d_out, Area::type_t::type_int16_p3);
+	} else if(out_format == Area::format_t::format_rgba_8 || out_format == Area::format_t::format_bgra_8) {
+		area_out = new Area(&d_out, Area::type_t::type_uint8_p4);
+	} else if(out_format == Area::format_t::format_rgb_8) {
+		area_out = new Area(&d_out, Area::type_t::type_uint8_p3);
 	}
 	if(!area_out->valid())
 		return area_out;
@@ -71,7 +71,7 @@ cerr << "area_out->dimensions()->height() == " << area_out->dimensions()->height
 	int _i_g = 1;
 	int _i_b = 2;
 	int _i_a = 3;
-	if(out_format == Area::format_bgra_8) {
+	if(out_format == Area::format_t::format_bgra_8) {
 		// weird channel order for QT
 		_i_r = 2;
 		_i_g = 1;
@@ -84,14 +84,14 @@ cerr << "area_out->dimensions()->height() == " << area_out->dimensions()->height
 	const int i_a = _i_a;
 	bool out_is_16 = false;
 	int _out_step = 4;
-	if(out_format == Area::format_rgba_16) {
+	if(out_format == Area::format_t::format_rgba_16) {
 		out_is_16 = true;
 	}
-	if(out_format == Area::format_rgb_16) {
+	if(out_format == Area::format_t::format_rgb_16) {
 		out_is_16 = true;
 		_out_step = 3;
 	}
-	if(out_format == Area::format_rgb_8) {
+	if(out_format == Area::format_t::format_rgb_8) {
 		_out_step = 3;
 	}
 	const int out_step = _out_step;
@@ -136,16 +136,16 @@ public:
 	float f_scale;
 	int rotation;
 
-	QAtomicInt *y_flow;
+	std::atomic_int *y_flow;
 
 	Area::format_t out_format;
 };
 
 // rotation already is normalized to [0|90|180|270]
 Area *AreaHelper::convert_mt(SubFlow *subflow, Area *area_in, Area::format_t out_format, int rotation) {
-	AreaHelper::mt_task_t **tasks = NULL;
-	Area *area_out = NULL;
-	QAtomicInt *y_flow = NULL;
+	AreaHelper::mt_task_t **tasks = nullptr;
+	Area *area_out = nullptr;
+	std::atomic_int *y_flow = nullptr;
 
 	// TODO - remove that to task, or as global system setting...
 //	bool split_vertical = true;
@@ -166,17 +166,17 @@ Area *AreaHelper::convert_mt(SubFlow *subflow, Area *area_in, Area::format_t out
 			d_out.size.h = area_in->dimensions()->width();
 		}
 		//--
-		if(out_format == Area::format_rgba_16) {
-			area_out = new Area(&d_out, Area::type_int16_p4);
+		if(out_format == Area::format_t::format_rgba_16) {
+			area_out = new Area(&d_out, Area::type_t::type_int16_p4);
 //cerr << "out_format: rgba_16 - int16_p4" << endl;
-		} else if(out_format == Area::format_rgb_16) {
-			area_out = new Area(&d_out, Area::type_int16_p3);
+		} else if(out_format == Area::format_t::format_rgb_16) {
+			area_out = new Area(&d_out, Area::type_t::type_int16_p3);
 //cerr << "out_format:  rgb_16 - int16_p3" << endl;
-		} else if(out_format == Area::format_rgba_8 || out_format == Area::format_bgra_8) {
-			area_out = new Area(&d_out, Area::type_uint8_p4);
+		} else if(out_format == Area::format_t::format_rgba_8 || out_format == Area::format_t::format_bgra_8) {
+			area_out = new Area(&d_out, Area::type_t::type_uint8_p4);
 //cerr << "out_format: rgba_8 - uint8_p4" << endl;
-		} else if(out_format == Area::format_rgb_8) {
-			area_out = new Area(&d_out, Area::type_uint8_p3);
+		} else if(out_format == Area::format_t::format_rgb_8) {
+			area_out = new Area(&d_out, Area::type_t::type_uint8_p3);
 //cerr << "out_format: rgb_8 - int8_p3" << endl;
 		}
 		D_AREA_PTR(area_out)
@@ -195,7 +195,7 @@ cerr << "area_out->dimensions()->edges.y2 == " << area_out->dimensions()->edges.
 cerr << "area_out->dimensions()->width()  == " << area_out->dimensions()->width() << endl;
 cerr << "area_out->dimensions()->height() == " << area_out->dimensions()->height() << endl;
 */
-		y_flow = new QAtomicInt(0);
+		y_flow = new std::atomic_int(0);
 		for(int i = 0; i < cores; i++) {
 			tasks[i] = new AreaHelper::mt_task_t;
 			tasks[i]->area_in = area_in;
@@ -250,7 +250,7 @@ void AreaHelper::f_convert_mt(class SubFlow *subflow) {
 	int _i_g = 1;
 	int _i_b = 2;
 	int _i_a = 3;
-	if(out_format == Area::format_bgra_8) {
+	if(out_format == Area::format_t::format_bgra_8) {
 		// weird channel order for QT
 		_i_r = 2;
 		_i_g = 1;
@@ -264,15 +264,15 @@ void AreaHelper::f_convert_mt(class SubFlow *subflow) {
 	bool out_is_16 = false;
 //	bool out_is_3 = false;
 	int _out_step = 4;
-	if(out_format == Area::format_rgba_16) {
+	if(out_format == Area::format_t::format_rgba_16) {
 		out_is_16 = true;
 	}
-	if(out_format == Area::format_rgb_16) {
+	if(out_format == Area::format_t::format_rgb_16) {
 		out_is_16 = true;
 //		out_is_3 = true;
 		_out_step = 3;
 	}
-	if(out_format == Area::format_rgb_8) {
+	if(out_format == Area::format_t::format_rgb_8) {
 //		out_is_3 = true;
 		_out_step = 3;
 	}
@@ -285,7 +285,7 @@ void AreaHelper::f_convert_mt(class SubFlow *subflow) {
 	int32_t v;
 	int y;
 	int index_table[4] = {i_r, i_g, i_b, i_a};
-	while((y = _mt_qatom_fetch_and_add(task->y_flow, 1)) < y_max) {
+	while((y = task->y_flow->fetch_add(1)) < y_max) {
 		for(int x = 0; x < x_max; x++) {
 			int l = ((y + y_off) * in_width + (x + x_off)) * 4;
 			int k = (y * x_max + x) * out_step;
@@ -447,7 +447,7 @@ cerr << "in_height == " << in_height << endl;
 //------------------------------------------------------------------------------
 // use it only with type_float_p4
 Area *AreaHelper::rotate(Area *area_in, int rotation) {
-	if(rotation == 0 || rotation % 90 != 0 || area_in->type() != Area::type_float_p4) {
+	if(rotation == 0 || rotation % 90 != 0 || area_in->type() != Area::type_t::type_float_p4) {
 		Area *a = new Area(*area_in);
 		D_AREA_PTR(a);
 		return a;

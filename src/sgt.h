@@ -4,7 +4,7 @@
  * sgt.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
@@ -12,7 +12,7 @@
 
 #include <string>
 #include <map>
-#include <QMutex>
+#include <mutex>
 #include "cms_matrix.h"
 #include "cm.h"
 
@@ -47,7 +47,7 @@ protected:
 	float search_j(float _s, float _h, float _j_start, float _j_step);
 
 //cache for saturation table
-	static QMutex cache_lock;
+	static std::mutex cache_lock;
 	class gamut_table_t;
 	static std::map<std::string, class gamut_table_t *> map_cache;
 

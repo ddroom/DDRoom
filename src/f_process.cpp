@@ -2,7 +2,7 @@
  * f_process.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -70,12 +70,12 @@ F_Process::F_Process(int id) : Filter_Control() {
 	_ps = (PS_Process *)newPS();
 	ps = _ps;
 	ps_base = ps;
-	widget = NULL;
+	widget = nullptr;
 	reset();
 }
 
 void F_Process::get_mutators(DataSet *mutators, DataSet *ps_dataset) {
-	if(ps_dataset == NULL)
+	if(ps_dataset == nullptr)
 		mutators->set("_s_raw_colors", ps->raw_colors);
 	else {
 		PS_Process _ps;
@@ -88,7 +88,7 @@ F_Process::~F_Process() {
 }
 
 FilterProcess *F_Process::getFP(void) {
-	return NULL;
+	return nullptr;
 }
 
 Filter::type_t F_Process::type(void) {
@@ -101,7 +101,7 @@ PS_Base *F_Process::newPS(void) {
 
 void F_Process::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t args) {
 	// PS
-	if(new_ps != NULL) {
+	if(new_ps != nullptr) {
 		ps = (PS_Process *)new_ps;
 		ps_base = new_ps;
 	} else {
@@ -109,7 +109,7 @@ void F_Process::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_
 		ps_base = ps;
 	}
 	// FS
-	if(widget == NULL)
+	if(widget == nullptr)
 		return;
 	reconnect(false);
 	checkbox_raw_colors->setCheckState(ps->raw_colors ? Qt::Checked : Qt::Unchecked);
@@ -133,7 +133,7 @@ void F_Process::slot_checkbox_process(int state, bool &value) {
 }
 
 QWidget *F_Process::controls(QWidget *parent) {
-	if(widget != NULL)
+	if(widget != nullptr)
 		return widget;
 	QGroupBox *nr_q = new QGroupBox(_name, parent);
 	widget = nr_q;

@@ -4,7 +4,7 @@
  * config.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
@@ -33,7 +33,7 @@ class Config : public QObject {
 public:
 	Config(std::map<std::string, class DataSet> *_dataset);	// only for usage from PreferencesDialog
 	static Config *instance() {
-		if(_this == NULL)
+		if(_this == nullptr)
 			_this = new Config();
 		return _this;
 	}

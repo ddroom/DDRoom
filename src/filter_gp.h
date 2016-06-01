@@ -4,13 +4,12 @@
  * filter_gp.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
 
-
-#include <QSharedPointer>
+#include <memory>
 
 #include "area.h"
 #include "filter.h"
@@ -22,7 +21,9 @@ public:
 	class Metadata *metadata;
 	class Filter *filter;
 	class FS_Base *fs_base;
+	// TODO: check how insecure that could be
 	class PS_Base *ps_base;
+//	std::shared_ptr<PS_Base> ps_base;
 	class FP_Cache_t *cache;
 };
 
@@ -63,8 +64,7 @@ class FP_GP_Wrapper_record_t {
 public:
 	class Filter *filter;
 	class FilterProcess_GP *fp_gp;
-//	ddr_shared_ptr<PS_Base> ps_base;
-	QSharedPointer<PS_Base> ps_base;
+	std::shared_ptr<PS_Base> ps_base;
 	class FP_Cache_t *cache;
 	class FS_Base *fs_base;
 };

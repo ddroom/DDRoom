@@ -2,7 +2,7 @@
  * f_soften.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -89,18 +89,18 @@ bool PS_Soften::save(DataSet *dataset) {
 }
 
 //------------------------------------------------------------------------------
-FP_Soften *F_Soften::fp = NULL;
+FP_Soften *F_Soften::fp = nullptr;
 
 F_Soften::F_Soften(int id) {
 	filter_id = id;
 	_id = "F_Soften";
 	_name = tr("Soften");
-	if(fp == NULL)
+	if(fp == nullptr)
 		fp = new FP_Soften();
 	_ps = (PS_Soften *)newPS();
 	ps = _ps;
 	ps_base = ps;
-	widget = NULL;
+	widget = nullptr;
 	reset();
 }
 
@@ -117,7 +117,7 @@ PS_Base *F_Soften::newPS(void) {
 
 void F_Soften::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t args) {
 	// PS
-	if(new_ps != NULL) {
+	if(new_ps != nullptr) {
 		ps = (PS_Soften *)new_ps;
 		ps_base = new_ps;
 	} else {
@@ -125,7 +125,7 @@ void F_Soften::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t
 		ps_base = ps;
 	}
 	// FS
-	if(widget == NULL)
+	if(widget == nullptr)
 		return;
 	reconnect(false);
 	slider_strength->setValue(ps->strength);
@@ -135,7 +135,7 @@ void F_Soften::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t
 }
 
 QWidget *F_Soften::controls(QWidget *parent) {
-	if(widget != NULL)
+	if(widget != nullptr)
 		return widget;
 
 	QGroupBox *q = new QGroupBox(_name);
@@ -218,7 +218,7 @@ public:
 	Area *area_in;
 	Area *area_out;
 	PS_Soften *ps;
-	QAtomicInt *y_flow;
+	std::atomic_int *y_flow;
 
 	const float *kernel;
 	int kernel_length;
@@ -274,11 +274,11 @@ Area *FP_Soften::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_
 	SubFlow *subflow = mt_obj->subflow;
 	PS_Soften *ps = (PS_Soften *)filter_obj->ps_base;
 	Area *area_in = process_obj->area_in;
-	Area *area_out = NULL;
+	Area *area_out = nullptr;
 
-	task_t **tasks = NULL;
-	QAtomicInt *y_flow = NULL;
-	float *kernel = NULL;
+	task_t **tasks = nullptr;
+	std::atomic_int *y_flow = nullptr;
+	float *kernel = nullptr;
 
 	if(subflow->sync_point_pre()) {
 		// non-destructive processing
@@ -322,7 +322,7 @@ Area *FP_Soften::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_
 		area_out = new Area(&d_out);
 		process_obj->OOM |= !area_out->valid();
 
-		y_flow = new QAtomicInt(0);
+		y_flow = new std::atomic_int(0);
 		for(int i = 0; i < cores; i++) {
 			tasks[i] = new task_t;
 			tasks[i]->area_in = area_in;
@@ -354,10 +354,6 @@ Area *FP_Soften::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_
 	}
 	subflow->sync_point_post();
 	return area_out;
-}
-
-inline float _abs(float &val) {
-	return (val > 0.0) ? val : -val;
 }
 
 //------------------------------------------------------------------------------
@@ -392,7 +388,7 @@ void FP_Soften::process(class SubFlow *subflow) {
 	float s_normalize = s_sharp + s_blur;
 
 	int j = 0;
-	while((j = _mt_qatom_fetch_and_add(task->y_flow, 1)) < y_max) {
+	while((j = task->y_flow->fetch_add(1)) < y_max) {
 		for(int i = 0; i < x_max; i++) {
 			int l = ((j + in_y_offset) * in_width + (i + in_x_offset)) * 4;
 			int k = ((j + out_y_offset) * out_width + (i + out_x_offset)) * 4;

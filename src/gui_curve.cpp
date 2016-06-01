@@ -2,7 +2,7 @@
  * gui_curve.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -149,11 +149,11 @@ void GUI_Curve::init(void) {
 	setFixedWidth(s.width());
 	setFixedHeight(s.height());
 
-	histogram = NULL;
+	histogram = nullptr;
 }
 
 void GUI_Curve::set_histogram(GUI_Histogram *_histogram) {
-	if(histogram != NULL) {
+	if(histogram != nullptr) {
 		disconnect(histogram, SIGNAL(signal_update(void)), this, SLOT(slot_update_from_histogram(void)));
 	}
 	histogram = _histogram;
@@ -401,8 +401,8 @@ QPointF GUI_Curve::mouse_event_coords(QMouseEvent *event) {
 	QPointF p = mouse_event_coords_unclipped(event);
 	int x = p.x();
 	int y = p.y();
-	_clip(x, 0, size_w - 1);
-	_clip(y, 0, size_h - 1);
+	ddr::clip(x, 0, size_w - 1);
+	ddr::clip(y, 0, size_h - 1);
 	return QPointF(x, y);
 }
 
@@ -426,7 +426,7 @@ void GUI_Curve::keyPressEvent(QKeyEvent *event) {
 		update = true;
 		float x = levels[level_active_index] * (size_w - 1);
 		x = (x + offset_x) / float(size_w - 1);
-		_clip(x, 0.0, 1.0);
+		ddr::clip(x);
 		levels[level_active_index] = x;
 	} else {
 		// points
@@ -437,8 +437,8 @@ void GUI_Curve::keyPressEvent(QKeyEvent *event) {
 			double y = points[point_active_index].y() * (size_h - 1);
 			x = (x + offset_x) / double(size_w - 1);
 			y = (y + offset_y) / double(size_h - 1);
-			_clip(x, 0.0, 1.0);
-			_clip(y, 0.0, 1.0);
+			ddr::clip(x);
+			ddr::clip(y);
 			points[point_active_index] = QPointF(x, y);
 		}
 	}
@@ -462,7 +462,7 @@ void GUI_Curve::mouse_event(QMouseEvent *event) {
 			skip_points = true;
 			float x = mouse_event_coords(event).x();
 			x /= (size_w - 1);
-			_clip(x, 0.0, 1.0);
+			ddr::clip(x);
 			levels[level_active_index] = x;
 		}
 		// ... if not - edit points
@@ -561,7 +561,7 @@ void GUI_Curve::mouse_event(QMouseEvent *event) {
 			skip_points = true;
 			float x = mouse_event_coords(event).x();
 			x /= (size_w - 1);
-			_clip(x, 0.0, 1.0);
+			ddr::clip(x);
 			levels[level_active_index] = x;
 		}
 		// ... if not - edit points
@@ -742,7 +742,7 @@ void GUI_Curve::draw(QPainter *_painter) {
 	};
 
 	// histograms
-	if(active && histogram != NULL)
+	if(active && histogram != nullptr)
 		histogram->draw_histogram(painter, size_w, size_h);
 
 	painter->setCompositionMode(QPainter::CompositionMode_SourceOver);

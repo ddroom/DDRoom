@@ -2,7 +2,7 @@
  * edit.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -31,7 +31,6 @@
 #include "edit_history.h"
 #include "filter.h"
 #include "import_raw.h"	// TODO: change usage from Import_Raw to Import for metadata load
-//#include "shared_ptr.h"
 #include "photo_storage.h"
 #include "process_h.h"
 #include "view.h"
@@ -71,20 +70,27 @@ using namespace std;
 class Process_Runner::task_t {
 public:
 	void *ptr;
-	QSharedPointer<Photo_t> photo;
+	std::shared_ptr<Photo_t> photo;
 	int request_ID;
 	class TilesReceiver *tiles_receiver;
 	bool is_inactive;
-//	map<class Filter *, ddr_shared_ptr<PS_Base> > map_ps_base;
-	map<class Filter *, QSharedPointer<PS_Base> > map_ps_base;
+	map<class Filter *, std::shared_ptr<PS_Base> > map_ps_base;
 };
 
 Process_Runner::Process_Runner(Process *process) {
 	this->process = process;
-	this->start();
+	auto obj = this;
+	std_thread = new std::thread( [obj](void){obj->run();} );
 }
 
-void Process_Runner::queue(void *ptr, QSharedPointer<Photo_t> photo, TilesReceiver *tiles_receiver, bool is_inactive) {
+Process_Runner::~Process_Runner() {
+	if(std_thread != nullptr) {
+		std_thread->join();
+		delete std_thread;
+	}
+}
+
+void Process_Runner::queue(void *ptr, std::shared_ptr<Photo_t> photo, TilesReceiver *tiles_receiver, bool is_inactive) {
 //	task_lock.lock();
 	int request_ID = Process::newID();
 	int request_ID_to_abort = 0;
@@ -94,9 +100,9 @@ void Process_Runner::queue(void *ptr, QSharedPointer<Photo_t> photo, TilesReceiv
 		request_ID_to_abort = tiles_receiver->set_request_ID(request_ID);
 	Process::ID_request_abort(request_ID_to_abort);
 
-	map<Filter *, QSharedPointer<PS_Base> > map_ps_base;
-	for(map<Filter *, QSharedPointer<PS_Base> >::iterator it = photo->map_ps_base_current.begin(); it != photo->map_ps_base_current.end(); it++) {
-		map_ps_base[(*it).first] = QSharedPointer<PS_Base>((*it).first->newPS());
+	map<Filter *, std::shared_ptr<PS_Base> > map_ps_base;
+	for(auto it = photo->map_ps_base_current.begin(); it != photo->map_ps_base_current.end(); it++) {
+		map_ps_base[(*it).first] = std::shared_ptr<PS_Base>((*it).first->newPS());
 		map_ps_base[(*it).first]->load(&photo->map_dataset_current[(*it).first]);
 	}
 	task_t *t = new task_t;
@@ -111,8 +117,8 @@ void Process_Runner::queue(void *ptr, QSharedPointer<Photo_t> photo, TilesReceiv
 	QList<task_t *> list_new;
 	list_new.push_back(t);
 	task_lock.lock();
-	for(QList<task_t *>::iterator it = tasks_list.begin(); it != tasks_list.end(); it++) {
-		if((*it)->photo.data() != photo.data() && (*it)->tiles_receiver != t->tiles_receiver) {
+	for(auto it = tasks_list.begin(); it != tasks_list.end(); it++) {
+		if((*it)->photo.get() != photo.get() && (*it)->tiles_receiver != t->tiles_receiver) {
 			list_new.push_back((*it));
 		} else {
 			delete *it;
@@ -123,22 +129,23 @@ if(tasks_list.empty())
 cerr << "fatal error: tasks_list is empty" << endl;
 	// wake up!
 	task_lock.unlock();
-	process_wait.wakeAll();
+	process_wait.notify_all();
 //cerr << "wake up all; request_ID == " << request_ID << "; to_abort == " << request_ID_to_abort << endl;
 }
 
 void Process_Runner::run(void) {
 	while(true) {
-		task_lock.lock();
+		std::unique_lock<std::mutex> locker(task_lock, std::defer_lock);
+		locker.lock();
 		while(true) {
 			if(!tasks_list.empty())
 				break;
-			process_wait.wait(&task_lock);
+			process_wait.wait(locker);
 		}
 		//--
 		task_t *t = tasks_list.back();
 		tasks_list.pop_back();
-		task_lock.unlock();
+		locker.unlock();
 //cerr << "call process->process_online(...) for request_ID: " << t->request_ID << endl;
 		process->process_online(t->ptr, t->photo, t->request_ID, t->is_inactive, t->tiles_receiver, t->map_ps_base);
 //cerr << "call process->process_online(...) for request_ID: " << t->request_ID << " - done!" << endl;
@@ -159,13 +166,13 @@ class Edit::EditSession_t {
 public:
 	EditSession_t(void);
 	class View *view;
-	QSharedPointer<Photo_t> photo;
+	std::shared_ptr<Photo_t> photo;
 	bool is_loading;
 	bool is_loaded;
 };
 
 Edit::EditSession_t::EditSession_t(void) {
-	view = NULL;
+	view = nullptr;
 	is_loading = false;
 	is_loaded = false;
 }
@@ -189,7 +196,7 @@ Edit::Edit(Process *process, Browser *_browser) {
 	flag = Config::instance()->get(CONFIG_SECTION_VIEW, "background_color_B", view_bg_b);
 	if(flag == false)	Config::instance()->set(CONFIG_SECTION_VIEW, "background_color_B", view_bg_b);
 
-	controls_widget = NULL;
+	controls_widget = nullptr;
 	this->process = process;
 	this->fstore = Filter_Store::_this;
 	process_runner = new Process_Runner(process);
@@ -213,16 +220,16 @@ Edit::Edit(Process *process, Browser *_browser) {
 	connect(process, SIGNAL(signal_process_complete(void *, class PhotoProcessed_t *)), this, SLOT(slot_process_complete(void *, class PhotoProcessed_t *)));
 
 	// FilterEdit
-	for(list<pair<FilterEdit *, Filter *> >::iterator it = fstore->filter_edit_list.begin(); it != fstore->filter_edit_list.end(); it++)
+	for(list<pair<FilterEdit *, Filter *> >::iterator it = fstore->filter_edit_list.begin(); it != fstore->filter_edit_list.end(); ++it)
 		connect((*it).second, SIGNAL(signal_filter_edit(FilterEdit *, bool, int)), this, SLOT(slot_filter_edit(FilterEdit *, bool, int)));
 
 	filter_edit_dummy = new FilterEditDummy();
 	filter_edit = filter_edit_dummy;
 
 	// filters UI update
-//	for(list<Filter *>::iterator it = fstore->filters.begin(); it != fstore->filters.end(); it++)
+//	for(list<Filter *>::iterator it = fstore->filters.begin(); it != fstore->filters.end(); ++it)
 	QList<Filter *> filters_list = fstore->get_filters_list();
-	for(QList<Filter *>::iterator it = filters_list.begin(); it != filters_list.end(); it++)
+	for(QList<Filter *>::iterator it = filters_list.begin(); it != filters_list.end(); ++it)
 		connect(*it, SIGNAL(signal_update(void *, void *, void *)), this, SLOT(slot_update_filter(void *, void *, void *)));
 	// !GEOMETRY!
 	connect((QObject *)fstore->f_crop, SIGNAL(signal_view_refresh(void *)), this, SLOT(slot_view_refresh(void *)));
@@ -235,8 +242,8 @@ Edit::Edit(Process *process, Browser *_browser) {
 	views_box->setSpacing(0);
 	views_box->setContentsMargins(0, 0, 0, 0);
 	for(int i = 0; i < 3; i++)
-		views_splitter[i] = NULL;
-	views_parent = NULL;
+		views_splitter[i] = nullptr;
+	views_parent = nullptr;
 	// create 4 sessions and views
 	for(int i = 0; i < 4; i++) {
 		session = new EditSession_t;
@@ -262,10 +269,10 @@ Edit::Edit(Process *process, Browser *_browser) {
 	if(flag == false)	Config::instance()->set(CONFIG_SECTION_VIEW, "views_layout_3_orientation", views_orientation[1]);
 	flag = Config::instance()->get(CONFIG_SECTION_VIEW, "views_layout_4_orientation", views_orientation[2]);
 	if(flag == false)	Config::instance()->set(CONFIG_SECTION_VIEW, "views_layout_4_orientation", views_orientation[2]);
-	_clip(views_layout, 1, 4);
-	_clip(views_orientation[0], 0, 1);
-	_clip(views_orientation[1], 0, 5);
-	_clip(views_orientation[2], 0, 1);
+	ddr::clip(views_layout, 1, 4);
+	ddr::clip(views_orientation[0], 0, 1);
+	ddr::clip(views_orientation[1], 0, 5);
+	ddr::clip(views_orientation[2], 0, 1);
 /*
 	views_layout %= 4;
 	views_orientation[0] %= 2;
@@ -289,7 +296,7 @@ Edit::~Edit() {
 	Config::instance()->set(CONFIG_SECTION_VIEW, "views_layout_4_orientation", views_orientation[2]);
 	//--
 	for(int i = 0; i < sessions.size(); i++) {
-		if(!sessions[i]->photo.isNull()) {
+		if(sessions[i]->photo) {
 cerr << "close photo " << sessions[i]->photo->photo_id.get_export_file_name() << endl;
 			photo_close(i);
 		}
@@ -335,19 +342,19 @@ View_Zoom *Edit::get_view_zoom(void) {
 
 void Edit::_reassign_views_layout(void) {
 	for(int i = 0; i < 3; i++) {
-		if(views_splitter[i] != NULL)
+		if(views_splitter[i] != nullptr)
 			views_splitter[i]->setVisible(false);
 	}
 	for(int i = 0; i < 4; i++) {
-		if(views_parent != NULL)
+		if(views_parent != nullptr)
 			sessions[i]->view->widget()->setParent(views_parent);
 		sessions[i]->view->widget()->hide();
 	}
 	views_box->removeWidget(views_splitter[0]);
 	for(int i = 2; i >= 0; i--) {
-		if(views_splitter[i] != NULL) {
+		if(views_splitter[i] != nullptr) {
 			delete views_splitter[i];
-			views_splitter[i] = NULL;
+			views_splitter[i] = nullptr;
 		}
 	}
 
@@ -421,7 +428,7 @@ void Edit::_reassign_views_layout(void) {
 	views_box->addWidget(views_splitter[0], 1);
 /*
 	for(int i = 0; i < 3; i++) {
-		if(views_splitter[i] != NULL)
+		if(views_splitter[i] != nullptr)
 			views_splitter[i]->setOpaqueResize(false);
 	}
 */
@@ -439,7 +446,7 @@ void Edit::_reassign_views_layout(void) {
 void Edit::_realign_views_layout(void) {
 	// set equal sizes inside splitter
 	for(int i = 2; i >= 0; i--) {
-		if(views_splitter[i] == NULL)
+		if(views_splitter[i] == nullptr)
 			continue;
 		QList<int> s = views_splitter[i]->sizes();
 		if(s.size() == 0)
@@ -461,7 +468,7 @@ QWidget *Edit::get_views_widget(QWidget *_views_parent) {
 
 void Edit::slot_process_complete(void *ptr, PhotoProcessed_t *photo_processed) {
 	EditSession_t *session = (EditSession_t *)ptr;
-	if(session->photo.isNull()) {
+	if(!session->photo) {
 		session->is_loading = false;
 		return;
 	}
@@ -470,15 +477,15 @@ void Edit::slot_process_complete(void *ptr, PhotoProcessed_t *photo_processed) {
 	if(photo_processed->is_empty == false) {
 		slot_controls_enable(true);
 //		emit signal_controls_enable(true);
-//		cerr << "Edit::slot_process_complete(); photo != NULL" << endl;
+//		cerr << "Edit::slot_process_complete(); photo != nullptr" << endl;
 	} else {
 		// TODO: signal import failure somehow
 		// photo object was destroyed at Process class
 		is_loaded = false;
-		session->photo.clear();
+		session->photo.reset();
 		slot_controls_enable(false);
 //		emit signal_controls_enable(false);
-//		cerr << "Edit::slot_process_done(); photo == NULL" << endl;
+//		cerr << "Edit::slot_process_done(); photo == nullptr" << endl;
 	}
 	browser->photo_loaded(photo_id, is_loaded);
 	session->view->photo_open_finish(photo_processed);
@@ -488,7 +495,7 @@ void Edit::slot_process_complete(void *ptr, PhotoProcessed_t *photo_processed) {
 
 void Edit::slot_view_refresh(void *session_id) {
 	EditSession_t *session = (EditSession_t *)session_id;
-	if(session_id != NULL)
+	if(session_id != nullptr)
 		session->view->view_refresh();
 }
 
@@ -520,7 +527,7 @@ void Edit::action_rotate(bool clockwise) {
 	view->update_rotation(clockwise);
 	// Notify each filter about that event. Particularly filter F_Shift have interest in that
 	int cw_rotation = session->photo->cw_rotation;
-	for(list<pair<FilterEdit *, Filter *> >::iterator it = fstore->filter_edit_list.begin(); it != fstore->filter_edit_list.end(); it++)
+	for(list<pair<FilterEdit *, Filter *> >::iterator it = fstore->filter_edit_list.begin(); it != fstore->filter_edit_list.end(); ++it)
 		(*it).first->set_cw_rotation(cw_rotation);
 	// add undo/redo record
 }
@@ -534,8 +541,8 @@ void Edit::set_session_active(int index) {
 Photo_ID Edit::active_photo(void) {
 	Photo_ID photo_id;
 	if(sessions.size() != 0 && session_active >= 0) {
-		QSharedPointer<Photo_t> photo = sessions[session_active]->photo;
-		if(!photo.isNull())
+		std::shared_ptr<Photo_t> photo = sessions[session_active]->photo;
+		if(photo)
 			photo_id = photo->photo_id;
 	}
 	return photo_id;
@@ -544,8 +551,8 @@ Photo_ID Edit::active_photo(void) {
 //------------------------------------------------------------------------------
 bool Edit::version_is_open(Photo_ID photo_id) {
 	for(int i = 0; i < sessions.size(); i++) {
-		if(sessions[i] != NULL)
-			if(!sessions[i]->photo.isNull())
+		if(sessions[i] != nullptr)
+			if(sessions[i]->photo)
 				if(sessions[i]->photo->photo_id == photo_id)
 					return true;
 	}
@@ -553,11 +560,11 @@ bool Edit::version_is_open(Photo_ID photo_id) {
 }
 
 PS_Loader *Edit::version_get_current_ps_loader(Photo_ID photo_id) {
-	QSharedPointer<Photo_t> photo = sessions[session_active]->photo;
-	if(photo.isNull())
-		return NULL;
+	std::shared_ptr<Photo_t> photo = sessions[session_active]->photo;
+	if(!photo)
+		return nullptr;
 	if(photo->photo_id != photo_id)
-		return NULL;
+		return nullptr;
 	return get_current_ps_loader(photo);
 }
 
@@ -589,14 +596,14 @@ void Edit::slot_view_close(void *data) {
 
 void Edit::slot_view_browser_reopen(void *data) {
 	View *view = (View *)data;
-	QSharedPointer<Photo_t> open_photo;
+	std::shared_ptr<Photo_t> open_photo;
 	for(int i = 0; i < sessions.size(); i++) {
 		if(sessions[i]->view == view) {
 			open_photo = sessions[i]->photo;
 			break;
 		}
 	}
-	if(open_photo.isNull())
+	if(!open_photo)
 		return;
 	emit signal_browse_to_photo(open_photo->photo_id);
 }
@@ -606,7 +613,7 @@ void Edit::slot_view_active(void *data) {
 //cerr << "Edit::slot_view_active()" << endl;
 	View *view = (View *)data;
 	bool update = false;
-	QSharedPointer<Photo_t> photo_prev = sessions[session_active]->photo;
+	std::shared_ptr<Photo_t> photo_prev = sessions[session_active]->photo;
 	for(int i = 0; i < sessions.size(); i++) {
 		if(sessions[i]->view == view) {
 			set_session_active(i);
@@ -624,22 +631,22 @@ void Edit::slot_view_active(void *data) {
 	fstore->f_crop->edit_mode_forced_exit();
 	if(update) {
 //cerr << "Edit::slot_view_active() ...1" << endl;
-		QSharedPointer<Photo_t> photo = sessions[session_active]->photo;
+		std::shared_ptr<Photo_t> photo = sessions[session_active]->photo;
 		QList<Filter *> filters_list = fstore->get_filters_list();
-		if(!photo_prev.isNull()) {
+		if(photo_prev) {
 			// store current filter's state
 //cerr << "Edit::slot_view_active(), photo_prev->photo_id == \"" << photo_prev->photo_id << "\"" << endl;
-			for(QList<Filter *>::iterator it = filters_list.begin(); it != filters_list.end(); it++)
+			for(QList<Filter *>::iterator it = filters_list.begin(); it != filters_list.end(); ++it)
 				(*it)->saveFS(photo_prev->map_fs_base[*it]);
 			filters_control_clear();
 		}
-		if(!photo.isNull()) {
+		if(photo) {
 //cerr << "Edit::slot_view_active(), photo_id == \"" << photo->photo_id << "\"" << endl;
 			PS_and_FS_args_t args(photo->metadata, photo->cw_rotation);
-			for(QList<Filter *>::iterator it = filters_list.begin(); it != filters_list.end(); it++) {
+			for(QList<Filter *>::iterator it = filters_list.begin(); it != filters_list.end(); ++it) {
 				Filter *f = *it;
 				// store current filter's state
-//				if(!photo_prev.isNull())
+//				if(photo_prev)
 //					f->saveFS(photo_prev->map_fs_base[f]);
 				// switch to the newly active session
 				f->set_session_id((void *)sessions[session_active]);
@@ -668,13 +675,13 @@ void Edit::filters_control_clear(void) {
 	slot_controls_enable(false);
 //	emit signal_controls_enable(false);
 	QList<Filter *> filters_list = fstore->get_filters_list();
-	for(QList<Filter *>::iterator it = filters_list.begin(); it != filters_list.end(); it++) {
+	for(QList<Filter *>::iterator it = filters_list.begin(); it != filters_list.end(); ++it) {
 		Filter *f = *it;
-		f->set_session_id(NULL);
-//		f->setPS(NULL);
+		f->set_session_id(nullptr);
+//		f->setPS(nullptr);
 //cerr << "filter: " << f->name() << endl;
-//		f->load_ui(NULL, NULL);
-		f->set_PS_and_FS(NULL, NULL, PS_and_FS_args_t());
+//		f->load_ui(nullptr, nullptr);
+		f->set_PS_and_FS(nullptr, nullptr, PS_and_FS_args_t());
 	}
 }
 
@@ -687,7 +694,7 @@ void Edit::slot_update_opened_photo_ids(QList<Photo_ID> ids_list) {
 //cerr << "id_before == " << id_before.get_export_file_name() << endl;
 //cerr << " id_after == " << id_after.get_export_file_name() << endl;
 		for(int j = 0; j < 4; j++) {
-			if(!sessions[j]->photo.isNull()) {
+			if(sessions[j]->photo) {
 				if(sessions[j]->photo->photo_id == id_before) {
 					std::list<int> v_list = PS_Loader::versions_list(id_after.get_file_name());
 					sessions[j]->photo->ids_lock.lock();
@@ -722,11 +729,10 @@ cerr << "----Edit::slot_load_photo( \"" << photo_id.get_export_file_name() << "\
 		return;
 	// load settings
 //	Photo_t *photo_ptr = new Photo_t;
-//	QSharedPointer<Photo_t> photo(photo_ptr);
-	QSharedPointer<Photo_t> photo(new Photo_t);
-	if(!sessions[session_active]->photo.isNull()) {
-		cerr << "FATAL: sessions[session_active]->photo != NULL" << endl;
-		throw("FATAL: sessions[session_active]->photo != NULL");
+	std::shared_ptr<Photo_t> photo(new Photo_t);
+	if(sessions[session_active]->photo) {
+		cerr << "FATAL: sessions[session_active]->photo != nullptr, but should be." << endl;
+		throw("FATAL: sessions[session_active]->photo != nullptr");
 	}
 	sessions[session_active]->photo = photo;
 	// actually locking can be skipped in here
@@ -757,7 +763,7 @@ cerr << "metadata->exiv2_lens_model == " << metadata->exiv2_lens_model << endl;
 	// oddly enough, but update of FS from photo_open() not works... run it here
 	PS_and_FS_args_t args(metadata, photo->cw_rotation);
 	QList<Filter *> filters_list = fstore->get_filters_list();
-	for(QList<Filter *>::iterator it = filters_list.begin(); it != filters_list.end(); it++)
+	for(QList<Filter *>::iterator it = filters_list.begin(); it != filters_list.end(); ++it)
 		(*it)->set_PS_and_FS(photo->map_ps_base[*it], photo->map_fs_base[*it], args);
 	// update view
 //	view->photo_open_start(photo_name, thumbnail_icon, photo);
@@ -770,10 +776,10 @@ cerr << "metadata->exiv2_lens_model == " << metadata->exiv2_lens_model << endl;
 }
 
 void Edit::photo_open(EditSession_t *session, Metadata *metadata) {
-	if(session == NULL)
+	if(session == nullptr)
 		return;
-	QSharedPointer<Photo_t> photo = session->photo;
-	if(photo.isNull())
+	std::shared_ptr<Photo_t> photo = session->photo;
+	if(!photo)
 		return;
 //cerr << endl;
 cerr << "===============>>>>  open photo: name == \"" << photo->name.toLocal8Bit().constData() << "\"; photo id == \"" << photo->photo_id.get_export_file_name() << "\"" << endl;
@@ -788,7 +794,7 @@ cerr << "===============>>>>  open photo: name == \"" << photo->name.toLocal8Bit
 	//	2. load them
 	//	3. set up filters with them
 	QList<Filter *> filters_list = fstore->get_filters_list();
-	for(QList<Filter *>::iterator it = filters_list.begin(); it != filters_list.end(); it++) {
+	for(QList<Filter *>::iterator it = filters_list.begin(); it != filters_list.end(); ++it) {
 		PS_Base *ps_base = (*it)->newPS();
 		photo->map_ps_base[*it] = ps_base;
 //		(*it)->setPS(ps_base);
@@ -803,14 +809,13 @@ cerr << "===============>>>>  open photo: name == \"" << photo->name.toLocal8Bit
 	}
 
 	PS_Loader *ps_loader = new PS_Loader(photo->photo_id);
-	for(QList<Filter *>::iterator it = filters_list.begin(); it != filters_list.end(); it++) {
+	for(QList<Filter *>::iterator it = filters_list.begin(); it != filters_list.end(); ++it) {
 		PS_Base *ps_base = photo->map_ps_base[*it];
 		DataSet *dataset = ps_loader->get_dataset((*it)->id());
 		ps_base->load(dataset);
 		// here it is !
 		// TODO: replace with history
-//		photo->map_ps_base_current[*it] = ddr_shared_ptr<PS_Base>(ps_base->copy());
-		photo->map_ps_base_current[*it] = QSharedPointer<PS_Base>(ps_base->copy());
+		photo->map_ps_base_current[*it] = std::shared_ptr<PS_Base>(ps_base->copy());
 		photo->map_dataset_initial[*it] = *dataset;
 		ps_base->save(dataset);
 		photo->map_dataset_current[*it] = *dataset;
@@ -823,7 +828,7 @@ cerr << "===============>>>>  open photo: name == \"" << photo->name.toLocal8Bit
 		ps_loader->set_cw_rotation(photo->cw_rotation);
 
 	// PS_Base can change real values after load (like do some sort of normalization etc.), so keep that current version
-	for(QList<Filter *>::iterator it = filters_list.begin(); it != filters_list.end(); it++) {
+	for(QList<Filter *>::iterator it = filters_list.begin(); it != filters_list.end(); ++it) {
 		DataSet *dataset = ps_loader->get_dataset((*it)->id());
 		photo->map_ps_base[*it]->save(dataset);
 	}
@@ -839,14 +844,14 @@ void Edit::photo_close(int session_id) {
 //	sessions[session_active]->is_loaded = false;
 	sessions[session_id]->is_loading = false;
 	sessions[session_id]->is_loaded = false;
-	QSharedPointer<Photo_t> photo = sessions[session_id]->photo;
-	if(photo.isNull())
+	std::shared_ptr<Photo_t> photo = sessions[session_id]->photo;
+	if(!photo)
 		return;
 	if(photo->photo_id.is_empty())
 		return;
 cerr << endl << "===============>>>> close photo: " << photo->photo_id.get_export_file_name() << endl << endl;
 	if(flag_reset) {
-		edit_history->set_current_photo(QSharedPointer<Photo_t>());
+		edit_history->set_current_photo(std::shared_ptr<Photo_t>());
 		// leave filter edit if any
 		leave_filter_edit();
 	}
@@ -855,7 +860,7 @@ cerr << endl << "===============>>>> close photo: " << photo->photo_id.get_expor
 	browser->photo_close(photo->photo_id, was_changed);
 
 	// TODO: here save PS_Base from PS_State that should be created for settings copy/paste and history undo/redo !!!
-	sessions[session_id]->photo.clear();
+	sessions[session_id]->photo.reset();
 	if(flag_reset)
 		menu_copy_paste_update();
 //	Mem::state_print();
@@ -864,15 +869,15 @@ cerr << endl << "===============>>>> close photo: " << photo->photo_id.get_expor
 bool Edit::flush_current_ps(void) {
 	bool was_changed = false;
 	for(int i = 0; i < sessions.size(); i++) {
-		if(sessions[i] != NULL)	{
-			if(!sessions[i]->photo.isNull())
+		if(sessions[i] != nullptr)	{
+			if(sessions[i]->photo)
 				was_changed = flush_current_ps(sessions[i]->photo);
 		}
 	}
 	return was_changed;
 }
 
-bool Edit::flush_current_ps(QSharedPointer<Photo_t> photo) {
+bool Edit::flush_current_ps(std::shared_ptr<Photo_t> photo) {
 	bool was_changed = false;
 	PS_Loader *ps_loader = get_current_ps_loader(photo);
 	string ps_state_new = ps_loader->serialize();
@@ -885,13 +890,13 @@ bool Edit::flush_current_ps(QSharedPointer<Photo_t> photo) {
 	return was_changed;
 }
 
-PS_Loader *Edit::get_current_ps_loader(QSharedPointer<Photo_t> photo) {
+PS_Loader *Edit::get_current_ps_loader(std::shared_ptr<Photo_t> photo) {
 	PS_Loader *ps_loader = new PS_Loader();
 	ps_loader->set_cw_rotation(photo->cw_rotation);
 //cerr << "save for " << photo->photo_id.c_str() << endl;
 //int c = 0;
 	QList<Filter *> filters_list = fstore->get_filters_list();
-	for(QList<Filter *>::iterator it = filters_list.begin(); it != filters_list.end(); it++) {
+	for(QList<Filter *>::iterator it = filters_list.begin(); it != filters_list.end(); ++it) {
 		DataSet *dataset = ps_loader->get_dataset((*it)->id());
 		map<Filter *, PS_Base *>::iterator it_ps = photo->map_ps_base.find(*it);
 		if(it_ps != photo->map_ps_base.end()) {
@@ -912,17 +917,17 @@ QList<QAction *> Edit::get_actions(void) {
 	filters_actions_list = QList<QAction *>();
 	// TODO: add here 'panning' action from View class (somewhere should be 'zoom' also)
 	filters_actions_list.push_back(q_action_view_grid);
-	filters_actions_list.push_back(NULL);
+	filters_actions_list.push_back(nullptr);
 	// rotation -90, +90
 	filters_actions_list.push_back(q_action_rotate_minus);
 	filters_actions_list.push_back(q_action_rotate_plus);
 	// separator
-	filters_actions_list.push_back(NULL);
-	for(list<pair<FilterEdit *, Filter *> >::iterator it = fstore->filter_edit_list.begin(); it != fstore->filter_edit_list.end(); it++)
+	filters_actions_list.push_back(nullptr);
+	for(list<pair<FilterEdit *, Filter *> >::iterator it = fstore->filter_edit_list.begin(); it != fstore->filter_edit_list.end(); ++it)
 		if((*it).second->type() == Filter::t_geometry)
 			filters_actions_list += (*it).first->get_actions_list();
-	filters_actions_list.push_back(NULL);
-	for(list<pair<FilterEdit *, Filter *> >::iterator it = fstore->filter_edit_list.begin(); it != fstore->filter_edit_list.end(); it++)
+	filters_actions_list.push_back(nullptr);
+	for(list<pair<FilterEdit *, Filter *> >::iterator it = fstore->filter_edit_list.begin(); it != fstore->filter_edit_list.end(); ++it)
 		if((*it).second->type() == Filter::t_color)
 			filters_actions_list += (*it).first->get_actions_list();
 			
@@ -932,7 +937,7 @@ QList<QAction *> Edit::get_actions(void) {
 
 QWidget *Edit::get_controls_widget(QWidget *parent) {
 	// TODO: use arrays and lists
-	if(controls_widget != NULL)
+	if(controls_widget != nullptr)
 		return controls_widget;
 
 	controls_widget = new QWidget(parent);
@@ -995,7 +1000,7 @@ QWidget *Edit::get_controls_widget(QWidget *parent) {
 		l->setSpacing(2);
 		l->setContentsMargins(2, 2, 2, 2);
 		l->setSizeConstraint(QLayout::SetMinimumSize);
-		for(std::list<QWidget *>::iterator it = page_widgets[i].begin(); it != page_widgets[i].end(); it++)
+		for(std::list<QWidget *>::iterator it = page_widgets[i].begin(); it != page_widgets[i].end(); ++it)
 			l->addWidget(*it);
 		l->addStretch();
 		controls_areas[i] = new ControlsArea();
@@ -1019,13 +1024,13 @@ QWidget *Edit::get_controls_widget(QWidget *parent) {
 }
 
 void Edit::slot_controls_enable(bool state) {
-//	if(controls_widget == NULL)
+//	if(controls_widget == nullptr)
 //		return;
 //	if(state == true)
-	if(controls_widget != NULL)
+	if(controls_widget != nullptr)
 		controls_widget->setEnabled(state);
-	for(QList<QAction *>::iterator it = filters_actions_list.begin(); it != filters_actions_list.end(); it++)
-		if((*it) != NULL)
+	for(QList<QAction *>::iterator it = filters_actions_list.begin(); it != filters_actions_list.end(); ++it)
+		if((*it) != nullptr)
 			(*it)->setEnabled(state);
 }
 
@@ -1041,27 +1046,27 @@ void Edit::slot_update(void *session_id, int process_id, void *_filter, void *_p
 	bool skip = false;
 	EditSession_t *session = (EditSession_t *)session_id;
 //cerr << "session_id == " << (long)session_id << endl;
-	QSharedPointer<Photo_t> photo;
-	if(session_id == NULL) {
+	std::shared_ptr<Photo_t> photo;
+	if(session_id == nullptr) {
 		skip = true;
 	} else {
 		photo = session->photo;
-		if(photo.isNull()) {
+		if(!photo) {
 			skip = true;
 		} else {
-			if(photo->area_raw == NULL)
+			if(photo->area_raw == nullptr)
 				skip = true;
 		}
 	}
 	if(skip) {
-//		cerr << "skipped, area_raw == NULL" << endl;
-		if(ps_base != NULL)
+//		cerr << "skipped, area_raw == nullptr" << endl;
+		if(ps_base != nullptr)
 			delete ps_base;
 		return;
 	}
 
 	// save state deltas at edit history
-	if(filter != NULL && ps_base != NULL) {
+	if(filter != nullptr && ps_base != nullptr) {
 /*
 		cerr << endl;
 		cerr << "update from filter " << filter->name() << endl;
@@ -1069,13 +1074,13 @@ void Edit::slot_update(void *session_id, int process_id, void *_filter, void *_p
 		DataSet dataset_new;
 		ps_base->save(&dataset_new);
 		DataSet *dataset_old = &photo->map_dataset_current[filter];
-		if(dataset_old == NULL)
+		if(dataset_old == nullptr)
 			throw string("Fatal: missed map_dataset_current record");
 		// get difference, and dump it
 		list<field_delta_t> deltas = DataSet::get_fields_delta(dataset_old, &dataset_new);
 		edit_history->add_eh_filter_record(eh_filter_record_t(filter, deltas));
 /*
-		for(list<field_delta_t>::iterator it = deltas.begin(); it != deltas.end(); it++) {
+		for(list<field_delta_t>::iterator it = deltas.begin(); it != deltas.end(); ++it) {
 			cerr << "delta for field \"" << (*it).field_name << "\": before == " << (*it).field_before.serialize() << "; after == " << (*it).field_after.serialize() << endl;
 		}
 */
@@ -1090,7 +1095,7 @@ void Edit::slot_update(void *session_id, int process_id, void *_filter, void *_p
 	}
 
 	photo->filter_flags = 0;
-	if(filter != NULL) {
+	if(filter != nullptr) {
 		process_id = filter->get_id();
 		photo->filter_flags = filter->flags();
 	}
@@ -1107,7 +1112,7 @@ void Edit::slot_update(void *session_id, int process_id, void *_filter, void *_p
 void Edit::history_apply(list<eh_record_t> l, bool is_undo) {
 	// TODO: add real list support for 'fast' undo/redo or by clicking on history view
 	// TODO: add support of cw_rotation
-	QSharedPointer<Photo_t> photo = sessions[session_active]->photo;
+	std::shared_ptr<Photo_t> photo = sessions[session_active]->photo;
 	eh_record_t &record = l.front();
 	int filters_count = record.filter_records.size();
 	PS_and_FS_args_t args(photo->metadata, photo->cw_rotation);
@@ -1116,7 +1121,7 @@ void Edit::history_apply(list<eh_record_t> l, bool is_undo) {
 //cerr << "filters_count == " << filters_count << endl;
 		eh_filter_record_t &f_record = record.filter_records[i];
 		Filter *filter = f_record.filter;
-//		for(list<eh_filter_record_t>::iterator it = f_record.begin(); it != l.end(); it++) {
+//		for(list<eh_filter_record_t>::iterator it = f_record.begin(); it != l.end(); ++it) {
 //			if((*it).filter->get_id() < filter->get_id())
 //				filter = (*it).filter;
 //		}
@@ -1134,13 +1139,13 @@ void Edit::history_apply(list<eh_record_t> l, bool is_undo) {
 	}
 	// emit signal to update
 //	slot_update(sessions[session_active], (ProcessSource::process)filter->get_id(), filter, photo->map_ps_base[filter]);
-//	slot_update(sessions[session_active], (ProcessSource::process)filter->get_id(), NULL, NULL);
-	slot_update(sessions[session_active], s_id, NULL, NULL);
-//	slot_update(sessions[session_active], ProcessSource::s_undo_redo, NULL, NULL);
+//	slot_update(sessions[session_active], (ProcessSource::process)filter->get_id(), nullptr, nullptr);
+	slot_update(sessions[session_active], s_id, nullptr, nullptr);
+//	slot_update(sessions[session_active], ProcessSource::s_undo_redo, nullptr, nullptr);
 }
 
 Edit::EditSession_t *Edit::session_of_view(View *view) {
-	EditSession_t *session = NULL;
+	EditSession_t *session = nullptr;
 	for(int i = 0; i < sessions.size(); i++) {
 		if(sessions[i]->view == view) {
 			session = sessions[i];
@@ -1154,21 +1159,21 @@ Edit::EditSession_t *Edit::session_of_view(View *view) {
 void Edit::slot_view_update(void *ptr, int process_id) {
 //cerr << "Edit::slot_view_update" << endl;
 	EditSession_t *session = session_of_view((View *)ptr);
-	slot_update(session, process_id, NULL, NULL);
-//	slot_update(session, ProcessSource::s_view, NULL);
+	slot_update(session, process_id, nullptr, nullptr);
+//	slot_update(session, ProcessSource::s_view, nullptr);
 }
 
 void Edit::slot_view_zoom_ui_update(void) {
 	view_zoom->update();
 //	EditSession_t *session = session_of_view((View *)ptr);
-//	slot_update(session, process_id, NULL, NULL);
-//	slot_update(session, ProcessSource::s_view, NULL);
+//	slot_update(session, process_id, nullptr, nullptr);
+//	slot_update(session, ProcessSource::s_view, nullptr);
 }
 
 void Edit::update_thumbnail(void *ptr, QImage thumbnail) {
 	EditSession_t *session = session_of_view((View *)ptr);
-	if(session != NULL) {
-		if(!session->photo.isNull()) {
+	if(session != nullptr) {
+		if(session->photo) {
 //cerr << endl << endl;
 //cerr << "update thumbnail for photo_id == \"" << session->photo->photo_id << "\"" << endl;
 			emit signal_update_thumbnail(session->photo->photo_id, thumbnail);
@@ -1181,7 +1186,7 @@ void Edit::update_thumbnail(void *ptr, QImage thumbnail) {
 
 void Edit::keyEvent(QKeyEvent *event) {
 	View *v = sessions[session_active]->view;
-	if(v != NULL)
+	if(v != nullptr)
 		v->keyEvent(event);
 }
 
@@ -1205,7 +1210,7 @@ bool Edit::leave_filter_edit(void) {
 }
 
 void Edit::draw(QPainter *painter, const QSize &viewport, const QRect &image, image_and_viewport_t transform) {
-	FilterEdit_event_t et(NULL);
+	FilterEdit_event_t et(nullptr);
 	et.viewport = viewport;
 	et.image = image;
 	et.transform = transform;
@@ -1275,8 +1280,8 @@ void Edit::menu_copy_paste(QMenu *menu) {
 void Edit::menu_copy_paste_update(void) {
 	bool empty = true;
 	if(sessions.size() != 0 && session_active >= 0) {
-		if(sessions[session_active] != NULL)
-			if(!sessions[session_active]->photo.isNull())
+		if(sessions[session_active] != nullptr)
+			if(sessions[session_active]->photo)
 				empty = false;
 	}
 	if(empty) {
@@ -1319,8 +1324,8 @@ void Edit::do_copy_paste_fine(bool to_copy) {
 		return;
 	bool skip = true;
 	if(sessions.size() != 0 && session_active >= 0) {
-		if(sessions[session_active] != NULL)
-			if(!sessions[session_active]->photo.isNull())
+		if(sessions[session_active] != nullptr)
+			if(sessions[session_active]->photo)
 				skip = false;
 	}
 	if(skip)
@@ -1337,10 +1342,10 @@ void Edit::do_copy_paste(bool to_copy) {
 }
 
 void Edit::do_copy(void) {
-	QSharedPointer<Photo_t> photo = sessions[session_active]->photo;
+	std::shared_ptr<Photo_t> photo = sessions[session_active]->photo;
 	copy_paste_map_dataset.erase(copy_paste_map_dataset.begin(), copy_paste_map_dataset.end());
 	QList<Filter *> filters_list = fstore->get_filters_list();
-	for(QList<Filter *>::iterator it = filters_list.begin(); it != filters_list.end(); it++) {
+	for(QList<Filter *>::iterator it = filters_list.begin(); it != filters_list.end(); ++it) {
 		// skip copy
 		if(copy_paste_filters_to_skip.find((*it)->id()) != copy_paste_filters_to_skip.end())
 			continue;
@@ -1357,11 +1362,11 @@ void Edit::do_copy(void) {
 }
 
 void Edit::do_paste(void) {
-	QSharedPointer<Photo_t> photo = sessions[session_active]->photo;
-	Filter *process_filter = NULL;
+	std::shared_ptr<Photo_t> photo = sessions[session_active]->photo;
+	Filter *process_filter = nullptr;
 	QVector<eh_filter_record_t> filter_records;
 	QList<Filter *> filters_list = fstore->get_filters_list();
-	for(QList<Filter *>::iterator it = filters_list.begin(); it != filters_list.end(); it++) {
+	for(QList<Filter *>::iterator it = filters_list.begin(); it != filters_list.end(); ++it) {
 		Filter *filter = *it;
 		// skip copy
 		if(copy_paste_filters_to_skip.find(filter->id()) != copy_paste_filters_to_skip.end())
@@ -1386,7 +1391,7 @@ void Edit::do_paste(void) {
 //			filter->load_ui(photo->map_fs_base[filter], photo->metadata);
 			filter->set_PS_and_FS(photo->map_ps_base[filter], photo->map_fs_base[filter], args);
 			// detect first in process line filter
-			if(process_filter != NULL) {
+			if(process_filter != nullptr) {
 				if(filter->get_id() < process_filter->get_id())
 					process_filter = filter;
 			} else
@@ -1396,7 +1401,7 @@ void Edit::do_paste(void) {
 	// copy set of records to edit history
 	if(filter_records.size() != 0)
 		edit_history->add_eh_filter_records(filter_records);
-	slot_update(sessions[session_active], ProcessSource::s_copy_paste, process_filter, NULL);
+	slot_update(sessions[session_active], ProcessSource::s_copy_paste, process_filter, nullptr);
 	// TODO: add history (undo/redo) support
 }
 
@@ -1432,7 +1437,7 @@ Copy_Paste_Dialog::Copy_Paste_Dialog(bool to_copy, std::set<std::string> *_copy_
 //	std::list<class Filter *> &filters = Filter_Store::_this->filters;
 	QList<class Filter *> filters_list = Filter_Store::_this->get_filters_list();
 	int i = 0;
-	for(QList<Filter *>::iterator it = filters_list.begin(); it != filters_list.end(); it++) {
+	for(QList<Filter *>::iterator it = filters_list.begin(); it != filters_list.end(); ++it) {
 		Filter *f = *it;
 		if(f->is_hidden())
 			continue;
@@ -1464,7 +1469,7 @@ Copy_Paste_Dialog::Copy_Paste_Dialog(bool to_copy, std::set<std::string> *_copy_
 
 Copy_Paste_Dialog::~Copy_Paste_Dialog(void) {
 	for(int i = 0; i < flags.size(); i++)
-		if(flags[i].first != NULL)
+		if(flags[i].first != nullptr)
 			delete flags[i].first;
 }
 

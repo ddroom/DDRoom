@@ -2,7 +2,7 @@
  * f_shift.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -294,19 +294,19 @@ void PS_Shift::map_ui_to_ps(double angle_ui_v, double angle_ui_h) {
 }
 
 //------------------------------------------------------------------------------
-FP_Shift *F_Shift::fp = NULL;
+FP_Shift *F_Shift::fp = nullptr;
 
 F_Shift::F_Shift(int id) : Filter() {
 	filter_id = id;
 	_id = "F_Shift";
 	_name = tr("Shift");
-	if(fp == NULL)
+	if(fp == nullptr)
 		fp = new FP_Shift();
 	_ps = (PS_Shift *)newPS();
 	ps = _ps;
 	ps_base = ps;
-	widget = NULL;
-	q_action_edit_shift = NULL;
+	widget = nullptr;
+	q_action_edit_shift = nullptr;
 	reset();
 	guide_min_length = 100.0;
 }
@@ -320,12 +320,12 @@ PS_Base *F_Shift::newPS(void) {
 
 void F_Shift::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t args) {
 /*
-if(args.metadata != NULL)
+if(args.metadata != nullptr)
 cerr << "F_Shift::set_PS_and_FS(); metadata->rotation == " << args.metadata->rotation << endl;
 cerr << "F_Shift::set_PS_and_FS(); args.cw_rotation == " << args.cw_rotation << endl;
 */
 	// PS
-	if(new_ps != NULL) {
+	if(new_ps != nullptr) {
 		ps = (PS_Shift *)new_ps;
 		ps_base = new_ps;
 	} else {
@@ -336,7 +336,7 @@ cerr << "F_Shift::set_PS_and_FS(); args.cw_rotation == " << args.cw_rotation << 
 	// FS
 	edit_mode_enabled = false;
 	edit_active = false;
-	if(widget != NULL) {
+	if(widget != nullptr) {
 		reconnect(false);
 		checkbox_enable->setCheckState(ps->enabled ? Qt::Checked : Qt::Unchecked);
 		double angle_ui_v = 0.0;
@@ -349,12 +349,12 @@ cerr << "F_Shift::set_PS_and_FS(); args.cw_rotation == " << args.cw_rotation << 
 		slider_angle_r->setValue(ps->angle_r);
 		reconnect(true);
 	}
-	if(q_action_edit_shift != NULL)
+	if(q_action_edit_shift != nullptr)
 		q_action_edit_shift->setChecked(false);
 }
 
 QWidget *F_Shift::controls(QWidget *parent) {
-	if(widget != NULL)
+	if(widget != nullptr)
 		return widget;
 	QGroupBox *q = new QGroupBox(_name);
 	QGridLayout *l = new QGridLayout(q);
@@ -409,7 +409,7 @@ void F_Shift::reconnect(bool to_connect) {
 
 QList<QAction *> F_Shift::get_actions_list(void) {
 	QList<QAction *> l;
-	if(q_action_edit_shift == NULL) {
+	if(q_action_edit_shift == nullptr) {
 		q_action_edit_shift = new QAction(QIcon(":/resources/shift_v.svg"), tr("Shift"), this);
 //		q_action_edit_shift->setShortcut(tr("Ctrl+R"));
 		q_action_edit_shift->setStatusTip(tr("Compensate shift of the camera at the shooting time"));
@@ -417,7 +417,7 @@ QList<QAction *> F_Shift::get_actions_list(void) {
 		connect(q_action_edit_shift, SIGNAL(toggled(bool)), this, SLOT(slot_action_edit_shift(bool)));
 	}
 	l.push_back(q_action_edit_shift);
-//	if(q_action_edit_... == NULL) {
+//	if(q_action_edit_... == nullptr) {
 //		...
 //	}
 //	l.push_back(q_action_edit_...);
@@ -743,7 +743,7 @@ edit_OSD_angle = 0.0;
 					et->transform.image_to_viewport_f(x1, y1, im[0], im[1]);
 					et->transform.photo_to_image_f(im[0], im[1], guides[i][2], guides[i][3]);
 					et->transform.image_to_viewport_f(x2, y2, im[0], im[1]);
-					distance[i] = d_abs((y2 - y1) * x0 - (x2 - x1) * y0 + x2 * y1 - y2 * x1) / sqrtf((y2 - y1) * (y2 - y1) + (x2 - x1) * (x2 - x1));
+					distance[i] = ddr::abs((y2 - y1) * x0 - (x2 - x1) * y0 + x2 * y1 - y2 * x1) / sqrtf((y2 - y1) * (y2 - y1) + (x2 - x1) * (x2 - x1));
 				}
 				int closest_guide = distance[0] < distance[1] ? 0 : 1;
 				ps->guide_reset(closest_guide);
@@ -780,7 +780,7 @@ float angle(class Metadata *metadata, double angle_v, double angle_h, double ang
 //cerr << "angle_v == " << angle_v << endl;
 	shift.process_forward(guide_0[0], guide_0[1], g0[0], g0[1]);
 	shift.process_forward(guide_0[2], guide_0[3], g0[2], g0[3]);
-	if(guide_1 != NULL) {
+	if(guide_1 != nullptr) {
 		shift.process_forward(guide_1[0], guide_1[1], g1[0], g1[1]);
 		shift.process_forward(guide_1[2], guide_1[3], g1[2], g1[3]);
 	} else {
@@ -823,7 +823,7 @@ void F_Shift::edit_UI_process_guide(QLineF guide, FilterEdit_event_t *et) {
 		et->transform.image_to_photo_f(ps_guide[0 + off], ps_guide[1 + off], im[0], im[1]);
 //cerr << "image[" << j << "] at " << im[0] << " - " << im[1] << endl;
 	}
-	if(!ps->guide_undefined(0) && !ps->guide_undefined(1) && et->metadata != NULL) {
+	if(!ps->guide_undefined(0) && !ps->guide_undefined(1) && et->metadata != nullptr) {
 		cerr << "!!! process guides !!!" << endl;
 		double angle_v = 0.0f;
 		double angle_h = 0.0f;
@@ -835,7 +835,7 @@ void F_Shift::edit_UI_process_guide(QLineF guide, FilterEdit_event_t *et) {
 			guide_second[i] = ps->guide_second[i];
 		}
 		float original_angle = angle(et->metadata, angle_v, angle_h, angle_r, guide_first, guide_second);
-		if(d_abs(original_angle) > 90.0f) {
+		if(ddr::abs(original_angle) > 90.0f) {
 			guide_second[0] = ps->guide_second[2];
 			guide_second[1] = ps->guide_second[3];
 			guide_second[2] = ps->guide_second[0];
@@ -865,7 +865,7 @@ cerr << "angle_v == " << angle_v << "; a_delta == " << a_delta << endl;
 		guide_v[2] = guide_first[0];
 		guide_v[3] = guide_first[1] + (((guide_first[3] - guide_first[1]) > 0.0f) ? 100.0f : -100.0f);
 */
-		angle_r = -angle(et->metadata, angle_v, angle_h, angle_r, guide_first, NULL);
+		angle_r = -angle(et->metadata, angle_v, angle_h, angle_r, guide_first, nullptr);
 cerr << "angle_r == " << angle_r << endl;
 cerr << endl;
 	}

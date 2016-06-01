@@ -2,7 +2,7 @@
  * filter_cp.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -11,7 +11,6 @@
 #include <iostream>
 
 #include "filter_cp.h"
-//#include "shared_ptr.h"
 #include "process_h.h"
 
 using namespace std;
@@ -36,7 +35,7 @@ void FilterProcess_CP::filter_post(fp_cp_args_t *args) {
 FilterProcess_CP_Wrapper::FilterProcess_CP_Wrapper(const vector<class FP_CP_Wrapper_record_t> &_vector) {
 	fp_cp_vector = _vector;
 	_name = "FP_CP_Wrapper for filters: ";
-	for(vector<class FP_CP_Wrapper_record_t>::iterator it = fp_cp_vector.begin(); it != fp_cp_vector.end(); it++) {
+	for(vector<class FP_CP_Wrapper_record_t>::iterator it = fp_cp_vector.begin(); it != fp_cp_vector.end(); ++it) {
 		_name += (*it).fp_cp->name();
 		if(it + 1 != fp_cp_vector.end())
 			_name += ", ";
@@ -62,7 +61,7 @@ public:
 	int flow_index;
 	Area *area_in;
 	Area *area_out;
-	QAtomicInt *y_flow;
+	std::atomic_int *y_flow;
 	bool destructive;
 	fp_cp_args_t **filter_args;
 };
@@ -72,9 +71,9 @@ Area *FilterProcess_CP_Wrapper::process(MT_t *mt_obj, Process_t *process_obj, Fi
 	Area *area_in = process_obj->area_in;
 	const int size = fp_cp_vector.size();
 
-	task_t **tasks = NULL;
-	Area *area_out = NULL;
-	QAtomicInt *y_flow = NULL;
+	task_t **tasks = nullptr;
+	Area *area_out = nullptr;
+	std::atomic_int *y_flow = nullptr;
 	const int cores = subflow->cores();
 //	fp_cp_args_t *args[size];
 	fp_cp_args_t_ptr *args = new fp_cp_args_t_ptr[size];
@@ -98,21 +97,21 @@ Area *FilterProcess_CP_Wrapper::process(MT_t *mt_obj, Process_t *process_obj, Fi
 			args[i]->metadata = process_obj->metadata;
 			args[i]->mutators = process_obj->mutators;
 			args[i]->mutators_mpass = process_obj->mutators_mpass;
-			args[i]->ps_base = fp_cp_vector[i].ps_base.data();
+			args[i]->ps_base = fp_cp_vector[i].ps_base.get();
 			args[i]->ptr_private = new void *[cores];
 //			args[i]->ptr_private = new void *[size];
 			args[i]->cores = cores;
 			args[i]->cache = fp_cp_vector[i].cache;
-			args[i]->filter = (filter_obj->is_offline) ? NULL : fp_cp_vector[i].filter;
+			args[i]->filter = (filter_obj->is_offline) ? nullptr : fp_cp_vector[i].filter;
 //			if(filter_obj->fs_base_active && filter_obj->is_offline == false)
 			if(filter_obj->is_offline == false)
 				args[i]->fs_base = fp_cp_vector[i].fs_base;
 			else
-				args[i]->fs_base = NULL;
+				args[i]->fs_base = nullptr;
 			fp_cp_vector[i].fp_cp->filter_pre(args[i]);
 		}
 
-		y_flow = new QAtomicInt(0);
+		y_flow = new std::atomic_int(0);
 		for(int i = 0; i < cores; i++) {
 			tasks[i] = new task_t;
 			tasks[i]->flow_index = i;
@@ -170,7 +169,7 @@ void FilterProcess_CP_Wrapper::process(class SubFlow *subflow) {
 	int size = fp_cp_vector.size();
 	Mem m_mt(4 * sizeof(float));
 	float *mt = (float *)m_mt.ptr();
-	while((j = _mt_qatom_fetch_and_add(task->y_flow, 1)) < y_max) {
+	while((j = task->y_flow->fetch_add(1)) < y_max) {
 		int it_in = ((j + in_my1) * in_width + in_mx1) * 4;
 		if(task->destructive) {
 			for(int i = 0; i < x_max; i++) {

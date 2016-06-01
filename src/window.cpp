@@ -2,7 +2,7 @@
  * window.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -209,8 +209,8 @@ Window::~Window() {
 	delete edit;
 	delete edit_history;
 	delete browser;
-	delete batch;
 	delete process;
+	delete batch;
 }
 
 void Window::create_side_tabs(void) {
@@ -345,8 +345,8 @@ void Window::create_menu(void) {
 	t = addToolBar("Filters");
 //	t->addSeparator();
 	QList<QAction *> filters_actions = edit->get_actions();
-	for(QList<QAction *>::iterator it = filters_actions.begin(); it != filters_actions.end(); it++)
-		if((*it) == NULL)
+	for(QList<QAction *>::iterator it = filters_actions.begin(); it != filters_actions.end(); ++it)
+		if((*it) == nullptr)
 			t->addSeparator();
 		else
 			t->addAction(*it);

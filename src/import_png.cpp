@@ -2,7 +2,7 @@
  * import_png.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -55,7 +55,7 @@ QImage Import_PNG::thumb(Metadata *metadata, int thumb_width, int thumb_height) 
 	QImage qimage;
 	long length = 0;
 	uint8_t *data = Exiv2_load_thumb(file_name, thumb_width, thumb_height, length, metadata);
-	if(data != NULL) {
+	if(data != nullptr) {
 		// from Exif
 //		QImage qimage = QImage::fromData((const uchar *)data, length);
 		qimage.loadFromData((const uchar *)data, length);
@@ -64,7 +64,7 @@ QImage Import_PNG::thumb(Metadata *metadata, int thumb_width, int thumb_height) 
 	if(qimage.isNull() == true) {
 		// decompress image
 		Area *area = load_image(metadata, true);
-		if(area != NULL) {
+		if(area != nullptr) {
 			if(area->valid()) {
 /*
 				Area *area_scaled = area->scale(thumb_width, thumb_height, true);
@@ -103,9 +103,9 @@ Area *Import_PNG::image(Metadata *metadata) {
 }
 
 Area *Import_PNG::load_image(Metadata *metadata, bool is_thumb) {
-	png_struct *ptr_png_struct = NULL;
-	png_info *ptr_png_info = NULL;
-	png_byte *png_row = NULL;
+	png_struct *ptr_png_struct = nullptr;
+	png_info *ptr_png_info = nullptr;
+	png_byte *png_row = nullptr;
 
 	// --==--
 	metadata->rotation = 0;	// get real rotation with Exiv2
@@ -114,11 +114,11 @@ Area *Import_PNG::load_image(Metadata *metadata, bool is_thumb) {
 
 	// --==--
 	// load image - with contrib/pngminus/png2pnm.c sources of libpng as reference of usage
-	Area *area = NULL;
+	Area *area = nullptr;
 
 	FILE *infile;
-	if((infile = fopen(file_name.c_str(), "rb")) == NULL)
-		return NULL;	// can't open file
+	if((infile = fopen(file_name.c_str(), "rb")) == nullptr)
+		return nullptr;	// can't open file
 	try {
 		// check PNG signature
 		png_byte signature[8];
@@ -127,7 +127,7 @@ Area *Import_PNG::load_image(Metadata *metadata, bool is_thumb) {
 		if(png_sig_cmp(signature, 0, 8))
 			throw("is not a PNG file");	// is not a PNG file
 		// create png and info structure
-		ptr_png_struct = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+		ptr_png_struct = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
 		if(!ptr_png_struct)	throw("out of memory");	// out of memory
 		ptr_png_info = png_create_info_struct(ptr_png_struct);
 		if(!ptr_png_info)	throw("out of memory");	// out of memory
@@ -145,7 +145,7 @@ Area *Import_PNG::load_image(Metadata *metadata, bool is_thumb) {
 		// read the file information
 		png_read_info(ptr_png_struct, ptr_png_info);
 		// get size and bit-depth of the PNG-image
-		png_get_IHDR(ptr_png_struct, ptr_png_info, &width, &height, &bit_depth, &color_type, NULL, NULL, NULL);
+		png_get_IHDR(ptr_png_struct, ptr_png_info, &width, &height, &bit_depth, &color_type, nullptr, nullptr, nullptr);
 
 		bool alpha = false;
 		int channels;
@@ -168,14 +168,14 @@ Area *Import_PNG::load_image(Metadata *metadata, bool is_thumb) {
 		png_uint_32	row_bytes;
 		row_bytes = png_get_rowbytes(ptr_png_struct, ptr_png_info);
 		png_row = (png_byte *)new char[row_bytes * sizeof(png_byte)];
-		if(png_row == NULL)
+		if(png_row == nullptr)
 			throw(std::string("out of memory"));
 	
 		// read each row and convert to image
 		if(!is_thumb)
 			area = new Area(width, height);
 		else
-			area = new Area(width, height, Area::type_uint8_p4);    // ARGB 32bit
+			area = new Area(width, height, Area::type_t::type_uint8_p4);    // ARGB 32bit
 	if(area->valid()) {
 		float *ptr = (float *)area->ptr();
 		uint8_t *ptr_u = (uint8_t *)area->ptr();
@@ -192,7 +192,7 @@ Area *Import_PNG::load_image(Metadata *metadata, bool is_thumb) {
 			bc = 2;
 		}
 		for(int y = 0; y < height; y++) {
-			png_read_row(ptr_png_struct, png_row, NULL);
+			png_read_row(ptr_png_struct, png_row, nullptr);
 			for(int i = 0; i < width; i++) {
 				for(int j = 0; j < 3; j++) {
 //					unsigned v = png_row[i * channels + j];
@@ -237,23 +237,23 @@ Area *Import_PNG::load_image(Metadata *metadata, bool is_thumb) {
 		// read rest of file, and get additional chunks in ptr_png_info - REQUIRED
 		png_read_end(ptr_png_struct, ptr_png_info);
 		// clean up after the read, and free any memory allocated - REQUIRED
-		png_destroy_read_struct(&ptr_png_struct, &ptr_png_info, (png_infopp)NULL);
+		png_destroy_read_struct(&ptr_png_struct, &ptr_png_info, (png_infopp)nullptr);
 	} // if(area->valid())
 	} catch(const char *msg) {
-		if(area != NULL)
+		if(area != nullptr)
 			delete area;
-		area = NULL;
+		area = nullptr;
 		// try to process error message if any
 		cerr << "import PNG \"" << file_name.c_str() << "\" failed: " << msg << endl;
 	}
-	if(ptr_png_struct != NULL) {
-		if(ptr_png_info == NULL)
-			png_destroy_read_struct(&ptr_png_struct, NULL, NULL);
+	if(ptr_png_struct != nullptr) {
+		if(ptr_png_info == nullptr)
+			png_destroy_read_struct(&ptr_png_struct, nullptr, nullptr);
 		else
-			png_destroy_read_struct(&ptr_png_struct, &ptr_png_info, NULL);
+			png_destroy_read_struct(&ptr_png_struct, &ptr_png_info, nullptr);
 	}
 	fclose(infile);
-	if(png_row != NULL)
+	if(png_row != nullptr)
 		delete[] (char *)png_row;
 
 	if(is_thumb == false) {
@@ -279,7 +279,7 @@ Area *Import_PNG::load_image(Metadata *metadata, bool is_thumb) {
 Area *Import_PNG::convert_to_bayer(Metadata *metadata, Area *png) {
 	int w = png->mem_width() + 4;
 	int h = png->mem_height() + 4;
-	Area *area = new Area(w, h, Area::type_float_p1);
+	Area *area = new Area(w, h, Area::type_t::type_float_p1);
 	float *ptr_out = (float *)area->ptr();
 	float *ptr_in = (float *)png->ptr();
 	// prepare metadata

@@ -4,7 +4,7 @@
  * gui_ct.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
@@ -31,7 +31,7 @@ class GUI_CT : public QWidget {
 	Q_OBJECT
 
 public:
-	GUI_CT(GUI_CT_config config = GUI_CT_config(), QWidget *parent = NULL);
+	GUI_CT(GUI_CT_config config = GUI_CT_config(), QWidget *parent = nullptr);
 //	QSize sizeHint(void) const;
 
 	void set_temp(double cct, double duv);
@@ -81,7 +81,7 @@ public:
 		channels_lightness,		// one channel only shown as white
 	};
 
-	GUI_Curve(GUI_Curve::channels_type_en _channels_type, QWidget *parent = NULL);
+	GUI_Curve(GUI_Curve::channels_type_en _channels_type, QWidget *parent = nullptr);
 	void set_histogram(GUI_Histogram *_histogram);
 	QSize sizeHint(void) const;
 	void set_spline_options(int _left_type, float _left_df, int _right_type, float _right_df);

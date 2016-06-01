@@ -4,13 +4,15 @@
  * photo_storage.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
 
 
 #include <map>
+#include <mutex>
+#include <condition_variable>
 #include <ostream>
 #include <set>
 #include <string>
@@ -49,7 +51,7 @@ public:
 
 	static std::list<int> versions_list(std::string file_name);
 
-	static void version_create(Photo_ID photo_id, class PS_Loader *ps_loader = NULL);
+	static void version_create(Photo_ID photo_id, class PS_Loader *ps_loader = nullptr);
 	static void version_remove(Photo_ID photo_id);
 
 protected:
@@ -63,12 +65,12 @@ protected:
 	void load(Photo_ID photo_id, bool use_lock);
 	void save(QXmlStreamWriter &xml, int v_index);
 
-	static void lock(std::string file_name);
-	static void unlock(std::string file_name);
-	static QMutex ps_lock;
-	static QWaitCondition ps_lock_wait;
+	static void lock(std::string file_name, std::unique_lock<std::mutex> &mutex_locker);
+	static void unlock(std::string file_name, std::unique_lock<std::mutex> &mutex_locker);
+	static std::mutex ps_lock;
+	static std::condition_variable ps_lock_wait;
 	static std::set<std::string> ps_lock_set;
-	static void version_rearrange(Photo_ID photo_id, bool remove_not_create, class PS_Loader *ps_loader = NULL);
+	static void version_rearrange(Photo_ID photo_id, bool remove_not_create, class PS_Loader *ps_loader = nullptr);
 
 	static std::map<int, PS_Loader *> versions_load(std::string file_name, int index_to_skip);
 	static void versions_save(std::string file_name, std::map<int, PS_Loader *> &ps_map);
