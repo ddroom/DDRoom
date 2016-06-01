@@ -259,6 +259,7 @@ public:
 
 protected:
 	FP_Projection_Function *fp_projection;
+	float diagonal_scale;
 };
 
 FP_GP_Projection::FP_GP_Projection(const class Metadata *metadata, double strength, FP_Projection_Cache *cache) {
@@ -276,13 +277,13 @@ FP_GP_Projection::FP_GP_Projection(const class Metadata *metadata, double streng
 	if(focal_length < 0.01)		focal_length = 0.01;
 	if(focal_length > 500.0)	focal_length = 500.0;
 
-	float w2 = 0.5f * metadata->width;
-	float s2 = 0.5f * sensor[0];
-	float focal_length_px = (focal_length / s2) * w2;
-	float radians_per_pixel = atan(1.0f / focal_length_px);
-	double mw = 0.5l * metadata->width;
-	double mh = 0.5l * metadata->height;
-	double len = sqrt(mw * mw + mh * mh) * 1.2;
+	const float w2 = 0.5f * metadata->width;
+	const float s2 = 0.5f * sensor[0];
+	const float focal_length_px = (focal_length / s2) * w2;
+	const float radians_per_pixel = atan(1.0f / focal_length_px);
+	const double mw = 0.5l * metadata->width;
+	const double mh = 0.5l * metadata->height;
+	const double len = sqrt(mw * mw + mh * mh) * 1.2;
 
 	if(cache->fp_projection == NULL || (cache->radians_per_pixel != radians_per_pixel || cache->focal_length_px != focal_length_px)) {
 		if(cache->fp_projection != NULL)
@@ -299,6 +300,16 @@ cerr << "              max == " <<  len << endl;
 		cache->focal_length_px = focal_length_px;
 	}
 	fp_projection = cache->fp_projection;
+
+	const float h2 = 0.5f * metadata->height;
+	// check diagonal length
+	const float diagonal_original = sqrtf(w2 * w2 + h2 * h2);
+	diagonal_scale = 1.0f;
+	float proj_x, proj_y;
+	process_forward(w2, h2, proj_x, proj_y);
+	const float diagonal_proj = sqrtf(proj_x * proj_x + proj_y * proj_y);
+	diagonal_scale = diagonal_proj / diagonal_original;
+
 #if 0
 	// check function
 	float a[] = {750.0, 1000.0, 1155.0, 1500.0, 1735.0, 2000.0};
@@ -310,13 +321,17 @@ cerr << "              max == " <<  len << endl;
 }
 
 void FP_GP_Projection::process_forward(const float &in_x, const float &in_y, float &out_x, float &out_y) {
-	out_x = fp_projection->forward(in_x);
-	out_y = fp_projection->forward(in_y);
+//	out_x = fp_projection->forward(in_x);
+//	out_y = fp_projection->forward(in_y);
+	out_x = fp_projection->forward(in_x) / diagonal_scale;
+	out_y = fp_projection->forward(in_y) / diagonal_scale;
 }
 
 void FP_GP_Projection::process_backward(float &in_x, float &in_y, const float &out_x, const float &out_y) {
-	in_x = fp_projection->backward_tf(out_x);
-	in_y = fp_projection->backward_tf(out_y);
+//	in_x = fp_projection->backward_tf(out_x);
+//	in_y = fp_projection->backward_tf(out_y);
+	in_x = fp_projection->backward_tf(out_x) * diagonal_scale;
+	in_y = fp_projection->backward_tf(out_y) * diagonal_scale;
 }
 
 FP_Projection::FP_Projection(void) : FilterProcess_GP() {

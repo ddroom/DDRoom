@@ -1,4 +1,5 @@
 
+1.0.3.6 - F_Projection - added diagonal scaling factor to correct image scaling change - keep diagonal length the same;
 1.0.3.5 - F_Projection - used 'stereographic' projection instead of 'gnomonic';
 1.0.3.4 - Fixed undo/redo with 'white balance' and 'demosaic'.
 1.0.3.3 - Fixed undo/redo compression.
