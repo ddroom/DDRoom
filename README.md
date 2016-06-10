@@ -1,4 +1,4 @@
-DDRoom is a digital photo processing cross-platform desktop application with rich features, and emphasis on accuracy, performance and interactivity; released under a terms of the license GPL version 3. It was created from a scratch and released under GPLv3 license.
+DDRoom is a digital photo processing cross-platform desktop application with rich features, and emphasis on accuracy, performance and interactivity. It was created from a scratch, written on C++11 with Qt library and intense concurrency usage, and released under GPLv3 license.
 
 Some highlights of  that project:
 - custom Bayer demosaicing algorithm;
