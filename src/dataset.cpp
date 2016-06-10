@@ -301,7 +301,7 @@ string dataset_field_t::serialize(void) const {
 	if(type == type_vector_float) {
 		QVector<float> &ptr = *((QVector<float> *)value.v_ptr);
 		QString rez, str;
-		for(int i = 0; i < ptr.size(); i++) {
+		for(int i = 0; i < ptr.size(); ++i) {
 			str = "";
 			float v = ptr[i];
 			if(v <= 1.00001) {
@@ -319,7 +319,7 @@ string dataset_field_t::serialize(void) const {
 	if(type == type_vector_qpointf) {
 		QVector<QPointF> &ptr = *((QVector<QPointF> *)value.v_ptr);
 		QString rez, str;
-		for(int i = 0; i < ptr.size(); i++) {
+		for(int i = 0; i < ptr.size(); ++i) {
 			float x = ptr[i].x();
 			float y = ptr[i].y();
 			str = "%1, ";

@@ -209,7 +209,7 @@ bool Exiv2_load_metadata_image(Exiv2::Image::AutoPtr &image, class Metadata *met
 				"Exif.Minolta.LensID",
 			};
 			int count = sizeof(tags_str) / sizeof(std::string);
-			for(int i = 0; i < count; i++) {
+			for(int i = 0; i < count; ++i) {
 				if((it = exifData.findKey(Exiv2::ExifKey(tags_str[i]))) != it_end) {
 					ostringstream oss;
 					it->write(oss, &exifData).flush();
@@ -295,7 +295,7 @@ bool Exiv2_load_metadata_image(Exiv2::Image::AutoPtr &image, class Metadata *met
 	lfDatabase *ldb = System::instance()->ldb();
 	const lfCamera **cameras = ldb->FindCameras(metadata->camera_make.c_str(), metadata->camera_model.c_str());
 	if(cameras != nullptr) {
-		for(int i = 0; cameras[i]; i++) {
+		for(int i = 0; cameras[i]; ++i) {
 			if(cameras[i]->CropFactor != 0.0) {
 				metadata->sensor_crop = cameras[i]->CropFactor;
 				metadata->sensor_mm_width = 36.0 / metadata->sensor_crop;

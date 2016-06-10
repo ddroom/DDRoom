@@ -16,15 +16,15 @@ Metadata::Metadata(void) {
 	is_raw = false;
 
 	// signal statistics, for all types of photo
-	for(int i = 0; i < 3; i++) {
+	for(int i = 0; i < 3; ++i) {
 		c_max[i] = 1.0f;
 		c_scale_ref[i] = 1.0f;
 		c_scale_camera[i] = 1.0f;
 	}
 	c_scale_camera_valid = false;
-	for(int i = 0; i < 4096 * 4; i++)
+	for(int i = 0; i < 4096 * 4; ++i)
 		c_histogram[i] = 0;
-	for(int i = 0; i < 4; i++)
+	for(int i = 0; i < 4; ++i)
 		c_histogram_count[i] = 0;
 
 	// RAW
@@ -34,7 +34,7 @@ Metadata::Metadata(void) {
 	sensor_foveon = false;
 	sensor_fuji_45 = false;
 	sensor_xtrans = false;
-	for(int i = 0; i < 4; i++) {
+	for(int i = 0; i < 4; ++i) {
 //		demosaic_level_black[i] = 0.0;
 //		demosaic_level_white[i] = 0.0;
 		demosaic_import_prescale[i] = 1.0f;
@@ -44,19 +44,19 @@ Metadata::Metadata(void) {
 
 	// signal noise statistic
 /*
-	for(int i = 0; i < 4; i++) {
+	for(int i = 0; i < 4; ++i) {
 		black_pixels_level[i] = 0.0;
 		black_pixels_std_dev[i] = 0.0;
 	}
 */
 
 	// cRGB
-	for(int i = 0; i < 9; i++)
+	for(int i = 0; i < 9; ++i)
 		cRGB_to_XYZ[i] = 0.0;
 	cRGB_to_XYZ[0] = 1.0;
 	cRGB_to_XYZ[4] = 1.0;
 	cRGB_to_XYZ[8] = 1.0;
-	for(int i = 0; i < 9; i++)
+	for(int i = 0; i < 9; ++i)
 		cRGB_primaries[i] = 0.0;
 	CMS_Matrix::instance()->get_illuminant_XYZ("D65", cRGB_illuminant_XYZ);
 

@@ -258,11 +258,11 @@ void Saturation_Gamut::generate_s_limits(float *s_limits, const int resolution_h
 	QSet<int> indexes_blacklist;
 	int XYZ_locus_blacklist_size = 0;
 	int *XYZ_locus_blacklist = get_XYZ_locus_blacklist(XYZ_locus_blacklist_size);
-	for(int i = 0; i < XYZ_locus_blacklist_size; i++)
+	for(int i = 0; i < XYZ_locus_blacklist_size; ++i)
 		indexes_blacklist.insert(XYZ_locus_blacklist[i]);
 /*
 	const int indexes_size = sizeof(indexes_CAM02) / sizeof(int);
-	for(int i = 0; i < indexes_size; i++)
+	for(int i = 0; i < indexes_size; ++i)
 		indexes_blacklist.insert(indexes_CAM02[i]);
 */
 	// generate Jsh vector for most saturated edges of RGB cube
@@ -276,11 +276,11 @@ void Saturation_Gamut::generate_s_limits(float *s_limits, const int resolution_h
 	float *Jsh_h = new float[table_size];
 	float min_h = 2.0;
 	int min_h_index = 0;
-//	for(int i = 0; i < locus_size; i++) {
+//	for(int i = 0; i < locus_size; ++i) {
 	QMap<float, float> sh_map;
 	QMap<float, int> sh_map_i;
 	// sort by Hue
-	for(int i = 0; i < locus_size; i++) {
+	for(int i = 0; i < locus_size; ++i) {
 		if(indexes_blacklist.contains(i))
 			continue;
 		float XYZ[3];
@@ -334,14 +334,14 @@ cerr << "_s == " << _s << endl;
 	Jsh_s[table_size - 1] = _s;
 	Jsh_h[0] = 0.0;
 	Jsh_h[table_size - 1] = 1.0;
-//	for(int i = 0; i < table_size; i++)
+//	for(int i = 0; i < table_size; ++i)
 //cerr << "H == " << Jsh_h[i] << "; s == " << Jsh_s[i] << endl;
 	// then - remove pairs that caused 'holes', and add edges with interpolated values
 	min_h_index = (min_h_index == 0) ? (locus_size - 1) : (min_h_index - 1);
 	// and recreate interpolated Jsh vector for this edges with regular 'h' increase
 	int jsh_edge_size = resolution_h;
 	int rgb_i = min_h_index;
-	for(int i = 0; i < jsh_edge_size; i++) {
+	for(int i = 0; i < jsh_edge_size; ++i) {
 		float h = float(i) / (jsh_edge_size - 1);
 		while(true) {
 			int rgb_i_prev = rgb_i;
@@ -398,8 +398,8 @@ void Saturation_Gamut::generate_SGT(void) {
 	// generate Jsh vector for most saturated edges of RGB cube
 	float min_h = 2.0;
 	int min_h_index = 0;
-	for(int j = 0; j < 6; j++) {
-		for(int i = 0; i < i_max; i++) {
+	for(int j = 0; j < 6; ++j) {
+		for(int i = 0; i < i_max; ++i) {
 			float RGB[3];
 			RGB[0] = a_r[j] * i + b_r[j];
 			RGB[1] = a_g[j] * i + b_g[j];
@@ -421,7 +421,7 @@ void Saturation_Gamut::generate_SGT(void) {
 	// and recreate interpolated Jsh vector for this edges with regular 'h' increase
 	int jsh_edge_size = resolution_h;
 	int rgb_i = min_h_index;
-	for(int i = 0; i < jsh_edge_size; i++) {
+	for(int i = 0; i < jsh_edge_size; ++i) {
 		float h = float(i) / (jsh_edge_size - 1);
 		while(true) {
 			int rgb_i_prev = rgb_i;
@@ -454,7 +454,7 @@ void Saturation_Gamut::generate_SGT(void) {
 	int size_s = resolution_s;
 	const float step_j = 1.0 / (size_j - 1);
 	const float s_limit_max = 40.0;
-	for(int j = 0; j < size_h; j++) {
+	for(int j = 0; j < size_h; ++j) {
 		float _h = float(j) / (size_h - 1);
 		float _j_start = gamut_table->table_Js_h[j * 2 + 0];
 		float _s_start = gamut_table->table_Js_h[j * 2 + 1];
@@ -478,7 +478,7 @@ void Saturation_Gamut::generate_SGT(void) {
 		// 's', move up from the edge - on the bright side
 		i = ceilf(_j_start * (size_j - 1));
 		_s_prev = _s_start;
-		for(; i < size_j - 1; i++) {
+		for(; i < size_j - 1; ++i) {
 			float _j = float(i) * step_j;
 			float _s = search_s_bright(s_limit_max, _j, _h, _s_prev, 0.005);
 			_s_prev = _s;
@@ -824,17 +824,17 @@ bool Saturation_Gamut::_sgt_load(CM::cm_type_en _cm_type, std::string _cs_name) 
 	// fill s_Jh
 	const char *src = table_s_Jh.constData();
 	char *dst = (char *)gamut_table->table_s_Jh;
-	for(int i = 0; i < size_s_Jh; i++)
+	for(int i = 0; i < size_s_Jh; ++i)
 		dst[i] = src[i];
 	// fill J_sh
 	src = table_J_sh.constData();
 	dst = (char *)gamut_table->table_J_sh;
-	for(int i = 0; i < size_J_sh; i++)
+	for(int i = 0; i < size_J_sh; ++i)
 		dst[i] = src[i];
 	// fill Js_h
 	src = table_Js_h.constData();
 	dst = (char *)gamut_table->table_Js_h;
-	for(int i = 0; i < size_Js_h; i++)
+	for(int i = 0; i < size_Js_h; ++i)
 		dst[i] = src[i];
 
 	ifile.close();

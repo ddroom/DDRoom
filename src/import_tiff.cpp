@@ -66,7 +66,7 @@ Area *Import_TIFF::image(Metadata *metadata) {
 Area *Import_TIFF::load_image(Metadata *metadata, bool is_thumb) {
 	// --==--
 	metadata->rotation = 0;	// get real rotation with Exiv2
-	for(int i = 0; i < 3; i++)
+	for(int i = 0; i < 3; ++i)
 		metadata->c_max[i] = 0.0;
 
 	// --==--
@@ -132,7 +132,7 @@ Area *Import_TIFF::load_image(Metadata *metadata, bool is_thumb) {
 			cms_matrix->get_matrix_CS_to_XYZ(color_space, metadata->cRGB_to_XYZ);
 			TableFunction *gamma = cms_matrix->get_inverse_gamma(color_space);
 			uint8_t *raster_8 = (uint8_t *)raster;
-			for(int y = 0; y < height; y++) {
+			for(int y = 0; y < height; ++y) {
 				int pos_in = (height - 1 - y) * width * 4;
 				if(!use_read_rgba) {
 					// read next scanline
@@ -141,13 +141,13 @@ Area *Import_TIFF::load_image(Metadata *metadata, bool is_thumb) {
 						// error
 					pos_in = 0;
 				}
-				for(int x = 0; x < width; x++) {
+				for(int x = 0; x < width; ++x) {
 					float fv;
 					if(!is_thumb)
 						ptr[pos + 3] = 1.0;
 					else
 						ptr_u[pos + 3] = 0xFF;
-					for(int j = 0; j < samples_count; j++) {
+					for(int j = 0; j < samples_count; ++j) {
 						// read pixel
 						if(use_read_rgba) {
 							fv = float(raster_8[pos_in + j]) / 0xFF;

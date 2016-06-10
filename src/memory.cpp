@@ -131,7 +131,7 @@ Mem::Mem(Mem const &other) {
 	ptr_aligned = other.ptr_aligned;
 	if(other.mem_c != nullptr) {
 		other.mem_c->mutex.lock();
-		other.mem_c->counter++;
+		++other.mem_c->counter;
 		other.mem_c->mutex.unlock();
 	}
 	mem_c = other.mem_c;
@@ -146,7 +146,7 @@ Mem & Mem::operator = (const Mem & other) {
 		ptr_aligned = other.ptr_aligned;
 		if(other.mem_c != nullptr) {
 			other.mem_c->mutex.lock();
-			other.mem_c->counter++;
+			++other.mem_c->counter;
 			other.mem_c->mutex.unlock();
 		}
 		mem_c = other.mem_c;

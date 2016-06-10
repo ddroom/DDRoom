@@ -86,7 +86,7 @@ eh_record_t::eh_record_t(const QVector<eh_filter_record_t> &_filter_records) {
 		throw("incorrect creation of eh_record_t with empty vector of filter records");
 	description = QVector<QStringList>(count);
 	filter_records = QVector<eh_filter_record_t>(count);
-	for(int i = 0; i < count; i++) {
+	for(int i = 0; i < count; ++i) {
 		description[i] = _filter_records[i].get_description();
 		filter_records[i] = _filter_records[i];
 	}
@@ -232,7 +232,7 @@ cerr << "edit_history == nullptr" << endl;
 		painter->setPen(option.palette.color(QPalette::Normal, QPalette::Text));
 		r_x += 1;
 		painter->drawLine(r_x, r_y, r_x + r_w, r_y);
-		for(int i = 0; i < rh; i++) {
+		for(int i = 0; i < rh; ++i) {
 			int l = rh - i;
 			painter->drawLine(r_x, r_y + i, r_x + l, r_y + i);
 			painter->drawLine(r_x, r_y - i, r_x + l, r_y - i);
@@ -246,7 +246,7 @@ cerr << "edit_history == nullptr" << endl;
 		QString text_n;
 		int width_p = font_metrics.width("...");
 		int width_n = text_rect.width() - width_p;
-		for(QChar *q = text.data(); font_metrics.width(text_n) <= width_n; q++)
+		for(QChar *q = text.data(); font_metrics.width(text_n) <= width_n; ++q)
 		text_n += *q;
 		text_n.remove(text_n.length() - 1, 1);
 		text = text_n + "...";
@@ -289,7 +289,7 @@ cerr << "edit_history == nullptr" << endl;
 		r_h = fh;
 
 //cerr << "text_list.size() == " << text_list.size() << endl;
-		for(int i = 0; i < text_list.size() - 1; i++) {
+		for(int i = 0; i < text_list.size() - 1; ++i) {
 			text = text_list[1 + i];
 //cerr << "text == " << text.toLatin1().data() << endl;
 			if(i % 3 == 0) {
@@ -466,7 +466,7 @@ cerr << "nullptr; qm_index.row() == " << qm_index.row() << endl;
 cerr << "...1  qm_index.row() == " << qm_index.row() << endl;
 cerr << "p->size() == " << p->size() << endl;
 			
-			for(int i = 0; i < p->size(); i++)
+			for(int i = 0; i < p->size(); ++i)
 				l.push_back(QVariant((*p)[i]));
 cerr << "...2" << endl;
 		}
@@ -483,7 +483,7 @@ cerr << "...2" << endl;
 		} else {
 //cerr << "...1  qm_index.row() == " << qm_index.row() << endl;
 //cerr << "p->size() == " << p->size() << endl;
-			for(int i = 0; i < p->size(); i++)
+			for(int i = 0; i < p->size(); ++i)
 				l += (*p)[i];
 //cerr << "...2" << endl;
 		}
@@ -647,17 +647,17 @@ void EditHistory::add_eh_filter_records(const QVector<eh_filter_record_t> &filte
 		if(ddr::abs(last_record.time.msecsTo(record.time)) <= compression_time_delta) {
 			// check filters
 			std::set<std::string> set_1;
-			for(int i = 0; i < last_record.filter_records.size(); i++)
+			for(int i = 0; i < last_record.filter_records.size(); ++i)
 				set_1.insert(last_record.filter_records[i].filter->id().c_str());
 			std::set<std::string> set_2;
-			for(int i = 0; i < record.filter_records.size(); i++)
+			for(int i = 0; i < record.filter_records.size(); ++i)
 				set_2.insert(record.filter_records[i].filter->id().c_str());
 			if(set_1 == set_2) {
 				add_record = false;
 				// relplace 'field_after' for record at the top of 'history_before', to do an actual compression
-				for(int i = 0; i < last_record.filter_records.size(); i++) {
+				for(int i = 0; i < last_record.filter_records.size(); ++i) {
 					eh_filter_record_t &fr_last = last_record.filter_records[i];
-					for(int j = 0; j < record.filter_records.size(); j++) {
+					for(int j = 0; j < record.filter_records.size(); ++j) {
 						if(record.filter_records[j].filter->id() == fr_last.filter->id()) {
 							//--
 							eh_filter_record_t &fr = record.filter_records[j];
@@ -681,7 +681,7 @@ void EditHistory::add_eh_filter_records(const QVector<eh_filter_record_t> &filte
 		edit_history->h_before.push_back(record);
 #if 0
 cerr << "add record" << endl;
-		for(int i = 0; i < filter_records.size(); i++) {
+		for(int i = 0; i < filter_records.size(); ++i) {
 			const std::list<class field_delta_t> &deltas = filter_records[i].deltas;
 			for(std::list<class field_delta_t>::const_iterator it = deltas.begin(); it != deltas.end(); ++it) {
 cerr << "field: " << (*it).field_name << endl;

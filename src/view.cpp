@@ -16,6 +16,7 @@ TODO:
 	- Check after photo open for possibly lost resize event, and do update if necessary.
 */
 
+#include <algorithm>
 #include <iostream>
 #include <mutex>
 
@@ -39,6 +40,9 @@ TODO:
 //#define RESIZE_UPDATE_DELAY__MS	500
 //#define RESIZE_UPDATE_DELAY__MS	50
 #define RESIZE_UPDATE_DELAY__MS	40
+
+//#define ZOOM_WHEEL_STEPS_COUNT 10
+#define ZOOM_WHEEL_STEPS_COUNT 40
 
 using namespace std;
 
@@ -134,18 +138,18 @@ public:
 //	int height;
 
 	// tiles
-	QVector<int> tiles_len_x;
-	QVector<int> tiles_len_y;
-	QVector<Area *> tiles_areas;
-	QVector<QPixmap *> tiles_pixmaps;
-	QList<QPixmap *> tiles_pixmaps_to_delete;
+	std::vector<int> tiles_len_x;
+	std::vector<int> tiles_len_y;
+	std::vector<Area *> tiles_areas;
+	std::vector<QPixmap *> tiles_pixmaps;
+	std::list<QPixmap *> tiles_pixmaps_to_delete;
 	int rotation;	// should be equal to photo->cw_rotation, otherwise - pixmaps should be rotated accordingly
 
 	// tiles description according to rotation
-	QVector<int> tiles_d_len_x;
-	QVector<int> tiles_d_len_y;
-	QVector<int> tiles_d_index_map;
-	QVector<int> arrange_tiles_indexes(QVector<int> &raw_index_vector);
+	std::vector<int> tiles_d_len_x;
+	std::vector<int> tiles_d_len_y;
+	std::vector<int> tiles_d_index_map;
+	std::vector<int> arrange_tiles_indexes(std::vector<int> &raw_index_vector);
 	void rotate_tiles_plus_90(void);
 	int d_rotation;	// rotation of tiles descriptors, not pixmaps
 
@@ -177,10 +181,10 @@ image_t::image_t(void) {
 	thumb_pixmap = nullptr;
 	thumb_scaled = QPixmap();
 	is_empty = true;
-	tiles_len_x = QVector<int>(0);
-	tiles_len_y = QVector<int>(0);
-	tiles_d_len_x = QVector<int>(0);
-	tiles_d_len_y = QVector<int>(0);
+	tiles_len_x = std::vector<int>(0);
+	tiles_len_y = std::vector<int>(0);
+	tiles_d_len_x = std::vector<int>(0);
+	tiles_d_len_y = std::vector<int>(0);
 	rotation = 0;
 	offset_x = 0;
 	offset_y = 0;
@@ -206,7 +210,7 @@ void image_t::reset_thumb(void) {
 //	if(thumb_pixmap != nullptr)
 //		delete thumb_pixmap;
 	if(thumb_pixmap != nullptr)
-		tiles_pixmaps_to_delete.append(thumb_pixmap);
+		tiles_pixmaps_to_delete.push_back(thumb_pixmap);
 	thumb_pixmap = nullptr;
 	thumb_scaled = QPixmap();
 	if(thumb_area != nullptr)
@@ -224,24 +228,24 @@ void image_t::reset_tiles(bool deferred) {
 //	bool lock_flag = lock.tryLock();
 	lock.lock();
 	d_rotation = 0;
-	tiles_len_x = QVector<int>(0);
-	tiles_len_y = QVector<int>(0);
-	tiles_d_len_x = QVector<int>(0);
-	tiles_d_len_y = QVector<int>(0);
-	for(int i = 0; i < tiles_areas.size(); i++)
+	tiles_len_x = std::vector<int>(0);
+	tiles_len_y = std::vector<int>(0);
+	tiles_d_len_x = std::vector<int>(0);
+	tiles_d_len_y = std::vector<int>(0);
+	for(int i = 0; i < tiles_areas.size(); ++i)
 		if(tiles_areas[i] != nullptr)
 			delete tiles_areas[i];
-	tiles_areas = QVector<Area *>(0);
+	tiles_areas = std::vector<Area *>(0);
 	if(deferred == false) {
-		for(int i = 0; i < tiles_pixmaps.size(); i++)
+		for(int i = 0; i < tiles_pixmaps.size(); ++i)
 			if(tiles_pixmaps[i] != nullptr)
 				delete tiles_pixmaps[i];
 	} else {
-		for(int i = 0; i < tiles_pixmaps.size(); i++)
-			tiles_pixmaps_to_delete.append(tiles_pixmaps[i]);
+		for(int i = 0; i < tiles_pixmaps.size(); ++i)
+			tiles_pixmaps_to_delete.push_back(tiles_pixmaps[i]);
 	}
-	tiles_pixmaps = QVector<QPixmap *>(0);
-	tiles_d_index_map = QVector<int>(0);
+	tiles_pixmaps = std::vector<QPixmap *>(0);
+	tiles_d_index_map = std::vector<int>(0);
 //	if(lock_flag)
 //		lock.unlock();
 	lock.unlock();
@@ -255,25 +259,27 @@ void image_t::reset_tiles_deferred(void) {
 void image_t::reset_tiles_deferred_execute(void) {
 //	bool lock_flag = lock.tryLock();
 	lock.lock();
-	while(!tiles_pixmaps_to_delete.isEmpty())
-		delete tiles_pixmaps_to_delete.takeFirst();
+	while(!tiles_pixmaps_to_delete.empty()) {
+		delete tiles_pixmaps_to_delete.front();
+		tiles_pixmaps_to_delete.pop_front();
+	}
 //	if(lock_flag)
 //		lock.unlock();
 	lock.unlock();
 }
 
 // !!! destructive on argument
-QVector<int> image_t::arrange_tiles_indexes(QVector<int> &raw_index_vector) {
-	QVector<int> arranged_index_list;
+std::vector<int> image_t::arrange_tiles_indexes(std::vector<int> &raw_index_vector) {
+	std::vector<int> arranged_index_list;
 //	bool flag_lock = lock.tryLock();
 	lock.lock();
 	int raw_count = raw_index_vector.size();
 	int count = tiles_d_index_map.size();
-	for(int i = 0; i < count; i++) {
+	for(int i = 0; i < count; ++i) {
 		int sorted_index = tiles_d_index_map[i];
-		for(int j = 0; j < raw_count; j++) {
+		for(int j = 0; j < raw_count; ++j) {
 			if(raw_index_vector[j] == sorted_index) {
-				arranged_index_list.append(sorted_index);
+				arranged_index_list.push_back(sorted_index);
 				raw_index_vector[j] = -1;
 				break;
 			}
@@ -292,17 +298,17 @@ void image_t::rotate_tiles_plus_90(void) {
 	int h_in = tiles_d_len_y.size();
 	int w_out = h_in;
 	int h_out = w_in;
-	QVector<int> tv = tiles_d_len_y;
+	std::vector<int> tv = tiles_d_len_y;
 	tiles_d_len_y = tiles_d_len_x;
 	tiles_d_len_x = tv;
-	for(int i = 0; i < tv.size(); i++)
+	for(int i = 0; i < tv.size(); ++i)
 		tiles_d_len_x[i] = tv[tv.size() - i - 1];
-	QVector<int> tv_i(w_out * h_out);
-	QVector<Tile_t> tv_t;
+	std::vector<int> tv_i(w_out * h_out);
+	std::vector<Tile_t> tv_t;
 //cerr << endl << endl;
 //cerr << "========         rotate_tiles_plus_90(): ";
-	for(int y_out = 0; y_out < h_out; y_out++) {
-		for(int x_out = 0; x_out < w_out; x_out++) {
+	for(int y_out = 0; y_out < h_out; ++y_out) {
+		for(int x_out = 0; x_out < w_out; ++x_out) {
 			int x_in = y_out;
 			int y_in = (w_out - 1) - x_out;
 			int i_in = x_in + w_in * y_in;
@@ -625,7 +631,7 @@ void View::set_zoom(zoom_t zoom_type, float zoom_scale, bool flag_center, int vp
 	image->zoom_scale = zoom_scale;
 	// --
 	image->lock.lock();
-	// remove tiles to avoid garbage drawing
+	// remove tiles to avoid possible garbage drawing (i.e. tiles from a previous requests)
 	image->reset_tiles();
 	if(image->is_empty) {
 		image->lock.unlock();
@@ -829,7 +835,7 @@ void View::update_rotation(bool clockwise) {
 	image->thumb_scaled = QPixmap();
 	// if 'image->scale == false' - rotate tiles and update center position;
 	// reset tiles and emit update as whith resize otherwise.
-	for(int i = 0; i < image->tiles_pixmaps.size(); i++) {
+	for(int i = 0; i < image->tiles_pixmaps.size(); ++i) {
 		if(image->tiles_pixmaps[i] != nullptr) {
 			*image->tiles_pixmaps[i] = rotate_pixmap(image->tiles_pixmaps[i], angle);
 		}
@@ -958,7 +964,7 @@ void View::slot_update_image(void) {
 		to_update = true;
 	}
 	// check tiles
-	for(int i = 0; i < image->tiles_areas.size(); i++) {
+	for(int i = 0; i < image->tiles_areas.size(); ++i) {
 		if(image->tiles_areas[i] != nullptr) {
 			if(image->tiles_pixmaps[i] != nullptr)
 				delete image->tiles_pixmaps[i];
@@ -1025,7 +1031,7 @@ cerr << "~~~~~~~~~        View::draw(): image->rotation == " << image->rotation 
 		int y1 = -image->offset_y;
 		int y2 = y1 + viewport_h;
 //cerr << "draw: x1 == " << x1 << "; x2 == " << x2 << "; y1 == " << y1 << "; y2 == " << y2 << endl;
-		for(int pass = 0; pass < 2; pass++) {
+		for(int pass = 0; pass < 2; ++pass) {
 			// first pass - check that all tiles are ready, draw thumb otherwise;
 			// second pass - draw tiles;
 			int c = 0;
@@ -1033,10 +1039,10 @@ cerr << "~~~~~~~~~        View::draw(): image->rotation == " << image->rotation 
 			int count_x = image->tiles_d_len_x.size();
 			int count_y = image->tiles_d_len_y.size();
 			bool draw_thumb = (count_x * count_y == 0);
-			for(int y = 0; y < count_y; y++) {
+			for(int y = 0; y < count_y; ++y) {
 				bool skip_y = (y_off + image->tiles_d_len_y[y] < y1 || y_off > y2);
 				int x_off = 0;
-				for(int x = 0; x < count_x; x++) {
+				for(int x = 0; x < count_x; ++x) {
 					bool skip_x = (x_off + image->tiles_d_len_x[x] < x1 || x_off > x2);
 					if(!skip_x && !skip_y) {
 						int index = image->tiles_d_index_map[c];
@@ -1167,7 +1173,7 @@ cerr << "      pixmap size: " << tp.width() << "x" << tp.height() << endl;
 			QPen(QColor(255, 255, 255, 31), 3.0),
 			QPen(QColor(0, 0, 0, 63), 1.0),
 		};
-		for(int i = 0; i < 2; i++) {
+		for(int i = 0; i < 2; ++i) {
 			painter->setPen(pens_strong[i]);
 			painter->drawLine(( 2.0 / 12.0) * viewport_w, 0.0, ( 2.0 / 12.0) * viewport_w, ye);
 			painter->drawLine(( 4.0 / 12.0) * viewport_w, 0.0, ( 4.0 / 12.0) * viewport_w, ye);
@@ -1364,14 +1370,14 @@ void View::process_deferred_tiles(void) {
 	bool process_flag = false;
 	int count_x = image->tiles_len_x.size();
 	int count_y = image->tiles_len_y.size();
-	QVector<int> raw_index_vector;
-	for(int y = 0; y < count_y; y++) {
+	std::vector<int> raw_index_vector;
+	for(int y = 0; y < count_y; ++y) {
 		bool skip_y = (y_off + image->tiles_len_y[y] < y1 || y_off > y2);
 		int x_off = 0;
-		for(int x = 0; x < count_x; x++) {
+		for(int x = 0; x < count_x; ++x) {
 			bool skip_x = (x_off + image->tiles_len_x[x] < x1 || x_off > x2);
 			if(!skip_x && !skip_y && (image->tiles_pixmaps[c] == nullptr && image->tiles_areas[c] == nullptr)) {
-				raw_index_vector.append(c);
+				raw_index_vector.push_back(c);
 /*
 //				image->lock.lock();
 				tiles_descriptor.index_list_lock.lock();
@@ -1388,11 +1394,13 @@ void View::process_deferred_tiles(void) {
 		}
 		y_off += image->tiles_len_y[y];
 	}
-	QVector<int> tiles_i = image->arrange_tiles_indexes(raw_index_vector);
+	std::vector<int> tiles_i = image->arrange_tiles_indexes(raw_index_vector);
 	tiles_descriptor.index_list_lock.lock();
-	for(int i = 0; i < tiles_i.size(); i++) {
+	for(int i = 0; i < tiles_i.size(); ++i) {
 		int index = tiles_i[i];
-		if(!tiles_descriptor.index_list.contains(index)) {
+//		if(!tiles_descriptor.index_list.contains(index)) {
+		auto &ref = tiles_descriptor.index_list;
+		if(std::find(ref.begin(), ref.end(), index) == ref.end()) {
 			tiles_descriptor.index_list.push_front(index);
 //			tiles_descriptor.index_list.push_back(index);
 			process_flag = true;
@@ -1487,7 +1495,8 @@ void View::wheelEvent(QWheelEvent *event) {
 		image->lock.unlock();
 		return;
 	}
-	const int steps_count = 10;
+	// how much wheel steps are needed to switch zoom from '1:1' to 'fit'
+	const int steps_count = ZOOM_WHEEL_STEPS_COUNT;
 	int steps = event->angleDelta().y() / 120;
 	int im_w = image->dimensions_unscaled.width();
 	int im_h = image->dimensions_unscaled.height();
@@ -1504,30 +1513,14 @@ void View::wheelEvent(QWheelEvent *event) {
 		s_min = viewport_h;
 		s_now = s_h;
 	}
-#if 0
-	// version with linear view angle increase
-//	float focus = (40.0 / 36.0) * s_max;
-//	float focus = (200.0 / 36.0) * s_max;
-	float focus = (1000.0 / 36.0) * s_max;
-	float a_max = atanf((s_max * 0.5) / focus);
-	float a_min = atanf((s_min * 0.5) / focus);
-	float a_now = atanf((s_now * 0.5) / focus);
-
-	float a_step = (a_max - a_min) / steps_count;
-	int i = (a_now - a_min) / a_step + 0.5;
-	float a_new = a_min + a_step * (i + steps);
-	float s_new = tan(a_new) * focus * 2.0;
-#else
-	// version with pixels linear steps
+	// pixels linear steps
 	float s_step = s_max - s_min;
 	s_step /= steps_count;
 	int i = (s_now - s_min) / s_step + 0.5;
 	float s_new = s_min + s_step * (i + steps);
-#endif
 	//--
 //cerr << "  i == " << i << "; steps == " << steps << "; s_max == " << s_max << "; s_now == " << s_now << "; s_new == " << s_new << endl;
 	zoom_t new_zoom = zoom_t::zoom_custom;
-//	float new_scale = s_max / s_new;
 	float new_scale = s_new / s_max;
 	if(s_new >= s_max) {
 		new_zoom = zoom_t::zoom_100;
@@ -1543,27 +1536,6 @@ void View::wheelEvent(QWheelEvent *event) {
 	set_zoom(new_zoom, new_scale * 100.0, false, event->x(), event->y());
 	emit signal_zoom_ui_update();
 //cerr << "mouse wheel: done" << endl;
-/*
-	// deprecated - wheel used for scrolling - now it used for zoom
-	event->accept();
-	if(image->zoom_type == zoom_t::zoom_fit)
-		return;
-	int numDegrees = event->delta() / 2;
-	int numSteps = numDegrees;
-
-	int _x = image->offset_x;
-	int _y = image->offset_y;
-	if(event->orientation() == Qt::Horizontal)
-		image->offset_x += numSteps;
-	else
-		image->offset_y += numSteps;
-	// normalize it
-	normalize_offset();
-	if(_x != image->offset_x || _y != image->offset_y) {
-		scrollbars_update();
-		process_deferred_tiles();
-	}
-*/
 }
 
 void View::scroll_x_changed(int x) {
@@ -1651,11 +1623,18 @@ void View::receive_tile(Tile_t *tile, bool is_thumb) {
 	bool was_in_request = false;
 	request_ID_lock.lock();
 	was_in_request |= (tile->request_ID == request_ID);
-	for(int i = 0; i < request_IDs.size(); i++) 
+	for(auto it = request_IDs.begin(); it != request_IDs.end(); ++it)
+		if(tile->request_ID == *it) {
+			was_in_request = true;
+			break;
+		}
+/*
+	for(int i = 0; i < request_IDs.size(); ++i) 
 		if(tile->request_ID == request_IDs.at(i)) {
 			was_in_request = true;
 			break;
 		}
+*/
 	int ID = request_ID;
 	request_ID_lock.unlock();
 	// keep thumb to provide feedback on fast settings change via UI
@@ -1785,19 +1764,18 @@ cerr << "View::get_tiles(): photo->cw_rotation == " << photo->cw_rotation << end
 //cerr << "View::get_tiles(): is_thumb == " << is_thumb << " d->position.px_size == " << d->position.px_size << endl;
 	tiles_descriptor.reset();
 	TilesDescriptor_t *t = &tiles_descriptor;
-	float scale_factor_x = image->scale_x;
-	float scale_factor_y = image->scale_y;
 	if(is_thumb) {
 //cerr << "TilesReceiver::get_tiles(): position.x-y == " << d->position.x << ", " << d->position.y << endl;
 		t = TilesReceiver::get_tiles(d, cw_rotation, is_thumb);
 		return t;
 	}
-	t->scale_factor_x = scale_factor_x;
-	t->scale_factor_y = scale_factor_y;
+	t->receiver = this;
+	t->scale_factor_x = image->scale_x;
+	t->scale_factor_y = image->scale_y;
 /*
 cerr << "View::get_tiles(): position.x-y == " << image->dimensions_scaled.position.x << ", " << image->dimensions_scaled.position.y << endl;
-cerr << "scale_factor_x == " << scale_factor_x << endl;
-cerr << "scale_factor_y == " << scale_factor_y << endl;
+cerr << "t->scale_factor_x == " << t->scale_factor_x << endl;
+cerr << "t->scale_factor_y == " << t->scale_factor_y << endl;
 cerr << "position.px_size_x == " << image->dimensions_scaled.position.px_size_x << endl;
 cerr << "position.px_size_y == " << image->dimensions_scaled.position.px_size_y << endl;
 */
@@ -1806,7 +1784,6 @@ cerr << "position.px_size_y == " << image->dimensions_scaled.position.px_size_y 
 	int height = image->dimensions_scaled.height();
 //cerr << "image->dimensions_scaled == " << image->dimensions_scaled.width() << "x" << image->dimensions_scaled.height() << endl;
 //cerr << "w-h == " << width << "x" << height << endl;
-	t->receiver = this;
 	t->post_width = width;
 	t->post_height = height;
 	int tiles_count[2] = {0, 0};
@@ -1820,7 +1797,6 @@ cerr << "position.px_size_y == " << image->dimensions_scaled.position.px_size_y 
 	int hc[3] = {0, 0, 0};
 	int *hm[3] = {nullptr, nullptr, nullptr};
 
-// TODO: determine correct window when "rotation != 0"
 	int offsets[2];
 	offsets[0] = image->offset_x;
 	offsets[1] = image->offset_y;
@@ -1860,7 +1836,7 @@ cerr << "height == " << height << endl;
 	int *dca[2] = {wc, hc};
 	int **dma[2] = {wm, hm};
 	int weight_max = 0;
-	for(int i = 0; i < 2; i++) {
+	for(int i = 0; i < 2; ++i) {
 		// determine viewed window
 		int d1 = 0;
 		int d2 = in_size[i];
@@ -1881,7 +1857,7 @@ cerr << "height == " << height << endl;
 		int *dc = dca[i];
 		int **dm = dma[i];
 		int c = 0;
-		for(int j = 0; j < 3; j++) {
+		for(int j = 0; j < 3; ++j) {
 //cerr << "i == " << i << ", d[" << j << "] == " << d[j] << endl;
 			if(d[j] == 0)	continue;
 			dc[j] = split_line(d[j], &dm[j]);
@@ -1891,9 +1867,9 @@ cerr << "height == " << height << endl;
 		tiles_length[i] = new int[c];
 		tiles_weight[i] = new int[c];
 		int index = 0;
-		for(int j = 0; j < 3; j++) {
+		for(int j = 0; j < 3; ++j) {
 			int *p = dm[j];
-			for(int k = 0; k < dc[j]; k++) {
+			for(int k = 0; k < dc[j]; ++k) {
 				int weight = 0;
 				if(j == 0)
 					weight = dc[j] - k;
@@ -1911,30 +1887,30 @@ cerr << "height == " << height << endl;
 
 	// prepare tiles
 	int count = tiles_count[0] * tiles_count[1];
-	t->tiles = QVector<Tile_t>(count);
+	t->tiles = std::vector<Tile_t>(count);
 	int index= 0;
 	int y_off = 0;
 	int *weights = new int[weight_max];
 /*
 cerr << "x weights: ";
-for(int i = 0; i < tiles_count[0]; i++)
+for(int i = 0; i < tiles_count[0]; ++i)
 	cerr << tiles_weight[0][i] << ", ";
 cerr << endl;
 cerr << "y weights: ";
-for(int i = 0; i < tiles_count[1]; i++)
+for(int i = 0; i < tiles_count[1]; ++i)
 	cerr << tiles_weight[1][i] << ", ";
 cerr << endl;
 */
 //	cerr << "INDEXES of tiles with weight LESS than 1: ";
 //cerr << endl << endl;
 //cerr << "raw indexes: ";
-	for(int i = 0; i < weight_max; i++)
+	for(int i = 0; i < weight_max; ++i)
 		weights[i] = 0;
-//	QList<int> raw_index_list;
-	QVector<int> raw_index_vector;
-	for(int y = 0; y < tiles_count[1]; y++) {
+//	std::list<int> raw_index_list;
+	std::vector<int> raw_index_vector;
+	for(int y = 0; y < tiles_count[1]; ++y) {
 		int x_off = 0;
-		for(int x = 0; x < tiles_count[0]; x++) {
+		for(int x = 0; x < tiles_count[0]; ++x) {
 			Area::t_dimensions &dimensions = t->tiles[index].dimensions_post;
 			dimensions = image->dimensions_scaled;
 			dimensions.edges_offset_x1(x_off);
@@ -1950,7 +1926,7 @@ cerr << endl;
 			weights[weight]++;
 			// process only tiles that are visible in View
 			if(weight < 1)
-				raw_index_vector.append(index);
+				raw_index_vector.push_back(index);
 //cerr << index << "-" << weight << ", ";
 			//--
 			index++;
@@ -1963,29 +1939,29 @@ cerr << endl;
 	// fill image_t
 	image->lock.lock();
 	image->reset_tiles_deferred();
-	image->tiles_len_x = QVector<int>(tiles_count[0]);
-	for(int i = 0; i < tiles_count[0]; i++)
+	image->tiles_len_x = std::vector<int>(tiles_count[0]);
+	for(int i = 0; i < tiles_count[0]; ++i)
 		image->tiles_len_x[i] = tiles_length[0][i];
-	image->tiles_len_y = QVector<int>(tiles_count[1]);
-	for(int i = 0; i < tiles_count[1]; i++)
+	image->tiles_len_y = std::vector<int>(tiles_count[1]);
+	for(int i = 0; i < tiles_count[1]; ++i)
 		image->tiles_len_y[i] = tiles_length[1][i];
 	//--
 	int tiles_size = tiles_count[0] * tiles_count[1];
-	image->tiles_areas = QVector<Area *>(tiles_size);
-	image->tiles_pixmaps = QVector<QPixmap *>(tiles_size);
-	image->tiles_d_index_map = QVector<int>(tiles_size);
-	for(int i = 0; i < tiles_size; i++) {
+	image->tiles_areas = std::vector<Area *>(tiles_size);
+	image->tiles_pixmaps = std::vector<QPixmap *>(tiles_size);
+	image->tiles_d_index_map = std::vector<int>(tiles_size);
+	for(int i = 0; i < tiles_size; ++i) {
 		image->tiles_areas[i] = nullptr;
 		image->tiles_pixmaps[i] = nullptr;
 		image->tiles_d_index_map[i] = i;
 	}
 	image->lock.unlock();
 	// cleanup
-	for(int i = 0; i < 3; i++) {
+	for(int i = 0; i < 3; ++i) {
 		if(wm[i] != nullptr)	delete[] wm[i];
 		if(hm[i] != nullptr)	delete[] hm[i];
 	}
-	for(int i = 0; i < 2; i++) {
+	for(int i = 0; i < 2; ++i) {
 		if(tiles_length[i] != nullptr)	delete[] tiles_length[i];
 		if(tiles_weight[i] != nullptr)	delete[] tiles_weight[i];
 	}
@@ -1997,11 +1973,11 @@ cerr << endl;
 	while(image->d_rotation != cw_rotation)
 		image->rotate_tiles_plus_90();
 	// append arranged tiles to process
-	QVector<int> arranged_index_list = image->arrange_tiles_indexes(raw_index_vector);
+	std::vector<int> arranged_index_list = image->arrange_tiles_indexes(raw_index_vector);
 	
 	t->index_list_lock.lock();
-	for(int i = 0; i < arranged_index_list.size(); i++)
-		t->index_list.append(arranged_index_list[i]);
+	for(int i = 0; i < arranged_index_list.size(); ++i)
+		t->index_list.push_back(arranged_index_list[i]);
 	t->index_list_lock.unlock();
 //cerr << "GET_TILES;    image->rotation == " << image->rotation << endl;
 //cerr << "GET_TILES; photo->cw_rotation == " << photo->cw_rotation << endl;
@@ -2014,7 +1990,7 @@ cerr << "tiles_size == " << tiles_size << endl;
 cerr << "count == " << count << endl;
 cerr << "t->tiles.size() == " << t->tiles.size() << endl;
 cerr << "t->tiles[0].index == " << t->tiles[0].index << endl;
-for(int i = 0; i < t->tiles.size(); i++) {
+for(int i = 0; i < t->tiles.size(); ++i) {
 cerr << "tile: " << i << endl;
 cerr << "    dimensions.edges.x1 == " << t->tiles[i].dimensions_post.edges.x1 << endl;
 cerr << "    dimensions.edges.x2 == " << t->tiles[i].dimensions_post.edges.x2 << endl;
@@ -2051,16 +2027,16 @@ QPixmap View::rotate_pixmap(QPixmap *pixmap, int angle) {
 	Area out(out_w, out_h, Area::type_t::type_uint8_p4);
 	uint32_t *p_out = (uint32_t *)out.ptr();
 	if(angle == -90)
-		for(int y = 0; y < h; y++)
-			for(int x = 0; x < w; x++)
+		for(int y = 0; y < h; ++y)
+			for(int x = 0; x < w; ++x)
 				p_out[out_w * (w - x - 1) + y] = p_in[i_w * y + x];
 	if(angle == 90)
-		for(int y = 0; y < h; y++)
-			for(int x = 0; x < w; x++)
+		for(int y = 0; y < h; ++y)
+			for(int x = 0; x < w; ++x)
 				p_out[out_w * x + h - y - 1] = p_in[i_w * y + x];
 	if(angle == 180)
-		for(int y = 0; y < h; y++)
-			for(int x = 0; x < w; x++)
+		for(int y = 0; y < h; ++y)
+			for(int x = 0; x < w; ++x)
 				p_out[out_w * (h - y - 1) + w - x - 1] = p_in[i_w * y + x];
 	QPixmap px = QPixmap(QPixmap::fromImage(QImage((uchar *)out.ptr(), out_w, out_h, out_w * 4, QImage::Format_ARGB32)));
 	return px;
@@ -2068,16 +2044,16 @@ QPixmap View::rotate_pixmap(QPixmap *pixmap, int angle) {
 /*
 	QImage image_out(out_w, out_h, image_in.format());
 	if(angle == 90)
-		for(int y = 0; y < h; y++)
-			for(int x = 0; x < w; x++)
+		for(int y = 0; y < h; ++y)
+			for(int x = 0; x < w; ++x)
 				image_out.setPixel(h - y - 1, x, image_in.pixel(x, y));
 	if(angle == -90)
-		for(int y = 0; y < h; y++)
-			for(int x = 0; x < w; x++)
+		for(int y = 0; y < h; ++y)
+			for(int x = 0; x < w; ++x)
 				image_out.setPixel(y, w - x - 1, image_in.pixel(x, y));
 	if(angle == 180)
-		for(int y = 0; y < h; y++)
-			for(int x = 0; x < w; x++)
+		for(int y = 0; y < h; ++y)
+			for(int x = 0; x < w; ++x)
 				image_out.setPixel(w - x - 1, h - y - 1, image_in.pixel(x, y));
 	return QPixmap::fromImage(image_out);
 */

@@ -363,7 +363,7 @@ cerr << "out size == " << out_w << "x" << out_h << endl;
 		int cores = subflow->cores();
 		tasks = new scale_task_t *[cores];
 		y_flow = new std::atomic_int(0);
-		for(int i = 0; i < cores; i++) {
+		for(int i = 0; i < cores; ++i) {
 			tasks[i] = new scale_task_t;
 			tasks[i]->area_in = this;
 			tasks[i]->area_out = area_out;
@@ -394,7 +394,7 @@ cerr << "out size == " << out_w << "x" << out_h << endl;
 	}
 
 	if(subflow->sync_point_pre()) {
-		for(int i = 0; i < subflow->cores(); i++)
+		for(int i = 0; i < subflow->cores(); ++i)
 			delete tasks[i];
 		delete[] tasks;
 		delete y_flow;
@@ -458,7 +458,7 @@ cerr << "area_out->dimensions()->position.px_size == " << area_out->dimensions()
 	int y = 0;
 	if(flag_8b == false) {
 		while((y = task->y_flow->fetch_add(1)) < out_h) {
-			for(int x = 0; x < out_w; x++) {
+			for(int x = 0; x < out_w; ++x) {
 				int index_in = ((y + in_y_offset) * in_width + x + in_x_offset) * 4;
 				int index_out = ((y + out_y_offset) * out_width + x + out_x_offset) * 4;
 				_out[index_out + 0] = _in[index_in + 0];
@@ -469,7 +469,7 @@ cerr << "area_out->dimensions()->position.px_size == " << area_out->dimensions()
 		}
 	} else {
 		while((y = task->y_flow->fetch_add(1)) < out_h) {
-			for(int x = 0; x < out_w; x++) {
+			for(int x = 0; x < out_w; ++x) {
 				int index_in = ((y + in_y_offset) * in_width + x + in_x_offset) * 4;
 				int index_out = ((y + out_y_offset) * out_width + x + out_x_offset) * 4;
 				u_out[index_out + 0] = u_in[index_in + 0];
@@ -528,12 +528,12 @@ void Area::scale_process_downscale(SubFlow *subflow) {
 	while((j = task->y_flow->fetch_add(1)) < j_max) {
 		int out_y = j;
 		const float f_in_y = f_offset_y + scale_y * j;
-		for(int i = 0; i < i_max; i++) {
+		for(int i = 0; i < i_max; ++i) {
 			int out_x = i;
 			const float f_in_x = f_offset_x + scale_x * i;
 			// accumulator
 			float px[4];
-			for(int k = 0; k < 4; k++)
+			for(int k = 0; k < 4; ++k)
 				px[k] = 0.0;
 			// process window
 			int in_y = floor(f_in_y);
@@ -662,7 +662,7 @@ cerr << "	f_offset_y == " << f_offset_y << endl;
 			wy_0 = 0.0;
 			wy_1 = 1.0;
 		}
-		for(int i = 0; i < i_max; i++) {
+		for(int i = 0; i < i_max; ++i) {
 			int out_x = i;
 			const float f_in_x = f_offset_x + scale_x * i;
 			//--
@@ -683,7 +683,7 @@ cerr << "	f_offset_y == " << f_offset_y << endl;
 			}
 			// accumulator
 			float px[4];
-			for(int k = 0; k < 4; k++)
+			for(int k = 0; k < 4; ++k)
 				px[k] = 0.0;
 			// interpolation
 			float w[4];
@@ -692,22 +692,22 @@ cerr << "	f_offset_y == " << f_offset_y << endl;
 			w[2] = wx_0 * wy_1;
 			w[3] = wx_1 * wy_1;
 			if(flag_8b == false) {
-				for(int c = 0; c < 4; c++) {
+				for(int c = 0; c < 4; ++c) {
 					int offset_x = c % 2;
 					int offset_y = c / 2;
-					for(int k = 0; k < 4; k++)
+					for(int k = 0; k < 4; ++k)
 						px[k] += _in[(in_x + offset_x + in_x_min + (in_y + offset_y + in_y_min) * in_width) * 4 + k] * w[c];
 				}
-				for(int k = 0; k < 4; k++)
+				for(int k = 0; k < 4; ++k)
 					_out[((out_y + out_y_min) * out_width + out_x + out_x_min) * 4 + k] = px[k];
 			} else {
-				for(int c = 0; c < 4; c++) {
+				for(int c = 0; c < 4; ++c) {
 					int offset_x = c % 2;
 					int offset_y = c / 2;
-					for(int k = 0; k < 4; k++)
+					for(int k = 0; k < 4; ++k)
 						px[k] += w[c] * u_in[(in_x + offset_x + in_x_min + (in_y + offset_y + in_y_min) * in_width) * 4 + k] * 0xFF;
 				}
-				for(int k = 0; k < 4; k++)
+				for(int k = 0; k < 4; ++k)
 					u_out[((out_y + out_y_min) * out_width + out_x + out_x_min) * 4 + k] = px[k];
 			}
 		}
@@ -775,15 +775,15 @@ Area *Area::scale(int scale_width, int scale_height, bool to_fit) {
 	const float scale_y = out_scale_y;
 	const float w_div = scale_x * scale_y;
 //	int j = 0;
-	for(int j = 0; j < j_max; j++) {
+	for(int j = 0; j < j_max; ++j) {
 		int out_y = j;
 		const float f_in_y = f_offset_y + scale_y * j;
-		for(int i = 0; i < i_max; i++) {
+		for(int i = 0; i < i_max; ++i) {
 			int out_x = i;
 			const float f_in_x = f_offset_x + scale_x * i;
 			// accumulator
 			float px[4];
-			for(int k = 0; k < 4; k++)
+			for(int k = 0; k < 4; ++k)
 				px[k] = 0.0;
 			// process window
 			int in_y = floor(f_in_y);

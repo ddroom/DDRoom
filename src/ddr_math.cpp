@@ -40,7 +40,7 @@ void TableFunction::_init(float _x_min, float _x_max, int _table_size ) {
 	table = new float[table_size];
 	scale = x_max - x_min;
 	float base = table_size - 1;
-	for(int i = 0; i < table_size; i++)
+	for(int i = 0; i < table_size; ++i)
 		table[i] = this->function(x_min + (float(i) / base) * scale);
 }
 
@@ -89,17 +89,17 @@ Spline_Calc::Spline_Calc(const QVector<QPointF> &_points, float scale, bool line
 		throw("wrong points vector in Spline_Calc constructor");
 	}
 	// normalize points - use middle Y for all points with the same X
-	for(int i = 0; i < _points.size(); i++) {
+	for(int i = 0; i < _points.size(); ++i) {
 		int c = 1;
 		float x = _points[i].x();
 		float y = _points[i].y();
-		for(int j = i + 1; j < _points.size(); j++) {
+		for(int j = i + 1; j < _points.size(); ++j) {
 			if(_points[i].x() != _points[j].x()) {
 				break;
 			} else {
 				i = j;
 				y += _points[i].y();
-				c++;
+				++c;
 			}
 		}
 		if(c != 1)
@@ -126,7 +126,7 @@ Spline_Calc::Spline_Calc(const QVector<QPointF> &_points, float scale, bool line
 		is_spline = true;
 		px = new float[size];
 		py = new float[size];
-		for(int i = 0; i < size; i++) {
+		for(int i = 0; i < size; ++i) {
 			px[i] = points[i].x();
 			py[i] = points[i].y();
 		}
@@ -167,19 +167,19 @@ float Spline_Calc::f(float x) {
 float *Spline_Calc::d3_np_fs(int n, float *a, float *b) {
 	double xmult;
 	// Check.
-	for(int i = 0; i < n; i++)
+	for(int i = 0; i < n; ++i)
 		if(a[1 + i * 3] == 0.0)
 			return nullptr;
 	float *x = new float[n];
-	for(int i = 0; i < n; i++)
+	for(int i = 0; i < n; ++i)
 		x[i] = b[i];
-	for(int i = 1; i < n; i++) {
+	for(int i = 1; i < n; ++i) {
 		xmult = a[2 + (i - 1) * 3] / a[1 + (i - 1) * 3];
 		a[1 + i * 3] = a[1 + i * 3] - xmult * a[0 + i * 3];
 		x[i] = x[i] - xmult * x[i - 1];
 	}
 	x[n - 1] = x[n - 1] / a[1 + (n - 1) * 3];
-	for(int i = n - 2; 0 <= i; i--)
+	for(int i = n - 2; 0 <= i; --i)
 		x[i] = (x[i] - a[0 + (i + 1) * 3] * x[i + 1]) / a[1 + i * 3];
 	return x;
 }
@@ -212,7 +212,7 @@ void Spline_Calc::spline_cubic_set(int n, float *t, float *y, int ibcbeg, float 
 			a[0 + 1 * 3] = 0.0;
 		}
 		// Set up the intermediate equations.
-		for(int i = 1; i < n - 1; i++) {
+		for(int i = 1; i < n - 1; ++i) {
 			b[i] = (y[i + 1] - y[i]) / (t[i + 1] - t[i]) - (y[i] - y[i - 1]) / (t[i] - t[i - 1]);
 			a[2 + (i - 1) * 3] = (t[i] - t[i - 1]) / 6.0;
 			a[1 + i * 3] = (t[i + 1] - t[i - 1]) / 3.0;
@@ -248,7 +248,7 @@ float Spline_Calc::spline_cubic_val(int n, float *x, float xval, float *y, float
 	// Determine the interval [ T(I), T(I+1) ] that contains TVAL.
 	// Values below T[0] or above T[N-1] use extrapolation.
 	int ival = n - 2;
-	for(int i = 0; i < n - 1; i++) {
+	for(int i = 0; i < n - 1; ++i) {
 		if(xval < x[i+1]) {
 			ival = i;
 			break;

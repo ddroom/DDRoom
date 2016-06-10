@@ -120,7 +120,7 @@ PS_Base *PS_WB::copy(void) {
 void PS_WB::reset(void) {
 	defined = false;
 	wb_id = WB_ID_CAMERA;
-	for(int i = 0; i < 3; i++) {
+	for(int i = 0; i < 3; ++i) {
 		scale_custom[i] = 1.0;
 		scale_current[i] = 1.0;
 	}
@@ -239,11 +239,11 @@ FS_WB::FS_WB(void) {
 	point_wb_is_valid = false;
 	point_wb_is_entered = false;
 	temp_initialized = false;
-	for(int i = 0; i < 3; i++) {
+	for(int i = 0; i < 3; ++i) {
 		scale_ref[i] = 1.0;
 		scale_camera[i] = 1.0;
 	}
-	for(int i = 0; i < 9; i++)
+	for(int i = 0; i < 9; ++i)
 		cRGB_to_XYZ[i] = 0.0;
 	cRGB_to_XYZ[0] = 1.0;
 	cRGB_to_XYZ[4] = 1.0;
@@ -264,11 +264,11 @@ void F_WB::saveFS(FS_Base *fs_base) {
 	fs->point_wb_is_entered = point_wb_is_entered;
 	fs->temp_kelvin = temp_kelvin;
 	fs->temp_tint = temp_tint;
-	for(int i = 0; i < 3; i++) {
+	for(int i = 0; i < 3; ++i) {
 		fs->scale_ref[i] = scale_ref[i];
 		fs->scale_camera[i] = scale_camera[i];
 	}
-	for(int i = 0; i < 9; i++)
+	for(int i = 0; i < 9; ++i)
 		fs->cRGB_to_XYZ[i] = cRGB_to_XYZ[i];
 	fs->temp_initialized = temp_initialized;
 }
@@ -310,23 +310,23 @@ void F_WB::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t arg
 		point_wb_is_entered = fs->point_wb_is_entered;
 		temp_kelvin = fs->temp_kelvin;
 		temp_tint = fs->temp_tint;
-		for(int i = 0; i < 3; i++) {
+		for(int i = 0; i < 3; ++i) {
 			scale_ref[i] = fs->scale_ref[i];
 			scale_camera[i] = fs->scale_camera[i];
 		}
-		for(int i = 0; i < 9; i++)
+		for(int i = 0; i < 9; ++i)
 			cRGB_to_XYZ[i] = fs->cRGB_to_XYZ[i];
 		temp_initialized = fs->temp_initialized;
 	}
 
 	// load presets
 	int tb_index = 0;
-	for(; tb_index < wb_presets.size(); tb_index++)
+	for(; tb_index < wb_presets.size(); ++tb_index)
 		if(wb_presets[tb_index].id == ps->wb_id)
 			break;
 	if(tb_index >= wb_presets.size()) {
 		tb_index = 0;
-		for(; tb_index < wb_presets.size(); tb_index++)
+		for(; tb_index < wb_presets.size(); ++tb_index)
 			if(wb_presets[tb_index].id == WB_ID_CAMERA)
 				break;
 	}
@@ -462,11 +462,11 @@ void F_WB::correlated_temp_to_scale(double *scale, double temp, double tint) {
 	m3_invert(XYZ_to_cRGB, cRGB_to_XYZ);
 	m3_v3_mult(scale, XYZ_to_cRGB, XYZ);
 	// invert cRGB to scale
-	for(int i = 0; i < 3; i++)
+	for(int i = 0; i < 3; ++i)
 		scale[i] = 1.0 / scale[i];
 	// normalize by green
 	double f = scale[1];
-	for(int i = 0; i < 3; i++)
+	for(int i = 0; i < 3; ++i)
 		scale[i] /= f;
 }
 
@@ -475,16 +475,16 @@ void scale_to_uv(double *uv, const double *scale, const double *cRGB_to_XYZ) {
 /*
 	// normalize scale by green
 	double s[3];
-	for(int i = 0; i < 3; i++)
+	for(int i = 0; i < 3; ++i)
 		s[i] = scale[i] / scale[1];
 	// scale to cRGB white
 	double cRGB[3];
-	for(int i = 0; i < 3; i++)
+	for(int i = 0; i < 3; ++i)
 		cRGB[i] = 1.0 / s[i];
 */
 	// normalize scale by green and invert
 	double cRGB[3];
-	for(int i = 0; i < 3; i++)
+	for(int i = 0; i < 3; ++i)
 		cRGB[i] = scale[1] / scale[i];
 	// to XYZ and uv
 	double XYZ[3];
@@ -539,7 +539,7 @@ void F_WB::load_temp_ui(const Metadata *metadata) {
 		return;
 //cerr << "_____________________________________________________+++++++++++++++++++++++++++ load_temp_ui" << endl;
 	bool valid = false;
-	for(int i = 0; i < 3; i++) {
+	for(int i = 0; i < 3; ++i) {
 		scale_ref[i] = metadata->c_scale_ref[i];
 		scale_camera[i] = metadata->c_scale_camera[i];
 		valid |= (scale_ref[i] != 1.0);
@@ -549,17 +549,17 @@ void F_WB::load_temp_ui(const Metadata *metadata) {
 	}
 	if(!valid && metadata->is_raw)
 			return;
-	for(int i = 0; i < 9; i++)
+	for(int i = 0; i < 9; ++i)
 		cRGB_to_XYZ[i] = metadata->cRGB_to_XYZ[i];
 	if(ps->defined == false) {
-		for(int i = 0; i < 3; i++) {
+		for(int i = 0; i < 3; ++i) {
 			ps->scale_custom[i] = scale_camera[i];
 			ps->scale_current[i] = scale_camera[i];
 		}
 	}
 	temp_initialized = true;
 	QVector<double> scale(3);
-	for(int i = 0; i < 3; i++) {
+	for(int i = 0; i < 3; ++i) {
 		scale[i] = ps->scale_current[i];
 //cerr << "___________________________ scale_current[" << i << "] == " << scale[i] << endl;
 	}
@@ -568,7 +568,7 @@ void F_WB::load_temp_ui(const Metadata *metadata) {
 
 void F_WB::slot_load_temp_ui(QVector<double> scale) {
 	double s[3];
-	for(int i = 0; i < 3; i++)
+	for(int i = 0; i < 3; ++i)
 		s[i] = scale[i];
 	update_CCT_to_PS(s);
 }
@@ -576,7 +576,7 @@ void F_WB::slot_load_temp_ui(QVector<double> scale) {
 void F_WB::update_CCT_to_PS(double *s_current) {
 	if(s_current == nullptr) s_current = ps->scale_current;
 	double s[3];
-	for(int i = 0; i < 3; i++)
+	for(int i = 0; i < 3; ++i)
 		s[i] = s_current[i] / scale_ref[i];
 	double temp, tint;
 	scale_to_correlated_temp(temp, tint, s);
@@ -586,7 +586,7 @@ void F_WB::update_CCT_to_PS(double *s_current) {
 /*
 void F_WB::slot_load_temp_ui(QVector<double> scale) {
 	double s[3];
-	for(int i = 0; i < 3; i++)
+	for(int i = 0; i < 3; ++i)
 		s[i] = scale[i] / scale_ref[i];
 	double temp, tint;
 	scale_to_correlated_temp(temp, tint, s);
@@ -694,7 +694,7 @@ QWidget *F_WB::controls(QWidget *parent) {
 	wb_tb["fluorescent"] = _wb_tb_t(":/resources/wb_fluorescent.svg", tr("White fluorescent (~4000K)"), true);
 
     radio_wb = new QButtonGroup(wb_rwbh);
-	for(int i = 0; i < wb_presets.size(); i++) {
+	for(int i = 0; i < wb_presets.size(); ++i) {
 		_wb_tb_t &rec = wb_tb[wb_presets[i].id];
 		QToolButton *tb = new QToolButton(parent);
 		tb->setCheckable(true);
@@ -801,7 +801,7 @@ void F_WB::update_custom_temp(void) {
 	radio_wb->button(0)->setChecked(true);
 	radio_wb_connect(true);
 	set_scale_from_temp();
-	for(int i = 0; i < 3; i++)
+	for(int i = 0; i < 3; ++i)
 		ps->scale_custom[i] = ps->scale_current[i];
 	emit_signal_update();
 }
@@ -809,11 +809,11 @@ void F_WB::update_custom_temp(void) {
 void F_WB::set_scale_from_temp(void) {
 	double scale[3];
 	correlated_temp_to_scale(scale, temp_kelvin, temp_tint);
-	for(int i = 0; i < 3; i++)
+	for(int i = 0; i < 3; ++i)
 		scale[i] *= scale_ref[i];
 //cerr << "update_custom_temp(): " << temp_kelvin << "; " << temp_tint << endl;
 	ps->defined = true;
-	for(int i = 0; i < 3; i++) {
+	for(int i = 0; i < 3; ++i) {
 //		ps->scale_custom[i] = scale[i];
 //		ps->scale_current[i] = ps->scale_custom[i];
 		ps->scale_current[i] = scale[i];
@@ -873,7 +873,7 @@ cerr << "slot_radio_wb" << endl;
 		// use 'tint' from camera WB
 		double temp, tint;
 		double scale[3];
-		for(int i = 0; i < 3; i++)
+		for(int i = 0; i < 3; ++i)
 			scale[i] = scale_camera[i] / scale_ref[i];
 		scale_to_correlated_temp(temp, tint, scale);
 		//
@@ -885,11 +885,11 @@ cerr << "slot_radio_wb" << endl;
 		// ???
 	} else {
 		if(index_id == WB_ID_CAMERA) {
-			for(int i = 0; i < 3; i++)
+			for(int i = 0; i < 3; ++i)
 				ps->scale_current[i] = scale_camera[i];
 		}
 		if(index_id == WB_ID_CUSTOM) {
-			for(int i = 0; i < 3; i++)
+			for(int i = 0; i < 3; ++i)
 				ps->scale_current[i] = ps->scale_custom[i];
 		}
 	}
@@ -897,7 +897,7 @@ cerr << "slot_radio_wb" << endl;
 /*
 	double temp, tint;
 	double scale[3];
-	for(int i = 0; i < 3; i++)
+	for(int i = 0; i < 3; ++i)
 		scale[i] = ps->scale_current[i] / scale_ref[i];
 	scale_to_correlated_temp(temp, tint, scale);
 	wb_ui_set_temp(temp, tint);
@@ -956,7 +956,7 @@ public:
 
 FP_WB_Cache_t::FP_WB_Cache_t(void) {
 	is_empty = true;
-	for(int i = 0; i < 3; i++)
+	for(int i = 0; i < 3; ++i)
 		scale[i] = 1.0;
 	offset = 0.0;
 	levels = false;
@@ -1013,13 +1013,13 @@ Area *FP_WB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj)
 			fp_cache->is_empty = false;
 			float scale[3] = {1.0, 1.0, 1.0};
 			float offset = 0.0;
-			for(int i = 0; i < 3; i++)
+			for(int i = 0; i < 3; ++i)
 				if(ps->defined)
 					scale[i] = ps->scale_current[i] / metadata->c_scale_ref[i];
 				else
 					scale[i] = metadata->c_scale_camera[i] / metadata->c_scale_ref[i];
 			float n = scale[1];
-			for(int i = 0; i < 3; i++)
+			for(int i = 0; i < 3; ++i)
 				scale[i] /= n;
 			//----
 			// auto exposure alignment
@@ -1029,7 +1029,7 @@ Area *FP_WB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj)
 				float max_unclipped = 0.0;
 				float min = 0.0;
 				bool clipped = false;
-				for(int i = 0; i < 3; i++) {
+				for(int i = 0; i < 3; ++i) {
 					bool is_clipped = (metadata->c_max[i] >= 1.0);
 					float v = scale[i] * (metadata->c_max[i] * metadata->c_scale_ref[i]);
 					clipped |= (v > 1.0);
@@ -1046,7 +1046,7 @@ Area *FP_WB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj)
 					}
 				}
 				if(alignment != 1.0)
-					for(int i = 0; i < 3; i++)
+					for(int i = 0; i < 3; ++i)
 						scale[i] *= alignment;
 //cerr << "alignment == " << alignment << endl;
 			}
@@ -1056,8 +1056,8 @@ Area *FP_WB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj)
 				float s_white[3] = {1.0f, 1.0f, 1.0f};
 				long sum[3] = {0, 0, 0};
 				double edge = 1.0 - ps->auto_white_edge * 0.01;
-				for(int j = 0; j < 3; j++) {
-					for(int i = 0; i < 2048; i++) {
+				for(int j = 0; j < 3; ++j) {
+					for(int i = 0; i < 2048; ++i) {
 						sum[j] += metadata->c_histogram[4096 * j + i];
 						double rate = double(sum[j]) / metadata->c_histogram_count[j];
 						if(rate >= edge) {
@@ -1070,7 +1070,7 @@ Area *FP_WB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj)
 				float s_max = s_white[0];
 				s_max = (s_max > s_white[1]) ? s_max : s_white[1];
 				s_max = (s_max > s_white[2]) ? s_max : s_white[2];
-				for(int k = 0; k < 3; k++)
+				for(int k = 0; k < 3; ++k)
 					scale[k] *= s_max;
 			}
 			//----
@@ -1084,9 +1084,9 @@ Area *FP_WB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj)
 				bool flag = false;
 				int i = 0;
 				int j = 0;
-				for(; i < 2000; i++) {
+				for(; i < 2000; ++i) {
 					j = 0;
-					for(; j < 3; j++) {
+					for(; j < 3; ++j) {
 						sum[j] += metadata->c_histogram[4096 * j + i];
 						float rate = float(sum[j]) / metadata->c_histogram_count[j];
 						if(rate >= edge) {
@@ -1120,13 +1120,13 @@ Area *FP_WB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj)
 				QVector<long> hist_before(256 * 3);
 				QVector<long> hist_after(256 * 3);
 				QVector<float> v(400);
-				for(int j = 0; j < 3; j++) {
+				for(int j = 0; j < 3; ++j) {
 					scale_histogram(v, 200, &metadata->c_histogram[4096 * j], 4096, 2048, 1.0, 0.0);
-					for(int i = 0; i < 256; i++)
+					for(int i = 0; i < 256; ++i)
 						hist_before[j * 256 + i] = v[i];
 					// TODO: add offset support
 					scale_histogram(v, 200, &metadata->c_histogram[4096 * j], 4096, 2048, scale[j], offset);
-					for(int i = 0; i < 256; i++)
+					for(int i = 0; i < 256; ++i)
 						hist_after[j * 256 + i] = v[i];
 				}
 				if(filter != nullptr) {
@@ -1139,7 +1139,7 @@ Area *FP_WB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj)
 			}
 #endif
 			//--
-			for(int i = 0; i < 3; i++)
+			for(int i = 0; i < 3; ++i)
 				fp_cache->scale[i] = scale[i];
 			fp_cache->offset = offset;
 		}
@@ -1147,7 +1147,7 @@ Area *FP_WB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj)
 		// scale will improve results of demosaic processing;
 		// then demosaic, if any, would remove that scale back, so it would be applied here again.
 		if(_s_raw_colors) {
-			for(int i = 0; i < 3; i++)
+			for(int i = 0; i < 3; ++i)
 				fp_cache->scale[i] = 1.0 / metadata->c_scale_ref[i];
 			fp_cache->offset = 0.0;
 		}
@@ -1156,7 +1156,7 @@ Area *FP_WB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj)
 		float b = offset / (offset - 1.0f);
 		float scale_a[3];
 		float scale_b[3];
-		for(int k = 0; k < 3; k++) {
+		for(int k = 0; k < 3; ++k) {
 			scale_a[k] = (scale[k] * metadata->c_scale_ref[k]) / (1.0f - offset);
 			scale_b[k] = b;
 		}
@@ -1165,11 +1165,11 @@ Area *FP_WB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj)
 			hl_clip = false;
 		float edge[3];
 		float limit = 1.0f;
-		for(int k = 0; k < 3; k++)
+		for(int k = 0; k < 3; ++k)
 			edge[k] = 1.0f;
 //			edge[k] = metadata->c_scale_ref[k];
 		if(hl_clip) {
-			for(int k = 0; k < 3; k++) {
+			for(int k = 0; k < 3; ++k) {
 //				edge[k] = scale_a[k] + scale_b[k];
 				edge[k] = edge[k] * scale_a[k] + scale_b[k];
 			}			
@@ -1191,11 +1191,11 @@ cerr << "___________" << endl;
 		//--
 		y_flow = new std::atomic_int(0);
 		tasks = new task_t *[subflow->cores()];
-		for(int i = 0; i < subflow->cores(); i++) {
+		for(int i = 0; i < subflow->cores(); ++i) {
 			tasks[i] = new task_t;
 			tasks[i]->area_in = area_in;
 			tasks[i]->area_out = area_out;
-			for(int k = 0; k < 3; k++) {
+			for(int k = 0; k < 3; ++k) {
 				tasks[i]->c_scale[k] = metadata->c_scale_ref[k];
 				tasks[i]->scale[k] = fp_cache->scale[k];
 				tasks[i]->scale_a[k] = scale_a[k];
@@ -1206,7 +1206,7 @@ cerr << "___________" << endl;
 			if(filter != nullptr) {
 				tasks[i]->hist_in = new long[256 * 3];
 				tasks[i]->hist_out = new long[256 * 3];
-				for(int k = 0; k < 256 * 3; k++) {
+				for(int k = 0; k < 256 * 3; ++k) {
 					tasks[i]->hist_in[k] = 0;
 					tasks[i]->hist_out[k] = 0;
 				}
@@ -1257,12 +1257,12 @@ cerr << "tasks->scale_a[2] == " << scale_a[2] << endl;
 
 		int y = 0;
 		while((y = task->y_flow->fetch_add(1)) < in_h) {
-			for(int x = 0; x < in_w; x++) {
+			for(int x = 0; x < in_w; ++x) {
 				const int index_in = (in_mem_w * (in_off_y + y) + in_off_x + x) * 4;
 				const int index_out = (out_mem_w * (out_off_y + y) + out_off_x + x) * 4;
 				float c_in[3];
 				float c[3];
-				for(int i = 0; i < 3; i++) {
+				for(int i = 0; i < 3; ++i) {
 					c_in[i] = in[index_in + i];// * task->c_scale[i];
 					c[i] = c_in[i] * task->scale_a[i] + task->scale_b[i];
 				}
@@ -1270,11 +1270,10 @@ cerr << "tasks->scale_a[2] == " << scale_a[2] << endl;
 					const float limit = task->limit;
 					int indexes[3];
 					int counter = 0;
-					for(int k = 0; k < 3; k++) {
+					for(int k = 0; k < 3; ++k) {
 //						if(c[k] >= limit) {
 						if(c[k] > limit) {
-							indexes[counter] = k;
-							counter++;
+							indexes[counter++] = k;
 						}
 					}
 					if(counter == 3) {
@@ -1297,7 +1296,7 @@ cerr << "tasks->scale_a[2] == " << scale_a[2] << endl;
 						int k2 = indexes[1];
 						int k = 0;
 						while(k == k1 || k == k2)
-							k++;
+							++k;
 //						float scale1 = (c[k1] - 1.0f) / (task->edge[k1] - 1.0f);
 //						float scale2 = (c[k2] - 1.0f) / (task->edge[k2] - 1.0f);
 						const float d1 = task->edge[k1] - 1.0f;
@@ -1312,21 +1311,21 @@ cerr << "tasks->scale_a[2] == " << scale_a[2] << endl;
 						c[k] += std::max((1.0f - c[k]) * scale, 0.0f);
 					}
 				}
-				for(int k = 0; k < 3; k++)
+				for(int k = 0; k < 3; ++k)
 					out[index_out + k] = ddr::clip(c[k]);
 				// update histograms
 				if(task->hist_in && task->hist_out) {
-					for(int k = 0; k < 3; k++) {
+					for(int k = 0; k < 3; ++k) {
 						long i_in = c_in[k] * 200.0f;
 						if(i_in >= 0 && i_in < 256)
-							task->hist_in[256 * k + i_in]++;
+							++task->hist_in[256 * k + i_in];
 						long i_out = c[k] * 200.0f;
 						if(i_out >= 0 && i_out < 256)
-							task->hist_out[256 * k + i_out]++;
+							++task->hist_out[256 * k + i_out];
 					}
 				}
 /*
-				for(int k = 0; k < 3; k++) {
+				for(int k = 0; k < 3; ++k) {
 					float v = in[index_in + k] * task->c_scale[k];
 					v = (v * task->scale[k] - task->offset) / (1.0 - task->offset);
 					out[index_out + k] = ddr::clip(v);
@@ -1343,9 +1342,9 @@ cerr << "tasks->scale_a[2] == " << scale_a[2] << endl;
 		if(filter != nullptr) {
 			QVector<long> hist_in(256 * 3);
 			QVector<long> hist_out(256 * 3);
-			for(int i = 0; i < subflow->cores(); i++) {
+			for(int i = 0; i < subflow->cores(); ++i) {
 				task_t *task = tasks[i];
-				for(int k = 0; k < 256 * 3; k++) {
+				for(int k = 0; k < 256 * 3; ++k) {
 					if(i == 0) {
 						hist_in[k] = 0;
 						hist_out[k] = 0;
@@ -1359,8 +1358,8 @@ cerr << "tasks->scale_a[2] == " << scale_a[2] << endl;
 #if 0
 			int level_in[3] = {0, 0, 0};
 			int level_out[3] = {0, 0, 0};
-			for(int k = 0; k < 256; k++) {
-				for(int i = 0; i < 3; i++) {
+			for(int k = 0; k < 256; ++k) {
+				for(int i = 0; i < 3; ++i) {
 					if(hist_in[k + 256 * i] != 0) level_in[i] = k;
 					if(hist_out[k + 256 * i] != 0) level_out[i] = k;
 				}
@@ -1381,7 +1380,7 @@ cerr << endl;
 			filter->set_histograms(histogram_data, hist_in, hist_out);
 		}
 		delete tasks[0]->y_flow;
-		for(int i = 0; i < subflow->cores(); i++) {
+		for(int i = 0; i < subflow->cores(); ++i) {
 			delete tasks[i];
 		}
 		delete tasks;
@@ -1393,7 +1392,7 @@ cerr << endl;
 void FP_WB::scale_histogram(QVector<float> &out, int out_1, uint32_t *in, int in_count, int in_1, float v_scale, float v_offset) {
 	// out_1, in_1 - indexes at tables corresponding to value '1.0' - should be used for rescaling with 'v_offset' in mind.
 	const int out_count = out.size();
-	for(int i = 0; i < out_count; i++)
+	for(int i = 0; i < out_count; ++i)
 		out[i] = 0.0;
 //	v = (v * task->scale[i] - task->offset) / (1.0 - task->offset);
 	float in_v0 = (v_offset / v_scale) * in_1;
@@ -1407,12 +1406,12 @@ void FP_WB::scale_histogram(QVector<float> &out, int out_1, uint32_t *in, int in
 	float x = 0.0;
 	float part = 1.0;
 	float s = scale + in_offset;
-	for(; i < in_count; i++) {
+	for(; i < in_count; ++i) {
 		float value = in[i];
 //		float p = (s > 1.0) ? 1.0 : s;
 		out[i_out] += value * part;
 		if(part < 1.0) {
-			i_out++;
+			++i_out;
 			if(i_out >= out_count)
 				break;
 			out[i_out] += value * (1.0 - part);
@@ -1566,7 +1565,7 @@ void WB_Histogram::draw(QPainter *_painter) {
 	hist_dy[1] = 0;
 	painter->setOpacity(1.0);
 	painter->setCompositionMode(QPainter::CompositionMode_Plus);
-	for(int j = 0; j < 2; j++) {
+	for(int j = 0; j < 2; ++j) {
 		if(hist_ptr[j] == nullptr)
 			continue;
 		QVector<long> &hist = *hist_ptr[j];
@@ -1574,8 +1573,8 @@ void WB_Histogram::draw(QPainter *_painter) {
 		if(hist.size() != 0) {
 			float s = hist_h[j];
 			long max = hist[1];
-			for(int i = 0; i < 3; i++) {
-				for(int j = 1; j < 255; j++) {
+			for(int i = 0; i < 3; ++i) {
+				for(int j = 1; j < 255; ++j) {
 					long value = hist[i * 256 + j];
 					if(value > max)
 						max = value;
@@ -1589,9 +1588,9 @@ void WB_Histogram::draw(QPainter *_painter) {
 			// depend on channels type
 			QColor colors[3] = {QColor(0x9F, 0x00, 0x00), QColor(0x00, 0x9F, 0x00), QColor(0x00, 0x00, 0x9F)};
 			int channels_count = 3;
-			for(int k = 0; k < channels_count; k++) {
+			for(int k = 0; k < channels_count; ++k) {
 				painter->setPen(colors[k]);
-				for(int i = 0; i < 256; i++) {
+				for(int i = 0; i < 256; ++i) {
 					float _v = hist[k * 256 + i];
 //					if(!show_hist_linear)
 						_v = logf(_v);

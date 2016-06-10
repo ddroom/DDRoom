@@ -109,7 +109,7 @@ Area *Import_PNG::load_image(Metadata *metadata, bool is_thumb) {
 
 	// --==--
 	metadata->rotation = 0;	// get real rotation with Exiv2
-	for(int i = 0; i < 3; i++)
+	for(int i = 0; i < 3; ++i)
 		metadata->c_max[i] = 0.0;
 
 	// --==--
@@ -191,10 +191,10 @@ Area *Import_PNG::load_image(Metadata *metadata, bool is_thumb) {
 			scale = 0xFFFF;
 			bc = 2;
 		}
-		for(int y = 0; y < height; y++) {
+		for(int y = 0; y < height; ++y) {
 			png_read_row(ptr_png_struct, png_row, nullptr);
-			for(int i = 0; i < width; i++) {
-				for(int j = 0; j < 3; j++) {
+			for(int i = 0; i < width; ++i) {
+				for(int j = 0; j < 3; ++j) {
 //					unsigned v = png_row[i * channels + j];
 					int in_channel = (channels < 3) ? 0 : j;
 					unsigned short v = png_row[(i * channels + in_channel) * bc];
@@ -295,11 +295,11 @@ Area *Import_PNG::convert_to_bayer(Metadata *metadata, Area *png) {
 	metadata->c_scale_camera[2] = 1.0;
 	metadata->c_scale_camera_valid = true;
 /*
-	for(int j = 0; j < 4; j++) {
+	for(int j = 0; j < 4; ++j) {
 		metadata->black_pixels_level[j] = 0.0;
 		metadata->black_pixels_std_dev[j] = 0.0;
 	}
-	for(int i = 0; i < 9; i++)
+	for(int i = 0; i < 9; ++i)
 		metadata->cRGB_to_XYZ[i] = 0.0;
 	metadata->cRGB_to_XYZ[0] = 1.0;
 	metadata->cRGB_to_XYZ[4] = 1.0;
@@ -311,8 +311,8 @@ Area *Import_PNG::convert_to_bayer(Metadata *metadata, Area *png) {
 	metadata->demosaic_pattern = DEMOSAIC_PATTERN_BAYER_RGGB;
 	metadata->demosaic_unsupported = false;
 	metadata->demosaic_unknown = false;
-	for(int j = 0; j < h; j++) {
-		for(int i = 0; i < w; i++) {
+	for(int j = 0; j < h; ++j) {
+		for(int i = 0; i < w; ++i) {
 			int i_out = j * w + i;
 			int i_in = ((j - 2) * (w - 4) + i - 2) * 4;
 			if((i < 2 || i >= w - 2) || (j < 2 || j >= h - 2)) {

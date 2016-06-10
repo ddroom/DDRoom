@@ -351,13 +351,13 @@ QWidget *PreferencesDialog::create_page_appearance(void) {
 	QStringList l = QStyleFactory::keys();
 	int style_index = -1;
 	int j = 0;
-	for(int i = 0; i < l.size(); i++) {
+	for(int i = 0; i < l.size(); ++i) {
 		QString entry = l[i].toLower();
 		if(!styles_blacklist.contains(entry)) {
 			style_combo->addItem(l[i]);
 			if(entry == style_current)
 				style_index = j;
-			j++;
+			++j;
 		}
 	}
 	style_combo->setCurrentIndex(style_index);

@@ -135,7 +135,7 @@ void Views_Layout::fill_toolbar(QToolBar *t) {
 		tr("vertical"), tr("horizontal")
 	};
 	int tn[11] = {10, 20, 21, 30, 31, 32, 33, 34, 35, 40, 41};
-	for(int i = 0; i < 11; i++) {
+	for(int i = 0; i < 11; ++i) {
 		QString icon_str = ":/resources/view_layout_";//".svg";
 		icon_str += QString::number(tn[i]);
 		icon_str += ".svg";
@@ -169,7 +169,7 @@ void Views_Layout::fill_toolbar(QToolBar *t) {
 	t->addWidget(tb_views_layout_2);
 
 	QMenu *v3m = new QMenu();
-	for(int i = 0; i < 6; i++)
+	for(int i = 0; i < 6; ++i)
 		v3m->addAction(action_views_layout[views_layout_n_to_index(30 + i)]);
 	tb_views_layout_3 = _views_layout_tool_button(icon_views_layout[views_layout_n_to_index(30)], tr("3 views"), parent);
 	tb_views_layout_3->setPopupMode(QToolButton::DelayedPopup);

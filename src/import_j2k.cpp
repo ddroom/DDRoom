@@ -211,8 +211,8 @@ if(area->valid()) {
 	if(bw == false)
 		cms_matrix->get_matrix_CS_to_XYZ(color_space, metadata->cRGB_to_XYZ);
 	TableFunction *gamma = cms_matrix->get_inverse_gamma(color_space);
-	for(int i = 0; i < size; i++) {
-		for(int j = 0; j < 3; j++) {
+	for(int i = 0; i < size; ++i) {
+		for(int j = 0; j < 3; ++j) {
 			int cj = (bw) ? 0 : j;
 //			float v = (*gamma)((zero_offset + image->comps[cj].data[i]) / scale);
 			float v = (zero_offset + image->comps[cj].data[i]) / scale;

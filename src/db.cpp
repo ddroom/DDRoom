@@ -303,14 +303,14 @@ Lens_Links_browse_model::Lens_Links_browse_model(const std::map<std::string, DB_
 	int i = 0;
 	for(std::map<std::string, DB_lens_links_record_t>::const_iterator it = db->begin(); it != db->end(); ++it) {
 		mmap.insert((*it).second.lens_model, i);
-		i++;
+		++i;
 	}
 	// now - get mapping table...
 	QVector<int> mapping = QVector<int>(size);
 	i = 0;
 	for(QMultiMap<std::string, int>::const_iterator it = mmap.begin(); it != mmap.end(); ++it) {
 		mapping[it.value()] = i;
-		i++;
+		++i;
 	}
 	// fill results with sorted mapping
 //	db_footprints = QVector<QString>(size);
@@ -319,7 +319,7 @@ Lens_Links_browse_model::Lens_Links_browse_model(const std::map<std::string, DB_
 	for(std::map<std::string, DB_lens_links_record_t>::const_iterator it = db->begin(); it != db->end(); ++it) {
 		int index = mapping[i];
 		set_record(index, (*it).second);
-		i++;
+		++i;
 	}
 }
 
@@ -461,7 +461,7 @@ Lens_Link_edit_dialog::Lens_Link_edit_dialog(const DB_lens_links_record_t &rec_t
 	QMap<QString, QPair<std::string, std::string> > map_lenses;
 	if(lenses != nullptr) {
 //		cerr << "found lenses for camera maker: \"" << rec_t.camera_maker << "\"" << endl;
-		for(int i = 0; lenses[i]; i++) {
+		for(int i = 0; lenses[i]; ++i) {
 			std::string lens_maker = lf_mlstr_get(lenses[i]->Maker);
 			std::string lens_model = lf_mlstr_get(lenses[i]->Model);
 			QString _lens_maker = QString::fromLatin1(lens_maker.c_str());
@@ -493,7 +493,7 @@ Lens_Link_edit_dialog::Lens_Link_edit_dialog(const DB_lens_links_record_t &rec_t
 //		cerr << "maker == \"" << it.value().first << "\"; model == \"" << it.value().second << "\"" << endl;
 		if(lenses_maker[i] == rec_t.lens_maker && lenses_model[i] == rec_t.lens_model)
 			lens_index = i;
-		i++;
+		++i;
 	}
 	//--
 

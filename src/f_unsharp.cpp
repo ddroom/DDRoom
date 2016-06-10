@@ -121,7 +121,7 @@ void PS_Unsharp::reset(void) {
 	s_radius[0] = 2.5f;
 	s_amount[1] = 0.8f;	// > 2.0
 	s_radius[1] = 2.0f;	// better to avoid big radius here to avoid halo
-	for(int i = 0; i < 2; i++)
+	for(int i = 0; i < 2; ++i)
 		s_threshold[i] = 0.015f;
 	// local contrast
 	lc_enabled = false;
@@ -267,7 +267,7 @@ void F_Unsharp::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_
 	slider_threshold->setValue(threshold);
 	ps->enabled = en;
 	checkbox_enable->setCheckState(ps->enabled ? Qt::Checked : Qt::Unchecked);
-	for(int i = 0; i < 2; i++) {
+	for(int i = 0; i < 2; ++i) {
 		slider_s_amount[i]->setValue(ps->s_amount[i]);
 		slider_s_radius[i]->setValue(ps->s_radius[i]);
 		float threshold = int(ps->s_threshold[i] * 1000.0 + 0.005);
@@ -355,7 +355,7 @@ QWidget *F_Unsharp::controls(QWidget *parent) {
 	tab_scaled->setVisible(false);
 //	QString tabs_labels[] = {tr("scale: < 0.5x"), tr(" = 1.0x"), tr(" > 2.0x")};
 	QString tabs_labels[] = {tr("scale: = 1.0x"), tr(" > 2.0x")};
-	for(int i = 0; i < 2; i++) {
+	for(int i = 0; i < 2; ++i) {
 		QWidget *page;
 //		if(i == 0)
 //			page = new QWidget(parent);
@@ -407,7 +407,7 @@ void F_Unsharp::reconnect(bool to_connect) {
 		connect(slider_amount, SIGNAL(signal_changed(double)), this, SLOT(slot_changed_amount(double)));
 		connect(slider_radius, SIGNAL(signal_changed(double)), this, SLOT(slot_changed_radius(double)));
 		connect(slider_threshold, SIGNAL(signal_changed(double)), this, SLOT(slot_changed_threshold(double)));
-		for(int i = 0; i < 2; i++) {
+		for(int i = 0; i < 2; ++i) {
 			connect(slider_s_amount[i], SIGNAL(signal_changed(double)), this, SLOT(slot_changed_s_amount(double)));
 			connect(slider_s_radius[i], SIGNAL(signal_changed(double)), this, SLOT(slot_changed_s_radius(double)));
 			connect(slider_s_threshold[i], SIGNAL(signal_changed(double)), this, SLOT(slot_changed_s_threshold(double)));
@@ -425,7 +425,7 @@ void F_Unsharp::reconnect(bool to_connect) {
 		disconnect(slider_amount, SIGNAL(signal_changed(double)), this, SLOT(slot_changed_amount(double)));
 		disconnect(slider_radius, SIGNAL(signal_changed(double)), this, SLOT(slot_changed_radius(double)));
 		disconnect(slider_threshold, SIGNAL(signal_changed(double)), this, SLOT(slot_changed_threshold(double)));
-		for(int i = 0; i < 2; i++) {
+		for(int i = 0; i < 2; ++i) {
 			disconnect(slider_s_amount[i], SIGNAL(signal_changed(double)), this, SLOT(slot_changed_s_amount(double)));
 			disconnect(slider_s_radius[i], SIGNAL(signal_changed(double)), this, SLOT(slot_changed_s_radius(double)));
 			disconnect(slider_s_threshold[i], SIGNAL(signal_changed(double)), this, SLOT(slot_changed_s_threshold(double)));
@@ -753,7 +753,7 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 	Area *area_out = nullptr;
 	Area *area_to_delete = nullptr;
 
-	for(int type = 0; type < 2 && !process_obj->OOM; type++) {
+	for(int type = 0; type < 2 && !process_obj->OOM; ++type) {
 		if(type == 0 && ps->lc_enabled == false) // type == 0 - local contrast, square blur
 			continue;
 		if(type == 1 && ps->enabled == false)    // type == 1 - sharpness, round blur
@@ -820,8 +820,8 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 			int kernel_length_y = (type == 1) ? kernel_length : 1;
 //cerr << "kernel_length == " << kernel_length << ", kernel_length_y == " << kernel_length_y << endl;
 			kernel = new float[kernel_length * kernel_length_y];
-			for(int y = 0; y < kernel_length_y; y++) {
-				for(int x = 0; x < kernel_length; x++) {
+			for(int y = 0; y < kernel_length_y; ++y) {
+				for(int x = 0; x < kernel_length; ++x) {
 					float fx = kernel_offset_f + x;
 					float fy = kernel_offset_f + y;
 					float z = sqrtf(fx * fx + fy * fy);
@@ -842,7 +842,7 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 			int in_y_offset = (d_out.position.y - area_in->dimensions()->position.y) / px_size_y + 0.5 + area_in->dimensions()->edges.y1;
 			y_flow_pass_1 = new std::atomic_int(0);
 			y_flow_pass_2 = new std::atomic_int(0);
-			for(int i = 0; i < cores; i++) {
+			for(int i = 0; i < cores; ++i) {
 				tasks[i] = new task_t;
 				tasks[i]->area_in = area_in;
 				tasks[i]->area_out = area_out;
@@ -883,7 +883,7 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 				delete area_temp;
 			delete y_flow_pass_1;
 			delete y_flow_pass_2;
-			for(int i = 0; i < subflow->cores(); i++)
+			for(int i = 0; i < subflow->cores(); ++i)
 				delete tasks[i];
 			delete[] tasks;
 			delete[] kernel;
@@ -923,7 +923,7 @@ void FP_Unsharp::process_square(class SubFlow *subflow) {
 	// horizontal pass - from input to temporal area
 	int j = 0;
 	while((j = task->y_flow_pass_1->fetch_add(1)) < t_y_max) {
-		for(int i = 0; i < t_x_max; i++) {
+		for(int i = 0; i < t_x_max; ++i) {
 //			const int i_in = ((j + t_y_offset) * in_width + (i + t_x_offset)) * 4;
 			const int i_temp = ((j + t_y_offset) * in_width + (i + t_x_offset));
 //			const int i_out = ((j + out_y_offset) * out_width + (i + out_x_offset)) * 4;
@@ -932,7 +932,7 @@ void FP_Unsharp::process_square(class SubFlow *subflow) {
 //				continue;
 			float v_blur = 0.0f;
 			float v_blur_w = 0.0f;
-			for(int x = 0; x < kernel_length; x++) {
+			for(int x = 0; x < kernel_length; ++x) {
 //				const int in_x = i + x + kernel_offset + in_x_offset;
 				const int in_x = i + x + kernel_offset + t_x_offset;
 				if(in_x >= 0 && in_x < in_w) {
@@ -964,7 +964,7 @@ void FP_Unsharp::process_square(class SubFlow *subflow) {
 	// vertical pass - from temporary to output area
 	j = 0;
 	while((j = task->y_flow_pass_2->fetch_add(1)) < y_max) {
-		for(int i = 0; i < x_max; i++) {
+		for(int i = 0; i < x_max; ++i) {
 			const int i_in = ((j + in_y_offset) * in_width + (i + in_x_offset)) * 4; // k
 			const int i_out = ((j + out_y_offset) * out_width + (i + out_x_offset)) * 4; // l
 //			const int i_temp = j * temp_width + i;
@@ -976,7 +976,7 @@ void FP_Unsharp::process_square(class SubFlow *subflow) {
 				continue;
 			float v_blur = 0.0f;
 			float v_blur_w = 0.0f;
-			for(int y = 0; y < kernel_length; y++) {
+			for(int y = 0; y < kernel_length; ++y) {
 //				const int temp_y = j + y + kernel_offset;
 				const int in_y = j + y + kernel_offset + in_y_offset;
 				if(in_y >= 0 && in_y < in_h) {
@@ -1066,7 +1066,7 @@ void FP_Unsharp::process_round(class SubFlow *subflow) {
 
 	int j = 0;
 	while((j = task->y_flow_pass_1->fetch_add(1)) < y_max) {
-		for(int i = 0; i < x_max; i++) {
+		for(int i = 0; i < x_max; ++i) {
 			int l = ((j + in_y_offset) * in_width + (i + in_x_offset)) * 4;
 			int k = ((j + out_y_offset) * out_width + (i + out_x_offset)) * 4;
 			//--
@@ -1080,8 +1080,8 @@ void FP_Unsharp::process_round(class SubFlow *subflow) {
 			// calculate blurred value
 			float v_blur = 0.0f;
 			float v_blur_w = 0.0f;
-			for(int y = 0; y < kernel_length; y++) {
-				for(int x = 0; x < kernel_length; x++) {
+			for(int y = 0; y < kernel_length; ++y) {
+				for(int x = 0; x < kernel_length; ++x) {
 					const int in_x = i + x + kernel_offset + in_x_offset;
 					const int in_y = j + y + kernel_offset + in_y_offset;
 					if(in_x >= 0 && in_x < in_w && in_y >= 0 && in_y < in_h) {

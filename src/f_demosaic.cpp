@@ -521,8 +521,8 @@ void FP_Demosaic::_init(void) {
 		float s2 = 2.0 * std_dev * std_dev;
 		float std_dev_rb = (9.0 / 6.0); // TODO: should be used a real 9x9 kernel
 		float s2_rb = 2.0 * std_dev_rb * std_dev_rb;
-		for(int y = 0; y < 5; y++) {
-			for(int x = 0; x < 5; x++) {
+		for(int y = 0; y < 5; ++y) {
+			for(int x = 0; x < 5; ++x) {
 				int i = y * 5 + x;
 				if(i % 2 == 1) {
 					kernel_g5x5[y * 5 + x] = 0.0;
@@ -546,7 +546,7 @@ void FP_Demosaic::_init(void) {
 				}
 			}
 		}
-		for(int i = 0; i < 25; i++) {
+		for(int i = 0; i < 25; ++i) {
 			kernel_g5x5[i] /= sum_g;
 			kernel_rb5x5[i] /= sum_rb;
 		}
@@ -715,7 +715,7 @@ Area *FP_Demosaic::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filte
 			tf_sinc2 = new TF_Sinc2();
 
 			tasks_ca = new task_ca_t *[cores];
-			for(int i = 0; i < cores; i++) {
+			for(int i = 0; i < cores; ++i) {
 				tasks_ca[i] = new task_ca_t;
 				tasks_ca[i]->area_in = area_in;
 				tasks_ca[i]->bayer_ca = bayer_ca;
@@ -756,7 +756,7 @@ Area *FP_Demosaic::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filte
 		subflow->sync_point();
 		if(subflow->is_master()) {
 			delete y_flow;
-			for(int i = 0; i < cores; i++)
+			for(int i = 0; i < cores; ++i)
 				delete tasks_ca[i];
 			delete[] tasks_ca;
 			delete tf_sinc1;
@@ -858,7 +858,7 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 		fuji_45 = new Fuji_45(metadata->sensor_fuji_45_width, width + 4, height + 4, true);
 		long dd_hist_size = 0x400;
 		float dd_hist_scale = 0.25f;
-		for(int i = 0; i < cores; i++) {
+		for(int i = 0; i < cores; ++i) {
 			tasks[i] = new task_t;
 			tasks[i]->area_in = area_in;
 			tasks[i]->area_out = area_out;
@@ -866,8 +866,8 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 			tasks[i]->xtrans_passes = ps->xtrans_passes;
 /*
 			if(flag_process_xtrans) {
-				for(int u = 0; u < 6; u++)
-					for(int v = 0; v < 6; v++)
+				for(int u = 0; u < 6; ++u)
+					for(int v = 0; v < 6; ++v)
 						tasks[i]->sensor_xtrans_pattern[u][v] = metadata->sensor_xtrans_pattern[u][v];
 			}
 */
@@ -880,7 +880,7 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 			tasks[i]->ps = ps;
 
 			tasks[i]->noise_data = area_noise_data ? (float *)area_noise_data->ptr() : nullptr;
-			for(int j = 0; j < 4; j++)
+			for(int j = 0; j < 4; ++j)
 				tasks[i]->bayer_import_prescale[j] = metadata->demosaic_import_prescale[j];
 //			tasks[i]->black_offset = metadata->demosaic_black_offset;
 			tasks[i]->max_red = max_red;
@@ -891,7 +891,7 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 			tasks[i]->dd_hist = nullptr;
 			if(flag_process_DG) {
 				tasks[i]->dd_hist = new long[dd_hist_size];
-				for(int k = 0; k < dd_hist_size; k++)
+				for(int k = 0; k < dd_hist_size; ++k)
 					tasks[i]->dd_hist[k] = 0;
 				tasks[i]->dd_hist_size = dd_hist_size;
 				tasks[i]->dd_hist_scale = dd_hist_scale;
@@ -929,7 +929,7 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 				tasks[i]->x_min = 0;
 				tasks[i]->x_max = width;
 			}
-			for(int j = 0; j < 4; j++) {
+			for(int j = 0; j < 4; ++j) {
 				tasks[i]->noise_std_dev[j] = 0.005;
 			}
 
@@ -939,7 +939,7 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 			tasks[i]->fuji_45_flow = fuji_45_flow;
 
 			// smooth directions detection
-			for(int l = 0; l < 9; l++)
+			for(int l = 0; l < 9; ++l)
 				tasks[i]->cRGB_to_XYZ[l] = metadata->cRGB_to_XYZ[l];
 			tasks[i]->v_signal = area_v_signal ? (float *)area_v_signal->ptr() : nullptr;
 		}
@@ -1005,8 +1005,8 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 		}
 		if(area_v_signal) delete area_v_signal;
 
-//		for(int i = 0; i < subflow->cores(); i++)
-		for(int i = 0; i < cores; i++) {
+//		for(int i = 0; i < subflow->cores(); ++i)
+		for(int i = 0; i < cores; ++i) {
 			if(tasks[i]->dd_hist) delete tasks[i]->dd_hist;
 			delete tasks[i];
 		}
@@ -1066,7 +1066,7 @@ void FP_Demosaic::process_bayer_CA(class SubFlow *subflow) {
 	int offset_y_red = 0;
 	int offset_x_blue = 0;
 	int offset_y_blue = 0;
-	for(int i = 0; i < 4; i++) {
+	for(int i = 0; i < 4; ++i) {
 		int x = i % 2;
 		int y = i / 2;
 		const int s = __bayer_pos_to_c(x, y);
@@ -1085,7 +1085,7 @@ void FP_Demosaic::process_bayer_CA(class SubFlow *subflow) {
 	float f_index_x_blue = task->start_in_x_blue - task->start_in_x - offset_x_blue;
 	int y = 0;
 	while((y = task->y_flow->fetch_add(1)) < y_max) {
-		for(int x = 0; x < x_max; x++) {
+		for(int x = 0; x < x_max; ++x) {
 //			out[(y + out_y_offset) * out_w + x + out_x_offset] = in[(y + in_y_offset) * in_w + x + in_x_offset];
 			const int s = __bayer_pos_to_c(x, y);
 //			const int out_index = (y + out_y_offset) * out_w + x + out_x_offset;
@@ -1130,7 +1130,7 @@ void FP_Demosaic::process_bayer_CA(class SubFlow *subflow) {
 			int *in1 = &ix1;
 			int *in2 = &ix2;
 			float *wm = &wxm[0];
-			for(int i = 0; i < 2; i++) {
+			for(int i = 0; i < 2; ++i) {
 				if(i == 1) {
 					f_index_n = f_index_y;
 					offset_n = offset_y;
@@ -1174,9 +1174,9 @@ void FP_Demosaic::process_bayer_CA(class SubFlow *subflow) {
 						v += in[(j + in_y_offset) * in_w + i + in_x_offset] * w;
 						w_sum += w;
 					}
-					wi++;
+					++wi;
 				}
-				wj++;
+				++wj;
 			}
 			out[out_index] = v / w_sum;
 		}
@@ -1217,7 +1217,7 @@ void FP_Demosaic::process_bayer_CA_sinc1(class SubFlow *subflow) {
 	int offset_y_red = 0;
 	int offset_x_blue = 0;
 	int offset_y_blue = 0;
-	for(int i = 0; i < 4; i++) {
+	for(int i = 0; i < 4; ++i) {
 		int x = i % 2;
 		int y = i / 2;
 		const int s = __bayer_pos_to_c(x, y);
@@ -1236,7 +1236,7 @@ void FP_Demosaic::process_bayer_CA_sinc1(class SubFlow *subflow) {
 	float f_index_x_blue = task->start_in_x_blue - task->start_in_x - offset_x_blue;
 	int y = 0;
 	while((y = task->y_flow->fetch_add(1)) < y_max) {
-		for(int x = 0; x < x_max; x++) {
+		for(int x = 0; x < x_max; ++x) {
 //			out[(y + out_y_offset) * out_w + x + out_x_offset] = in[(y + in_y_offset) * in_w + x + in_x_offset];
 			const int s = __bayer_pos_to_c(x, y);
 //			const int out_index = (y + out_y_offset) * out_w + x + out_x_offset;
@@ -1281,7 +1281,7 @@ void FP_Demosaic::process_bayer_CA_sinc1(class SubFlow *subflow) {
 			int *in1 = &ix1;
 			int *in2 = &ix2;
 			float *wm = &wxm[0];
-			for(int i = 0; i < 2; i++) {
+			for(int i = 0; i < 2; ++i) {
 				if(i == 1) {
 					f_index_n = f_index_y;
 					offset_n = offset_y;
@@ -1309,9 +1309,9 @@ void FP_Demosaic::process_bayer_CA_sinc1(class SubFlow *subflow) {
 						v += in[(j + in_y_offset) * in_w + i + in_x_offset] * w;
 						w_sum += w;
 					}
-					wi++;
+					++wi;
 				}
-				wj++;
+				++wj;
 			}
 			out[out_index] = v / w_sum;
 		}
@@ -1352,7 +1352,7 @@ void FP_Demosaic::process_bayer_CA_sinc2(class SubFlow *subflow) {
 	int offset_y_red = 0;
 	int offset_x_blue = 0;
 	int offset_y_blue = 0;
-	for(int i = 0; i < 4; i++) {
+	for(int i = 0; i < 4; ++i) {
 		int x = i % 2;
 		int y = i / 2;
 		const int s = __bayer_pos_to_c(x, y);
@@ -1371,7 +1371,7 @@ void FP_Demosaic::process_bayer_CA_sinc2(class SubFlow *subflow) {
 	float f_index_x_blue = task->start_in_x_blue - task->start_in_x - offset_x_blue;
 	int y = 0;
 	while((y = task->y_flow->fetch_add(1)) < y_max) {
-		for(int x = 0; x < x_max; x++) {
+		for(int x = 0; x < x_max; ++x) {
 //			out[(y + out_y_offset) * out_w + x + out_x_offset] = in[(y + in_y_offset) * in_w + x + in_x_offset];
 			const int s = __bayer_pos_to_c(x, y);
 //			const int out_index = (y + out_y_offset) * out_w + x + out_x_offset;
@@ -1416,7 +1416,7 @@ void FP_Demosaic::process_bayer_CA_sinc2(class SubFlow *subflow) {
 			int *in1 = &ix1;
 			int *in2 = &ix2;
 			float *wm = &wxm[0];
-			for(int i = 0; i < 2; i++) {
+			for(int i = 0; i < 2; ++i) {
 				if(i == 1) {
 					f_index_n = f_index_y;
 					offset_n = offset_y;
@@ -1450,21 +1450,21 @@ void FP_Demosaic::process_bayer_CA_sinc2(class SubFlow *subflow) {
 						float value = in[(j + in_y_offset) * in_w + i + in_x_offset];
 						if(i > ix1 && i < ix2 && j > iy1 && j < iy2) {
 							limits[limits_index] = value;
-							limits_index++;
+							++limits_index;
 						}
 						v += value * w;
 						w_sum += w;
 					}
-					wi++;
+					++wi;
 				}
-				wj++;
+				++wj;
 			}
 //			out[out_index] = v / w_sum;
 			v = v / w_sum;
 //			if(v < 0.0) v = 0.0;
 			float limits_min = limits[0];
 			float limits_max = limits[0];
-			for(int i = 0; i < limits_index; i++) {
+			for(int i = 0; i < limits_index; ++i) {
 				if(limits_min > limits[i]) limits_min = limits[i];
 				if(limits_max < limits[i]) limits_max = limits[i];
 			}
@@ -1498,8 +1498,8 @@ void FP_Demosaic::process_square(class SubFlow *subflow) {
 	int p_green_b = __bayer_green_b(bayer_pattern);
 	int p_blue = __bayer_blue(bayer_pattern);
 #endif
-	for(int j = y_min; j < y_max; j++) {
-		for(int i = x_min; i < x_max; i++) {
+	for(int j = y_min; j < y_max; ++j) {
+		for(int i = x_min; i < x_max; ++i) {
 #if 0
 			int k = ((width + 4) * (j + 2) + i + 2) * 4;
 			int x = i * 2;
@@ -1537,7 +1537,7 @@ inline float middle(const float v1, const float v2, const float v3, const float 
 	float v[4] = {v1, v2, v3, v4};
 	int i_min = 0;
 	int i_max = 0;
-	for(int i = 1; i < 4; i++) {
+	for(int i = 1; i < 4; ++i) {
 		if(v[i_min] > v[i])
 			i_min = i;
 		if(v[i_max] < v[i])
@@ -1545,10 +1545,10 @@ inline float middle(const float v1, const float v2, const float v3, const float 
 	}
 	float s = 0.0;
 	int j = 0;
-	for(int i = 0; i < 4; i++) {
+	for(int i = 0; i < 4; ++i) {
 		if(i != i_min && i != i_max) {
 			s += v[i];
-			j++;
+			++j;
 		}
 	}
 	s /= j;
@@ -1577,8 +1577,8 @@ void FP_Demosaic::process_bilinear(class SubFlow *subflow) {
 //	int _w4 = (width + 4) * 4;
 //	const float black_offset = task->black_offset;
 //	const float black_scale = 1.0 / (1.0 - black_offset);
-	for(int j = y_min; j < y_max; j++) {
-		for(int i = x_min; i < x_max; i++) {
+	for(int j = y_min; j < y_max; ++j) {
+		for(int i = x_min; i < x_max; ++i) {
 			int k = ((width + 4) * (j + 2) + i + 2) * 4;
 			int s = __bayer_pos_to_c(i, j);
 			float r = 0.0;
@@ -1736,15 +1736,15 @@ float std_dev_min_med = 1.0;
 	if(ps->hot_pixels_removal_enable) {
 		// hot / cold pixels suspension
 		// pass  I: calculate: [+0] mean, [+1] std_dev, [+2] exclusive min, [+3] exclusive max: ==>> D
-		for(int y = y_min; y < y_max; y++) {
-			for(int x = x_min; x < x_max; x++) {
+		for(int y = y_min; y < y_max; ++y) {
+			for(int x = x_min; x < x_max; ++x) {
 				int k = (width + 4) * (y + 2) + x + 2;
 				int k4 = k * 4;
 				int s = __bayer_pos_to_c(x, y);
 				if(s == p_green_r || s == p_green_b) {
 					float sum = 0.0;
-					for(int j = 0; j < 5; j++) {
-						for(int i = 0; i < 5; i++) {
+					for(int j = 0; j < 5; ++j) {
+						for(int i = 0; i < 5; ++i) {
 							int index = j * 5 + i;
 							if(index % 2 == 0) {
 								if(i != 2 && j != 2) {
@@ -1759,14 +1759,14 @@ float std_dev_min_med = 1.0;
 					sum = 0.0;
 					float sum_min = 0.0;
 					int c_min = 0;
-					for(int j = 0; j < 5; j++) {
-						for(int i = 0; i < 5; i++) {
+					for(int j = 0; j < 5; ++j) {
+						for(int i = 0; i < 5; ++i) {
 							int index = j * 5 + i;
 							if(index % 2 == 0) {
 								if(i != 2 && j != 2) {
 									float v = bayer[k + (j - 2) * (width + 4) + i - 2] - mean;
 									if(v < 0) {
-										c_min++;
+										++c_min;
 										sum_min += v * v;
 									}
 									sum += v * v;
@@ -1807,7 +1807,7 @@ float std_dev_min_med = 1.0;
 							if(i != 2 && j != 2) {
 								float v = bayer[k + (j - 2) * (width + 4) + i - 2] - mean;
 								if(v < 0) {
-									c_min++;
+									++c_min;
 									sum_min += v * v;
 								}
 								sum += v * v;
@@ -1830,8 +1830,8 @@ float std_dev_min_med = 1.0;
 		//          2. compare signal: (signal < mean - 3 * MAX_std_dev) ? min : signal
 		//                             (signal > mean + 3 * MAX_std_dev) ? max : signal
 		float *out = task->dn1;
-		for(int y = y_min; y < y_max; y++) {
-			for(int x = x_min; x < x_max; x++) {
+		for(int y = y_min; y < y_max; ++y) {
+			for(int x = x_min; x < x_max; ++x) {
 				int k = (width + 4) * (y + 2) + x + 2;
 				int k4 = k * 4;
 				int s = __bayer_pos_to_c(x, y);
@@ -1843,8 +1843,8 @@ float std_dev_min_med = 1.0;
 				float v_min = D[k4 + 0] - D[k4 + 2];
 				float v_max = D[k4 + 0] + D[k4 + 1];
 				if(s == p_red || s == p_blue) {
-					for(int j = 0; j < 5; j++) {
-						for(int i = 0; i < 5; i++) {
+					for(int j = 0; j < 5; ++j) {
+						for(int i = 0; i < 5; ++i) {
 							bool flag1 = false;
 							bool flag2 = false;
 							int index = j * 5 + i;
@@ -1875,8 +1875,8 @@ float std_dev_min_med = 1.0;
 ///*
 					v_min = bayer[k + (0 - 2) * (width + 4) + 2 - 2]; // index == 2
 //					float v_min2 = bayer[k + (1 - 2) * (width + 4) + 1 - 2]; // index == 6
-					for(int j = 0; j < 5; j++) {
-						for(int i = 0; i < 5; i++) {
+					for(int j = 0; j < 5; ++j) {
+						for(int i = 0; i < 5; ++i) {
 							int index = j * 5 + i;
 							if(index == 6 || index == 8 || index == 10 || index == 14 || index == 16 || index == 18 || index == 22) {
 //							if(index == 8 || index == 10 || index == 14 || index == 16 || index == 18 || index == 22) {
@@ -1912,8 +1912,8 @@ float std_dev_min_med = 1.0;
 	if(true) {
 		int w4 = width + 4;
 		float *out = task->dn1;
-		for(int y = y_min; y < y_max; y++) {
-			for(int x = x_min; x < x_max; x++) {
+		for(int y = y_min; y < y_max; ++y) {
+			for(int x = x_min; x < x_max; ++x) {
 				int k = w4 * (y + 2) + x + 2;
 				int k4 = k * 4;
 				int s = __bayer_pos_to_c(x, y);
@@ -1946,10 +1946,10 @@ float std_dev_min_med = 1.0;
 					vf[10] = bayer[k + w4 * 2 + 2];
 					vf[11] = bayer[k          + 2];
 					int c = 0;
-					for(int u = 0; u < 12; u++) {
+					for(int u = 0; u < 12; ++u) {
 						float delta = ddr::abs(vf[u] - vn[u]);
 						if((v > vf[u] + delta) || (v < vf[u] - delta))
-							c++;
+							++c;
 					}
 					if(c == 12)
 						v = (vn[0] + vn[3] + vn[6] + vn[9]) * 0.25;
@@ -1988,8 +1988,8 @@ noise_std_dev[p_green_b] = std_dev_min;
 */
 		float noise_scale_luma = ps->noise_luma;
 		float noise_scale_chroma = ps->noise_chroma;
-		for(int y = y_min; y < y_max; y++) {
-			for(int x = x_min; x < x_max; x++) {
+		for(int y = y_min; y < y_max; ++y) {
+			for(int x = x_min; x < x_max; ++x) {
 				int k = (width + 4) * (y + 2) + x + 2;
 				int s = __bayer_pos_to_c(x, y);
 				out[k] = bayer[k];
@@ -1997,8 +1997,8 @@ noise_std_dev[p_green_b] = std_dev_min;
 				if(s == p_green_r || s == p_green_b) {
 					if(ps->noise_luma_enable == false)
 						continue;
-					for(int j = 0; j < 5; j++) {
-						for(int i = 0; i < 5; i++) {
+					for(int j = 0; j < 5; ++j) {
+						for(int i = 0; i < 5; ++i) {
 							int index = j * 5 + i;
 							if(index % 2 == 0) {
 								float in = bayer[k + (j - 2) * (width + 4) + i - 2];
@@ -2093,8 +2093,8 @@ float *FP_Demosaic::process_denoise(class SubFlow *subflow) {
 		// gaussian kernels preparation
 		float gaussian_kernel_G[25];
 		float gaussian_kernel_C[25];
-		for(int j = 0; j < 5; j++) {
-			for(int i = 0; i < 5; i++) {
+		for(int j = 0; j < 5; ++j) {
+			for(int i = 0; i < 5; ++i) {
 				// green
 				float x = i - 2;
 				float y = j - 2;
@@ -2115,8 +2115,8 @@ float *FP_Demosaic::process_denoise(class SubFlow *subflow) {
 		}
 		//----
 		// first pass - gaussian filter on GREEN channel, at all places
-		for(int y = y_min; y < y_max; y++) {
-			for(int x = x_min; x < x_max; x++) {
+		for(int y = y_min; y < y_max; ++y) {
+			for(int x = x_min; x < x_max; ++x) {
 				int k = (width + 4) * (y + 2) + x + 2;
 				int k4 = k * 4;
 				int s = __bayer_pos_to_c(x, y);
@@ -2127,8 +2127,8 @@ float *FP_Demosaic::process_denoise(class SubFlow *subflow) {
 				if(s == p_green_r || s == p_green_b) {
 					float sum = 0.0;
 					float w_sum = 0.0;
-					for(int j = 0; j < 5; j++) {
-						for(int i = 0; i < 5; i++) {
+					for(int j = 0; j < 5; ++j) {
+						for(int i = 0; i < 5; ++i) {
 							int index = j * 5 + i;
 							if(index % 2 == 0) {
 								float v = bayer[k + (j - 2) * (width + 4) + i - 2];
@@ -2158,8 +2158,8 @@ float *FP_Demosaic::process_denoise(class SubFlow *subflow) {
 				} else {
 					float sum = 0.0;
 					float w_sum = 0.0;
-					for(int j = 0; j < 5; j++) {
-						for(int i = 0; i < 5; i++) {
+					for(int j = 0; j < 5; ++j) {
+						for(int i = 0; i < 5; ++i) {
 							int index = j * 5 + i;
 							if(index % 2 == 1) {
 								float v = bayer[k + (j - 2) * (width + 4) + i - 2];
@@ -2199,8 +2199,8 @@ float *FP_Demosaic::process_denoise(class SubFlow *subflow) {
 		float std_dev_min = 1.0;
 //		float mean = 1.0;
 //		Fuji_45 *fuji_45 = task->fuji_45;
-		for(int y = y_min; y < y_max; y++) {
-			for(int x = x_min; x < x_max; x++) {
+		for(int y = y_min; y < y_max; ++y) {
+			for(int x = x_min; x < x_max; ++x) {
 				int k = (width + 4) * (y + 2) + x + 2;
 				int k2 = k * 2;
 				int k4 = k * 4;
@@ -2212,24 +2212,24 @@ float *FP_Demosaic::process_denoise(class SubFlow *subflow) {
 					skip = fuji_45->raw_is_outside(x, y, 4);
 				if(!skip) {
 					if(s == p_green_r || s == p_green_b) {
-						for(int j = 0; j < 5; j++) {
-							for(int i = 0; i < 5; i++) {
+						for(int j = 0; j < 5; ++j) {
+							for(int i = 0; i < 5; ++i) {
 								int index = j * 5 + i;
 								if(index % 2 == 0) {
 									float v = D[(k + (j - 2) * (width + 4) + i - 2) * 4 + 3];
 									sum += v * v;
-									count++;
+									++count;
 								}
 							}
 						}
 					} else {
-						for(int j = 0; j < 5; j++) {
-							for(int i = 0; i < 5; i++) {
+						for(int j = 0; j < 5; ++j) {
+							for(int i = 0; i < 5; ++i) {
 								int index = j * 5 + i;
 								if(index % 2 == 1) {
 									float v = D[(k + (j - 2) * (width + 4) + i - 2) * 4 + 3];
 									sum += v * v;
-									count++;
+									++count;
 								}
 							}
 						}
@@ -2257,11 +2257,11 @@ float *FP_Demosaic::process_denoise(class SubFlow *subflow) {
 			task_t **tasks = (task_t **)task->_tasks;
 			const int cores = subflow->cores();
 //			float noise_std_dev_min = std_dev_min;
-			for(int i = 0; i < cores; i++) {
+			for(int i = 0; i < cores; ++i) {
 				if(tasks[i]->noise_std_dev_min < std_dev_min)
 					std_dev_min = tasks[i]->noise_std_dev_min;
 			}
-			for(int i = 0; i < cores; i++) {
+			for(int i = 0; i < cores; ++i) {
 //cerr << "replace std_dev min from " << tasks[i]->noise_std_dev_min << " to " << std_dev_min << endl;
 				tasks[i]->noise_std_dev_min = std_dev_min;
 			}
@@ -2289,8 +2289,8 @@ float *FP_Demosaic::process_denoise(class SubFlow *subflow) {
 			float s1 = std_dev_min * noise_luma_scale;
 			float s3 = s1 * 3.0;
 //cerr << "s3 == " << s3 << endl;
-			for(int y = y_min; y < y_max; y++) {
-				for(int x = x_min; x < x_max; x++) {
+			for(int y = y_min; y < y_max; ++y) {
+				for(int x = x_min; x < x_max; ++x) {
 					int k = (width + 4) * (y + 2) + x + 2;
 					out[k] = bayer[k];
 					int k2 = k * 2;
@@ -2374,7 +2374,7 @@ void FP_Demosaic::fuji_45_rotate(class SubFlow *subflow) {
 	Fuji_45 *fuji_45 = task->fuji_45;
 	int y = 0;
 	while((y = task->fuji_45_flow->fetch_add(1)) < out_height) {
-		for(int x = 0; x < out_width; x++) {
+		for(int x = 0; x < out_width; ++x) {
 			fuji_45->rotate_45(out, x, y, in_width, in_height, in);
 		}
 	}
@@ -2405,8 +2405,8 @@ cerr << "process_xtrans...2" << endl;
 	float *out = (float *)area_out->ptr();
 cerr << "process_xtrans...3" << endl;
 	
-	for(int j = 0; j < height; j++) {
-		for(int i = 0; i < width; i++) {
+	for(int j = 0; j < height; ++j) {
+		for(int i = 0; i < width; ++i) {
 			int k = (width * j + i) * 4;
 			float v = 0.0f;
 			v += in[k + 0];
@@ -2447,8 +2447,8 @@ void FP_Demosaic::process_gaussian(class SubFlow *subflow) {
 	// gaussian kernels preparation
 	float gaussian_kernel_G[25];
 	float gaussian_kernel_C[25];
-	for(int j = 0; j < 5; j++) {
-		for(int i = 0; i < 5; i++) {
+	for(int j = 0; j < 5; ++j) {
+		for(int i = 0; i < 5; ++i) {
 			// green
 			float x = i - 2;
 			float y = j - 2;
@@ -2468,8 +2468,8 @@ void FP_Demosaic::process_gaussian(class SubFlow *subflow) {
 		}
 	}
 	//----
-	for(int y = y_min; y < y_max; y++) {
-		for(int x = x_min; x < x_max; x++) {
+	for(int y = y_min; y < y_max; ++y) {
+		for(int x = x_min; x < x_max; ++x) {
 			int k = (width + 4) * (y + 2) + x + 2;
 			int k4 = k * 4;
 			int s = __bayer_pos_to_c(x, y);
@@ -2480,8 +2480,8 @@ void FP_Demosaic::process_gaussian(class SubFlow *subflow) {
 			float sum_blue = 0.0;
 			float sum_w_blue = 0.0;
 			if(s == p_green_r || s == p_green_b) {
-				for(int j = 0; j < 5; j++) {
-					for(int i = 0; i < 5; i++) {
+				for(int j = 0; j < 5; ++j) {
+					for(int i = 0; i < 5; ++i) {
 						int index = j * 5 + i;
 						if(index % 2 == 0) {
 							float v = bayer[k + (j - 2) * (width + 4) + i - 2];
@@ -2507,8 +2507,8 @@ void FP_Demosaic::process_gaussian(class SubFlow *subflow) {
 					}
 				}
 			} else {
-				for(int j = 0; j < 5; j++) {
-					for(int i = 0; i < 5; i++) {
+				for(int j = 0; j < 5; ++j) {
+					for(int i = 0; i < 5; ++i) {
 						int index = j * 5 + i;
 						if(index % 2 == 1) {
 							float v = bayer[k + (j - 2) * (width + 4) + i - 2];

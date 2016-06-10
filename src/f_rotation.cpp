@@ -338,7 +338,7 @@ void F_Rotation::draw(QPainter *painter, FilterEdit_event_t *et) {
 			QPen(QColor(255, 255, 255, 63), 3.0),
 			QPen(QColor(0, 0, 0, 127), 1.0),
 		};
-		for(int i = 0; i < 2; i++) {
+		for(int i = 0; i < 2; ++i) {
 			painter->setPen(pens[i]);
 //			painter->setPen(QPen(QColor(255, 255, 255, 63)));
 

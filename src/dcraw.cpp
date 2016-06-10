@@ -54,7 +54,7 @@ const double CLASS xyz_rgb[3][3] = {          /* XYZ from RGB */
   { 0.019334, 0.119193, 0.950227 } };
 const float CLASS d65_white[3] = { 0.950456, 1, 1.088754 };
 
-#define FORC(cnt) for (c=0; c < cnt; c++)
+#define FORC(cnt) for (c=0; c < cnt; ++c)
 #define FORC3 FORC(3)
 #define FORC4 FORC(4)
 #define FORCC FORC(colors)
@@ -10630,7 +10630,7 @@ next:
 		foveon_interpolate();
 //		pre_interpolate();
 //		if(mix_green)
-//			for(colors=3, i=0; i < height*width; i++)
+//			for(colors=3, i=0; i < height*width; ++i)
 //					image[i][1] = (image[i][1] + image[i][3]) >> 1;
 		convert_to_rgb();
 	}
@@ -10643,7 +10643,7 @@ next:
 /*
 	if(is_foveon) {
 		if (document_mode || load_raw == &CLASS foveon_dp_load_raw) {
-			for (i=0; i < height*width*4; i++)
+			for (i=0; i < height*width*4; ++i)
 				if ((short) image[0][i] < 0) image[0][i] = 0;
 		} else
 			foveon_interpolate();
@@ -10667,7 +10667,7 @@ next:
 						ahd_interpolate();
 	}
 	if(mix_green)
-		for(colors=3, i=0; i < height*width; i++)
+		for(colors=3, i=0; i < height*width; ++i)
 				image[i][1] = (image[i][1] + image[i][3]) >> 1;
 	if(!is_foveon && colors == 3)
 		median_filter();

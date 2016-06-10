@@ -243,7 +243,7 @@ QWidget *F_cRGB_to_CM::controls(QWidget *parent) {
 	for(list<CM::cm_type_en>::iterator it = cm_types_list.begin(); it != cm_types_list.end(); ++it)
 		combo_color_model->addItem(QString(CM::get_type_name(*it).c_str()), *it);
 	l->addWidget(combo_color_model, row, 1);
-	row++;
+	++row;
 #endif
 	QLabel *label_ocs = new QLabel(tr("Output color space:"));
 	l->addWidget(label_ocs, row, 0);
@@ -252,16 +252,16 @@ QWidget *F_cRGB_to_CM::controls(QWidget *parent) {
 	list<string> cs_names_list = CMS_Matrix::instance()->get_cs_names();
 	for(list<string>::iterator it = cs_names_list.begin(); it != cs_names_list.end(); ++it) {
 		combo_output_color_space->addItem(QString((*it).c_str()), index);
-		index++;
+		++index;
 	}
 	l->addWidget(combo_output_color_space, row, 1);
-	row++;
+	++row;
 
 	// saturation
 	groupbox_gamut = new QGroupBox(tr("Gamut compression"));
 	groupbox_gamut->setCheckable(true);
 	l->addWidget(groupbox_gamut, row, 0, 1, -1);
-	row++;
+	++row;
 
 	QGridLayout *cs_l = new QGridLayout();
 	cs_l->setSpacing(0);
@@ -445,13 +445,13 @@ void FP_cRGB_to_CM::filter_pre(fp_cp_args_t *args) {
 
 	// shared parameters
 	float matrix[9];
-	for(int i = 0; i < 9; i++)
+	for(int i = 0; i < 9; ++i)
 		matrix[i] = args->metadata->cRGB_to_XYZ[i];
 	CM *cm = CM::new_CM(ps->cm_type, CS_White(args->metadata->cRGB_illuminant_XYZ), CS_White("E"));;
 	CM_Convert *cm_convert = cm->get_convert_XYZ_to_Jsh();
-	for(int i = 0; i < args->cores; i++) {
+	for(int i = 0; i < args->cores; ++i) {
 		task_t *task = new task_t;
-		for(int j = 0; j < 9; j++)
+		for(int j = 0; j < 9; ++j)
 			task->cmatrix[j] = matrix[j];
 		task->cm = cm;
 		task->cm_convert = cm_convert;
@@ -461,7 +461,7 @@ void FP_cRGB_to_CM::filter_pre(fp_cp_args_t *args) {
 
 void FP_cRGB_to_CM::filter_post(fp_cp_args_t *args) {
 	FP_cRGB_to_CM::task_t *t = (FP_cRGB_to_CM::task_t *)args->ptr_private[0];
-	for(int i = 0; i < args->cores; i++) {
+	for(int i = 0; i < args->cores; ++i) {
 		t = (FP_cRGB_to_CM::task_t *)args->ptr_private[i];
 		if(i == 0)
 			delete t->cm;

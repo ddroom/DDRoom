@@ -44,9 +44,9 @@ Area *Import_Test::test_xy(Metadata *metadata) {
 	CMS_Matrix::instance()->get_illuminant_XYZ("E", metadata->cRGB_illuminant_XYZ);
 	Area *area = new Area(w, h);
 	float *ptr = (float *)area->ptr();
-	for(int y = 0; y < h; y++) {
+	for(int y = 0; y < h; ++y) {
 		float fy = float(y) / h;
-		for(int x = 0; x < w; x++) {
+		for(int x = 0; x < w; ++x) {
 			float fx = float(x) / w;
 			float alpha = 1.0;
 			float XYZ[3];
@@ -93,8 +93,8 @@ Area *Import_Test::test_demosaic(Metadata *metadata) {
 	int p_blue = __bayer_blue(metadata->demosaic_pattern);
 	float *ptr_in = (float *)in->ptr();
 	float *ptr_out = (float *)out->ptr();
-	for(int y = 0; y < h; y++) {
-		for(int x = 0; x < w; x++) {
+	for(int y = 0; y < h; ++y) {
+		for(int x = 0; x < w; ++x) {
 			int s = __bayer_pos_to_c(x, y);
 			int a = 0;
 			if(s == p_green_r || s == p_green_b)
@@ -122,7 +122,7 @@ Area *Import_Test::test_draw(Metadata *metadata) {
 		 0.2126729,  0.7151522,  0.0721750,
 		 0.0193339,  0.1191920,  0.9503041};
 */
-//	for(int i = 0; i < 9; i++)
+//	for(int i = 0; i < 9; ++i)
 //		metadata->cmatrix[i] = m_srgb_to_xyz[i];
 	TableFunction *gamma = CMS_Matrix::instance()->get_inverse_gamma("sRGB");
 	Area *area = new Area(w, h);
@@ -146,14 +146,14 @@ Area *Import_Test::test_draw(Metadata *metadata) {
 		QColor(0xFF, 0xFF, 0xFF, 0xFF),
 	};
 	int lines[] = {15, 12, 9, 6, 3};
-	for(int l = 0; l < 5; l++) {
-		for(int j = 0; j < 5; j++) {
+	for(int l = 0; l < 5; ++l) {
+		for(int j = 0; j < 5; ++j) {
 			float lw = lw_a[j];
 			p.setPen(QPen(colors[l], lw));
-			for(int i = 0; i < lines[j]; i++) {
+			for(int i = 0; i < lines[j]; ++i) {
 				float dx = w / 32.0;
 				float off_x = 0;
-				for(int k = 0; k < 32; k++) {
+				for(int k = 0; k < 32; ++k) {
 					p.drawLine(QPointF(off_x, offset), QPointF(off_x + dx, offset + (k % 4) * 2));
 					off_x += dx;
 				}
@@ -163,8 +163,8 @@ Area *Import_Test::test_draw(Metadata *metadata) {
 	}
 	// convert to Area
 	float *area_ptr = (float *)area->ptr();
-	for(int y = 0; y < h; y++) {
-		for(int x = 0; x < w; x++) {
+	for(int y = 0; y < h; ++y) {
+		for(int x = 0; x < w; ++x) {
 			float *ptr = &area_ptr[(y * w + x) * 4];
 			QRgb rgb = image.pixel(x, y);
 			ptr[0] = (*gamma)(float(qRed(rgb)) / 0xFF);

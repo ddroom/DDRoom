@@ -147,7 +147,7 @@ System::System(void) {
 	QStringList filters;
 	filters << "*.xml" << "*.XML";
 	QStringList file_list = db_dir.entryList(filters, QDir::Files);
-	for(int i = 0; i < file_list.size(); i++)
+	for(int i = 0; i < file_list.size(); ++i)
 		_ldb->Load((QDir::toNativeSeparators(path + file_list[i])).toLocal8Bit().constData());
 #else
 	_ldb->Load();

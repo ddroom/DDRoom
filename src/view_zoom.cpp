@@ -40,6 +40,8 @@ void View_Zoom::fill_toolbar(QToolBar *t) {
 	slider->setMaximumWidth(100);
 	slider->setMinimum(1);
 	slider->setMaximum(100);
+	// so mouse wheel will work smooth - usefull on small values
+	slider->setPageStep(1);
 	slider->setValue(zoom_scale);
 	t->addWidget(slider);
 

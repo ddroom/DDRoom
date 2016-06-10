@@ -465,7 +465,7 @@ void FP_CM_Colors::filter_pre(fp_cp_args_t *args) {
 		sg = new Saturation_Gamut(cm_type, ocs_name);
 	}
 
-	for(int i = 0; i < args->cores; i++) {
+	for(int i = 0; i < args->cores; ++i) {
 		task_t *task = new task_t;
 		task->saturation = saturation;
 		task->js_curve = ps->enabled_js_curve;
@@ -480,7 +480,7 @@ void FP_CM_Colors::filter_post(fp_cp_args_t *args) {
 	FP_CM_Colors::task_t *t = (FP_CM_Colors::task_t *)args->ptr_private[0];
 	if(t->sg != nullptr)
 		delete t->sg;
-	for(int i = 0; i < args->cores; i++) {
+	for(int i = 0; i < args->cores; ++i) {
 		t = (FP_CM_Colors::task_t *)args->ptr_private[i];
 		delete t;
 	}
@@ -541,7 +541,7 @@ Area *FP_CM_Colors::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filt
 		int cores = subflow->cores();
 		_flow_p1 = new std::atomic_int(0);
 		tasks = new task_t *[cores];
-		for(int i = 0; i < cores; i++) {
+		for(int i = 0; i < cores; ++i) {
 			tasks[i] = new task_t;
 			tasks[i]->area_in = area_in;
 			tasks[i]->area_out = _area_out;
@@ -581,7 +581,7 @@ Area *FP_CM_Colors::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filt
 	while((j = task->flow_p1->fetch_add(1)) < y_max) {
 		int in_index = ((j + in_my) * in_width + in_mx) * 4;
 		int out_index = ((j + out_my) * out_width + out_mx) * 4;
-		for(int i = 0; i < x_max; i++) {
+		for(int i = 0; i < x_max; ++i) {
 /*
 			float *pixel = &in[in_index];
 			float scale = ps_saturation;
@@ -628,7 +628,7 @@ Area *FP_CM_Colors::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filt
 		delete _flow_p1;
 		if(tasks[0]->sg != nullptr)
 			delete tasks[0]->sg;
-		for(int i = 0; i < subflow->cores(); i++)
+		for(int i = 0; i < subflow->cores(); ++i)
 			delete tasks[i];
 		delete[] tasks;
 	}

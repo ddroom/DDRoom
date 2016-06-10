@@ -9,8 +9,7 @@
  *
  */
 
-#include <list>
-#include <memory>
+//#include <memory>
 
 #include <QtWidgets>
 //#include <QGLWidget>

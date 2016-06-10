@@ -141,7 +141,7 @@ void ThumbnailLoader::run(void) {
 				threads = count;
 			list<ThumbnailThread *> thl;
 //cerr << "... 01" << endl;
-			for(int i = 0; i < threads; i++)
+			for(int i = 0; i < threads; ++i)
 				thl.push_back(new ThumbnailThread(_thumb_size));
 //cerr << "... 02" << endl;
 			for(list<ThumbnailThread *>::iterator it = thl.begin(); it != thl.end(); ++it)

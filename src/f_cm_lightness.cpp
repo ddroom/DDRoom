@@ -69,7 +69,7 @@ public:
 //------------------------------------------------------------------------------
 PS_CM_Lightness::PS_CM_Lightness(void) {
 	// create spline points containers
-	for(int i = 0; i < curve_channel_t::channel_all; i++)
+	for(int i = 0; i < curve_channel_t::channel_all; ++i)
 		curve.push_back(QVector<QPointF>());
 	reset();
 }
@@ -144,7 +144,7 @@ void PS_CM_Lightness::reset_curve(curve_channel_t::curve_channel channel) {
 		c.push_back(curve_channel_t::channel_green);
 		c.push_back(curve_channel_t::channel_blue);
 	}
-	for(int i = 0; i < c.size(); i++) {
+	for(int i = 0; i < c.size(); ++i) {
 //cerr << "c[" << i << "] == " << c[i] << endl;
 		curve[c[i]].clear();
 		curve[c[i]].push_back(QPointF(0, 0));
@@ -513,13 +513,13 @@ void F_CM_Lightness::slot_update_histograms(void) {
 
 void F_CM_Lightness::slot_curve_update(const QVector<QVector<QPointF> > &_curve, const QVector<float> &_levels) {
 	bool to_update = false;
-	for(int i = 0; i < curve_channel_t::channel_all; i++) {
+	for(int i = 0; i < curve_channel_t::channel_all; ++i) {
 		if(ps->curve[i] != _curve[i]) {
 			ps->curve[i] = _curve[i];
 			to_update = true;
 		}
 	}
-	for(int i = 0; i < _levels.size(); i++) {
+	for(int i = 0; i < _levels.size(); ++i) {
 		if(ps->levels[i] != _levels[i]) {
 			ps->levels[i] = _levels[i];
 			to_update = true;
@@ -790,7 +790,7 @@ void FP_CM_Lightness::filter_pre(fp_cp_args_t *args) {
 		sg = new Saturation_Gamut(cm_type, ocs_name);
 	}
 
-	for(int i = 0; i < args->cores; i++) {
+	for(int i = 0; i < args->cores; ++i) {
 		task_t *task = new task_t;
 		task->fp_cache = fp_cache;
 		if(do_histograms) {
@@ -800,9 +800,9 @@ void FP_CM_Lightness::filter_pre(fp_cp_args_t *args) {
 			task->hist_in = QVector<long>(0);
 			task->hist_out = QVector<long>(0);
 		}
-		for(int j = 0; j < task->hist_in.size(); j++)
+		for(int j = 0; j < task->hist_in.size(); ++j)
 			task->hist_in[j] = 0;
-		for(int j = 0; j < task->hist_out.size(); j++)
+		for(int j = 0; j < task->hist_out.size(); ++j)
 			task->hist_out[j] = 0;
 
 		task->levels = levels;
@@ -825,10 +825,10 @@ void FP_CM_Lightness::filter_post(fp_cp_args_t *args) {
 	if(task->do_histograms) {
 		QVector<long> hist_in = QVector<long>(HIST_SIZE);
 		QVector<long> hist_out = QVector<long>(HIST_SIZE);
-		for(int i = 0; i < HIST_SIZE; i++) {
+		for(int i = 0; i < HIST_SIZE; ++i) {
 			hist_in[i] = 0;
 			hist_out[i] = 0;
-			for(int k = 0; k < args->cores; k++) {
+			for(int k = 0; k < args->cores; ++k) {
 				hist_in[i] += tasks[k]->hist_in[i];
 				hist_out[i] += tasks[k]->hist_out[i];
 			}
@@ -851,7 +851,7 @@ void FP_CM_Lightness::filter_post(fp_cp_args_t *args) {
 		}
 */
 	}
-	for(int i = 0; i < args->cores; i++) {
+	for(int i = 0; i < args->cores; ++i) {
 		FP_CM_Lightness::task_t *t = (FP_CM_Lightness::task_t *)args->ptr_private[i];
 		delete t;
 	}
@@ -912,7 +912,7 @@ void FP_CM_Lightness::filter(float *pixel, void *data) {
 		ddr::clip(index, 0, HIST_SIZE - 1);
 //		if(index > HIST_SIZE - 1)	index = HIST_SIZE - 1;
 //		if(index < 0)		index = 0;
-		task->hist_in[index]++;
+		++task->hist_in[index];
 	}
 	if(task->hist_out.size() != 0 && alpha > 0.99) {
 //		long index = pixel[0] * (HIST_SIZE - 1) + 0.05;
@@ -920,7 +920,7 @@ void FP_CM_Lightness::filter(float *pixel, void *data) {
 		ddr::clip(index, 0, HIST_SIZE - 1);
 //		if(index > HIST_SIZE - 1)	index = HIST_SIZE - 1;
 //		if(index < 0)		index = 0;
-		task->hist_out[index]++;
+		++task->hist_out[index];
 	}
 }
 

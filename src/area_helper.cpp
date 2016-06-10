@@ -101,8 +101,8 @@ cerr << "area_out->dimensions()->height() == " << area_out->dimensions()->height
 
 	int32_t v;
 	int index_table[4] = {i_r, i_g, i_b, i_a};
-	for(int y = 0; y < y_max; y++) {
-		for(int x = 0; x < x_max; x++) {
+	for(int y = 0; y < y_max; ++y) {
+		for(int x = 0; x < x_max; ++x) {
 			int l = ((y + y_off) * in_width + (x + x_off)) * 4;
 			int k = (y * x_max + x) * out_step;
 			if(rotation == 90)
@@ -112,7 +112,7 @@ cerr << "area_out->dimensions()->height() == " << area_out->dimensions()->height
 			if(rotation == 270)
 				k = ((x_max - x - 1) * y_max + y) * out_step;
 
-			for(int c = 0; c < out_step; c++) {
+			for(int c = 0; c < out_step; ++c) {
 				v = int32_t(in[l + c] * f_scale);
 				if(v > i_scale)	v = i_scale;
 				else if(v < 0x00)	v = 0x00;
@@ -196,7 +196,7 @@ cerr << "area_out->dimensions()->width()  == " << area_out->dimensions()->width(
 cerr << "area_out->dimensions()->height() == " << area_out->dimensions()->height() << endl;
 */
 		y_flow = new std::atomic_int(0);
-		for(int i = 0; i < cores; i++) {
+		for(int i = 0; i < cores; ++i) {
 			tasks[i] = new AreaHelper::mt_task_t;
 			tasks[i]->area_in = area_in;
 			tasks[i]->area_out = area_out;
@@ -218,7 +218,7 @@ cerr << "area_out->dimensions()->height() == " << area_out->dimensions()->height
 //	subflow->sync_point();
 //	if(subflow->is_master()) {
 	if(subflow->sync_point_pre()) {
-		for(int i = 0; i < subflow->cores(); i++)
+		for(int i = 0; i < subflow->cores(); ++i)
 			delete tasks[i];
 		delete[] tasks;
 		delete y_flow;
@@ -286,7 +286,7 @@ void AreaHelper::f_convert_mt(class SubFlow *subflow) {
 	int y;
 	int index_table[4] = {i_r, i_g, i_b, i_a};
 	while((y = task->y_flow->fetch_add(1)) < y_max) {
-		for(int x = 0; x < x_max; x++) {
+		for(int x = 0; x < x_max; ++x) {
 			int l = ((y + y_off) * in_width + (x + x_off)) * 4;
 			int k = (y * x_max + x) * out_step;
 			if(rotation == 90)
@@ -303,8 +303,8 @@ void AreaHelper::f_convert_mt(class SubFlow *subflow) {
 				in[l + 3] = 1.0;
 			}
 */
-//			for(int c = 0; c < 4; c++) {
-			for(int c = 0; c < out_step; c++) {
+//			for(int c = 0; c < 4; ++c) {
+			for(int c = 0; c < out_step; ++c) {
 				v = int32_t(in[l + c] * f_scale);
 				if(v > i_scale)	v = i_scale;
 				else if(v < 0x00)	v = 0x00;
@@ -415,14 +415,14 @@ cerr << "in_height == " << in_height << endl;
 
 	long offset = 0;
 	float black_f[4] = {0.0, 0.0, 0.0, 0.0};
-	for(int y = y_min; y < y_max; y++) {
-		for(int x = x_min; x < x_max; x++) {
+	for(int y = y_min; y < y_max; ++y) {
+		for(int x = x_min; x < x_max; ++x) {
 			if(x < 0 || x >= in_width || y < 0 || y >= in_height)
 				pi = (uint8_t *)black_f;
 			else
 				pi = &ptr_in[((y + offset_y) * in_w + x + offset_x) * s];
 			po = &ptr_out[offset];
-			for(int i = 0; i < s; i++)
+			for(int i = 0; i < s; ++i)
 				po[i] = pi[i];
 //				ptr_out[offset + i] = ptr_in[(y * crop.size.w + x) * s + i];
 			offset += s;
@@ -434,7 +434,7 @@ cerr << "in_height == " << in_height << endl;
 			if((y < y_min + 20 || y > y_max - 21) && (x == x_min || x == x_max - 1))
 				draw = true;
 			if(draw) {
-				for(int i = 0; i < s; i++)
+				for(int i = 0; i < s; ++i)
 					po[i] = black;
 			}
 //*/
@@ -498,9 +498,9 @@ Area *AreaHelper::rotate(Area *area_in, int rotation) {
 	float *p_out = (float *)area_out->ptr();
 	int x_max = in_dim->size.w;
 	int y_max = in_dim->size.h;
-	for(int y = 0; y < y_max; y++) {
-		for(int x = 0; x < x_max; x++) {
-			for(int i = 0; i < 4; i++)
+	for(int y = 0; y < y_max; ++y) {
+		for(int x = 0; x < x_max; ++x) {
+			for(int i = 0; i < 4; ++i)
 				p_out[offset * 4 + i] = p_in[i];
 			offset += offset_x;
 			p_in += 4;

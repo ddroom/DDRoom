@@ -65,14 +65,11 @@ using namespace std;
 
 Filter_Store *Process::fstore = nullptr;
 
-// use QSet to store IDs of requests in process
-// - after acceptance of processing request ID of process should be added in this set
-// - to abort processing, ID should be removed from this set
-// - processing trhread should abort processing ASAP as set is checked and there is no ID in progress in this set
-// - after successful processing ID should be removed from this set
+// Processing of the request should be aborted ASAP if there is no appropriate ID in that set,
+//  except the thumbs processing, to improve UI interactivity.
 int Process::ID_counter = 0;
 std::mutex Process::ID_counter_lock;
-QSet<int> Process::IDs_in_process;
+std::set<int> Process::IDs_in_process;
 bool Process::to_quit = false;
 std::mutex Process::quit_lock;
 
@@ -84,13 +81,17 @@ void Process::ID_add(int ID) {
 
 void Process::ID_remove(int ID) {
 	ID_counter_lock.lock();
-	IDs_in_process.remove(ID);
+	auto it = IDs_in_process.find(ID);
+	if(it != IDs_in_process.end())
+		IDs_in_process.erase(it);
 	ID_counter_lock.unlock();
 }
 
 bool Process::ID_to_abort(int ID) {
 	ID_counter_lock.lock();
-	bool to_abort = !IDs_in_process.contains(ID);
+//	bool to_abort = !IDs_in_process.contains(ID);
+	// there is no such ID so yes, it should be aborted etc..
+	bool to_abort = (IDs_in_process.find(ID) == IDs_in_process.end());
 	ID_counter_lock.unlock();
 //	cerr << " process with ID " << ID << "should be aborted: " << to_abort << endl;
 	return to_abort;
@@ -98,7 +99,10 @@ bool Process::ID_to_abort(int ID) {
 
 void Process::ID_request_abort(int ID) {
 	ID_counter_lock.lock();
-	IDs_in_process.remove(ID);
+	auto it = IDs_in_process.find(ID);
+	if(it != IDs_in_process.end())
+		IDs_in_process.erase(it);
+//	IDs_in_process.remove(ID);
 	ID_counter_lock.unlock();
 //	cerr << "requested abort for process with ID: " << ID << endl;
 }
@@ -194,7 +198,7 @@ Process::task_run_t::task_run_t(void) {
 Process::task_run_t::~task_run_t() {
 //	delete to_abort;
 	// delete all FilterProcess_CP_Wrapper
-	for(int fi = 0; fi < 2; fi++) {
+	for(int fi = 0; fi < 2; ++fi) {
 		for(list<filter_record_t>::iterator it = filter_records[fi].begin(); it != filter_records[fi].end(); ++it)
 			if((*it).fp_is_wrapper)
 				delete (*it).fp;
@@ -272,7 +276,7 @@ void Process::allocate_process_caches(list<filter_record_t> &filters, std::share
 // and those filters don't need to know values (coordinates or actual values) of neighbors.
 void Process::assign_filters(list<filter_record_t> &filters, task_run_t *task) {
 	ProcessCache_t *process_cache = (ProcessCache_t *)task->photo->cache_process;
-	for(int pass = 0; pass < 2; pass++) {
+	for(int pass = 0; pass < 2; ++pass) {
 		vector<class FP_GP_Wrapper_record_t> gp_wrapper_records = vector<class FP_GP_Wrapper_record_t>();
 		vector<class FP_CP_Wrapper_record_t> cp_wrapper_records = vector<class FP_CP_Wrapper_record_t>();
 		bool gp_wrapper_resampling = false;
@@ -358,7 +362,7 @@ void Process::assign_filters(list<filter_record_t> &filters, task_run_t *task) {
 		}
 	}
 #if 0
-	for(int pass = 0; pass < 2; pass++) {
+	for(int pass = 0; pass < 2; ++pass) {
 		cerr << "pass == " << pass << endl;
 		for(std::list<filter_record_t>::iterator it = task->filter_records[pass].begin(); it != task->filter_records[pass].end(); ++it)
 			cerr << "    \"" << (*it).fp_2d->name() << "\"" << endl;
@@ -488,6 +492,7 @@ void Process::process_export(Photo_ID photo_id, string fname_export, export_para
 	} else {
 		task.tiles_receiver = new TilesReceiver();
 	}
+	task.tiles_receiver->do_split(true);
 	task.tiles_receiver->set_request_ID(task.request_ID);
 
 Profiler prof(string("Batch for ") + photo_id.get_export_file_name());
@@ -722,7 +727,7 @@ void Process::run_mt(SubFlow *subflow, void *data) {
 	}
 	// create list of enabled filters
 	list<class filter_record_t> pl_filters[3];	// 0 - thumbnail, 1 - tiles, 2 - tiles & demosaic
-	for(int fi = 0; fi < 3; fi++) {
+	for(int fi = 0; fi < 3; ++fi) {
 		int fr_i = (fi == 0) ? 0 : 1;
 //		cerr << "filters list, iteration == " << fi << endl;
 		for(list<filter_record_t>::iterator it = task->filter_records[fr_i].begin(); it != task->filter_records[fr_i].end(); ++it) {
@@ -811,7 +816,7 @@ cerr << "after process_size_forward     size is " << d_full_forward.width() << "
 	// ** first pass - process thumbnail _PREVIEW_SIZE x _PREVIEW_SIZE on CPU only
 	// ** second pass - process requested tiles
 	int iteration = (process_view_tiles) ? 1 : 0;
-	for(; iteration < 2; iteration++) {
+	for(; iteration < 2; ++iteration) {
 //		if(is_master)
 //			cerr << "iteration == " << iteration << endl;
 		// NOTE: some ideas about possible tiles cache: useless for geometry filters, useful - for colors
@@ -918,40 +923,53 @@ void Process::process_size_forward(Process::task_run_t *task, list<class filter_
 	d_in.edges.y1 = 0;
 	d_in.edges.y2 = 0;
 	d_out = d_in;	// forward geometry result
-//cerr << endl << "process_size_forward(): " << endl;
-//cerr << "process_size_forward, d_in.edges == " << d_in.edges.x1 << " - " << d_in.edges.x2 << endl;
-//cerr << "process_size_forward,  d_in-> size == " << d_in.width() << "x" << d_in.height() << endl;
+/*
+cerr << endl << "process_size_forward():  in geometry: " << endl;
+cerr << "     d_in.edges == " << d_in.edges.x1 << " - " << d_in.edges.x2 << endl;
+cerr << "  d_in.position == " << d_in.position.x << " x " << d_in.position.y << endl;
+cerr << "      d_in.size == " << d_in.width() << " x " << d_in.height() << endl;
+cerr << "       d_in.w&h == " << d_in.size.w << " x " << d_in.size.h << endl;
+*/
 	list<filter_record_t>::iterator it;
 	for(it = pl_filters.begin(); it != pl_filters.end(); ++it) {
 		FP_size_t fp_size((*it).ps_base.get());
 		fp_size.metadata = task->photo->metadata;
 		fp_size.mutators = task->mutators;
-		d_out = d_in;
+		fp_size.cw_rotation = task->photo->cw_rotation;
 		// allow edit mode for online processing
-		if(!task->is_offline) {
+		if(!task->is_offline)
 			fp_size.filter = (*it).filter;
-		}
+		d_out = d_in;
 		(*it).fp_2d->size_forward(&fp_size, &d_in, &d_out);
-//cerr << "after size_forward with FP_2D \"" << (*it).fp_2d->name() << "\" area == " << d_out.width() << "x" << d_out.height() << endl;
 		d_in = d_out;
-//cerr << "    \"" << (*it).fp_2d->name() << "\"" << endl;
-//cerr << "..................... d_out-> size == " << d_out.width() << "x" << d_out.height() << endl;
+/*
+cerr << "after size_forward with FP_2D \"" << (*it).fp_2d->name() << "\" area == " << d_out.width() << "x" << d_out.height() << endl;
+cerr << "    \"" << (*it).fp_2d->name() << "\"" << endl;
+cerr << "..................... d_out-> size == " << d_out.width() << "x" << d_out.height() << endl;
+cerr << "..................... d_out->  w&h == " << d_out.size.w << "x" << d_out.size.h << endl;
+*/
 	}
-//cerr << "process_size_forward, d_out-> size == " << d_out.width() << "x" << d_out.height() << endl;
-//cerr << "process_size_forward, d_out->edges == " << d_out.edges.x1 << " - " << d_out.edges.x2 << endl;
+/*
+cerr << endl << "process_size_forward():  out geometry: " << endl;
+cerr << "     d_out.edges == " << d_out.edges.x1 << " - " << d_out.edges.x2 << endl;
+cerr << "  d_out.position == " << d_out.position.x << " x " << d_out.position.y << endl;
+cerr << "      d_out.size == " << d_out.width() << " x " << d_out.height() << endl;
+cerr << "       d_out.w&h == " << d_out.size.w << " x " << d_out.size.h << endl;
+*/
 }
 
 //------------------------------------------------------------------------------
 void Process::process_size_backward(Process::task_run_t *task, list<class filter_record_t> &pl_filters, const Area::t_dimensions &target_dimensions) {
-//	int input_width = task->area_transfer->dimensions()->width();
-//	int input_height = task->area_transfer->dimensions()->height();
 	Area::t_dimensions d_in;
 	Area::t_dimensions d_out;
 	TilesDescriptor_t *tiles_request = task->tiles_request;
-//Area::t_position &p = task->area_transfer->dimensions()->position;
-//cerr << "Process::process_size_backward(): " << p.x << " - " << p.y << endl;
-//cerr << "---------------->> Process::process_size_backward(): px_size == " << target_dimensions.position.px_size << endl;
-	for(int i = 0; i < tiles_request->tiles.size() + 1; i++) {
+/*
+cerr << "Process::process_size_backward(),  in geometry:" << endl;
+cerr << "      size: " << tiles_request->post_width << "-" << tiles_request->post_height << endl;
+cerr << "   px_size: " << tiles_request->scale_factor_x << "-" << tiles_request->scale_factor_y << endl;
+cerr << "  position: " << target_dimensions.position.x << "-" << target_dimensions.position.y << endl;
+*/
+	for(int i = 0; i < tiles_request->tiles.size() + 1; ++i) {
 		// actually, tiles coordinates and edges flags (outer|inner) was prepared in tiles_request, nothing to do here
 //cerr << endl << "....................................................................." << "process_size_backward(); iteration == " << i << endl;
 		if(i == 0) {
@@ -970,7 +988,8 @@ void Process::process_size_backward(Process::task_run_t *task, list<class filter
 				FP_size_t fp_size((*it).ps_base.get());
 				fp_size.metadata = task->photo->metadata;
 				fp_size.mutators = task->mutators;
-				fp_size.is_tile = (i != 0);
+				fp_size.cw_rotation = task->photo->cw_rotation;
+//				fp_size.is_tile = (i != 0);
 				d_out = d_in;
 				if(i > 0) {
 					// cache position and size of dimensions_after so at process time we can send exactly dimensions that are expecting by next filters and tiles receiver
@@ -998,10 +1017,10 @@ void Process::process_size_backward(Process::task_run_t *task, list<class filter
 		if(i == 0) {
 			// i.e. 1:1 size
 /*
-cerr << "...___+++===>>>___: tiles_request->" << endl;
-cerr << "...___+++===>>>___:   position: " << d_out.position.x << "_" << d_out.position.y << "; position max: " << d_out.position._x_max << "_" << d_out.position._y_max << endl;
-cerr << "...___+++===>>>___:   px_size:  " << d_out.position.px_size << endl;
-cerr << "...___+++===>>>___:   scale_factor was == " << tiles_request->scale_factor << endl;
+cerr << "Process::process_size_backward(), out geometry:" << endl;
+cerr << "      size: " << d_out.size.w << " - " << d_out.size.h << endl;
+cerr << "   px_size: " << d_out.position.px_size_x << " - " << d_out.position.px_size_y << endl;
+cerr << "  position: " << d_out.position.x << ", " << d_out.position.y << endl;
 */
 		} else {
 			tiles_request->tiles[i - 1].dimensions_pre = d_out;
@@ -1024,8 +1043,8 @@ void Process::process_filters(SubFlow *subflow, Process::task_run_t *task, std::
 		// cycle of tiles
 		// for improved interactivity of UI, it's better to always update thumb
 		//   when we at last are in processing request;
-		// otherwise there could be a long cycle of discarded request
-		//   without any visible to user results of UI settings change.
+		// otherwise there could be a long cycle of discarded requests
+		//   without any visible interaction with user.
 		if(is_master) {
 			if(Process::ID_to_abort(task->request_ID) && !is_thumb)
 				task->to_abort = true;
@@ -1045,8 +1064,10 @@ void Process::process_filters(SubFlow *subflow, Process::task_run_t *task, std::
 		if(subflow->sync_point_pre()) {
 			task->tile_index = -1;
 			tiles_request->index_list_lock.lock();
-			if(!tiles_request->index_list.isEmpty())
-				task->tile_index = tiles_request->index_list.takeFirst();
+			if(!tiles_request->index_list.empty()) {
+				task->tile_index = tiles_request->index_list.front();
+				tiles_request->index_list.pop_front();
+			}
 			tiles_request->index_list_lock.unlock();
 			if(tiles_processed.contains(task->tile_index))
 				task->tile_index = -1;

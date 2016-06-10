@@ -151,28 +151,28 @@ Area *Import_Raw::load_xtrans(DCRaw *dcraw, Metadata *metadata, const uint16_t *
 	const int height = dcraw->height;
 	metadata->width = width;
 	metadata->height = height;
-	for(int j = 0; j < 6; j++) {
-		for(int i = 0; i < 6; i++) {
+	for(int j = 0; j < 6; ++j) {
+		for(int i = 0; i < 6; ++i) {
 			metadata->sensor_xtrans_pattern[j][i] = dcraw->xtrans[j][i];
 		}
 	}
-	for(int i = 0; i < 3; i++) {
+	for(int i = 0; i < 3; ++i) {
 		metadata->c_scale_ref[i] = dcraw->pre_mul[i];
 		metadata->c_scale_camera[i] = dcraw->cam_mul[i];
 	}
 	float f = metadata->c_scale_camera[1];
-	for(int i = 0; i < 3; i++) {
+	for(int i = 0; i < 3; ++i) {
 		metadata->c_scale_camera[i] /= f;
 	}
 	metadata->c_scale_camera_valid = true;
 
 	float mc[9];
 	int k = 0;
-	for(int j = 0; j < 3; j++) {
-		for(int i = 0; i < 3; i++) {
+	for(int j = 0; j < 3; ++j) {
+		for(int i = 0; i < 3; ++i) {
 			mc[k++] = dcraw->rgb_cam[j][i];
 		}
-		for(int i = 0; i < 4; i++) {
+		for(int i = 0; i < 4; ++i) {
 			metadata->rgb_cam[j][i] = dcraw->rgb_cam[j][i];
 		}
 	}
@@ -185,7 +185,7 @@ Area *Import_Raw::load_xtrans(DCRaw *dcraw, Metadata *metadata, const uint16_t *
 	//--------------------------------------------------------------------------
 	float scale[4];
 //	const float maximum = dcraw->maximum - dcraw->black;
-	for(int i = 0; i < 4; i++)
+	for(int i = 0; i < 4; ++i)
 		scale[i] = 1.0f / 65535.0f;
 //		scale[i] = 1.0f / maximum;
 //	Area *area_out = new Area(width, height, Area::type_t::type_float_p4);
@@ -193,10 +193,10 @@ Area *Import_Raw::load_xtrans(DCRaw *dcraw, Metadata *metadata, const uint16_t *
 	if(!area_out->valid())
 		return area_out;
 	uint16_t *out = (uint16_t *)area_out->ptr();
-	for(int i = 0; i < 3; i++)
+	for(int i = 0; i < 3; ++i)
 		metadata->c_max[i] = 0.0f;
-	for(int y = 0; y < height; y++) {
-		for(int x = 0; x < width; x++) {
+	for(int y = 0; y < height; ++y) {
+		for(int x = 0; x < width; ++x) {
 			const int index = (y * width + x) * 4;
 			int k = metadata->sensor_xtrans_pattern[(y + 6) % 6][(x + 6) % 6];
 			float value = (scale[k] * dcraw_raw[index + k]) / metadata->c_scale_ref[k];
@@ -211,19 +211,19 @@ Area *Import_Raw::load_xtrans(DCRaw *dcraw, Metadata *metadata, const uint16_t *
 			metadata->c_histogram_count[k]++;
 /*
 			float value = 0.0f;
-			for(int k = 0; k < 3; k++)
+			for(int k = 0; k < 3; ++k)
 				value += scale[k] * dcraw_raw[index + k];
 //				value += scale[k] * (dcraw_raw[index + k] - dcraw->black);
 			float value_n = (value > 0.0) ? value : 0.0;
 			uint32_t c_index = value_n * 2048;
 			if(c_index > 4095)	c_index = 4095;
-			for(int k = 0; k < 3; k++) {
+			for(int k = 0; k < 3; ++k) {
 //				out[index + k] = value;
 				(metadata->c_histogram[4096 * k + c_index])++;
 				metadata->c_histogram_count[k]++;
 			}
 */
-			for(int k = 0; k < 4; k++)
+			for(int k = 0; k < 4; ++k)
 				out[index + k] = dcraw_raw[index + k];
 //			out[index + 3] = 1.0;
 		}
@@ -244,8 +244,8 @@ Area *Import_Raw::load_foveon(DCRaw *dcraw, Metadata *metadata, const uint16_t *
 /*
 	float mc[9];
 	int k = 0;
-	for(int j = 0; j < 3; j++) {
-		for(int i = 0; i < 3; i++) {
+	for(int j = 0; j < 3; ++j) {
+		for(int i = 0; i < 3; ++i) {
 			mc[k] = dcraw->rgb_cam[j][i];
 //cerr << "dcraw->rgb_cam[" << j << "][" << i << "] == " << dcraw->rgb_cam[j][i] << endl;
 			k++;
@@ -273,10 +273,10 @@ Area *Import_Raw::load_foveon(DCRaw *dcraw, Metadata *metadata, const uint16_t *
 	if(!area_out->valid())
 		return area_out;
 	float *out = (float *)area_out->ptr();
-	for(int y = 0; y < height; y++) {
-		for(int x = 0; x < width; x++) {
+	for(int y = 0; y < height; ++y) {
+		for(int x = 0; x < width; ++x) {
 			const int index = (y * width + x) * 4;
-			for(int k = 0; k < 3; k++) {
+			for(int k = 0; k < 3; ++k) {
 				float value = dcraw_raw[index + k];
 				value *= scale[k];
 				out[index + k] = value;
@@ -313,7 +313,7 @@ Area *Import_Raw::dcraw_to_area(DCRaw *dcraw, Metadata *metadata, const uint16_t
 /*
 	int mm = (width + 4) * (height + 4);
 	float *mp = (float *)area_out->ptr();
-	for(int i = 0; i < mm; i++) {
+	for(int i = 0; i < mm; ++i) {
 		mp[i] = 0.0;
 	}
 */
@@ -322,8 +322,8 @@ Area *Import_Raw::dcraw_to_area(DCRaw *dcraw, Metadata *metadata, const uint16_t
 	// for illuminant - see white balance below
 	float mc[9];
 	int k = 0;
-	for(int j = 0; j < 3; j++) {
-		for(int i = 0; i < 3; i++) {
+	for(int j = 0; j < 3; ++j) {
+		for(int i = 0; i < 3; ++i) {
 			mc[k] = dcraw->rgb_cam[j][i];
 			k++;
 		}
@@ -351,31 +351,31 @@ cerr << "dcraw->pre_mul[3] == " << dcraw->pre_mul[3] << endl;
 //		metadata->c_scale_ref[1] = dcraw->pre_mul[3];
 	// try to normalize c_scale_ref
 	double c_scale_ref_min = metadata->c_scale_ref[1];
-	for(int i = 0; i < 3; i++) {
+	for(int i = 0; i < 3; ++i) {
 //cerr << "c_scale_ref[" << i << "] == " << metadata->c_scale_ref[i] << endl;
 		if(metadata->c_scale_ref[i] < c_scale_ref_min && metadata->c_scale_ref[i] > 0.5)
 			c_scale_ref_min = metadata->c_scale_ref[i];
 	}
 //cerr << "c_scale_min == " << c_scale_ref_min << endl;
-	for(int i = 0; i < 3; i++) {
+	for(int i = 0; i < 3; ++i) {
 		metadata->c_scale_ref[i] = metadata->c_scale_ref[i] / c_scale_ref_min;
 //cerr << "c_scale_ref[" << i << "] == " << metadata->c_scale_ref[i] << endl;
 	}
 //	float f = metadata->c_scale_ref[1];
-//	for(int i = 0; i < 3; i++)
+//	for(int i = 0; i < 3; ++i)
 //		metadata->c_scale_ref[i] /= f;
 	// camera scaling
 	bool cam_mul = true;
 	if(dcraw->cam_mul[0] == 0.0 || dcraw->cam_mul[2] == 0.0)
 		cam_mul = false;
-	for(int i = 0; i < 4; i++)
+	for(int i = 0; i < 4; ++i)
 		if(dcraw->cam_mul[i] < 0.0)
 			cam_mul = false;
 	metadata->c_scale_camera_valid = cam_mul;
 //	float adjust_green_r = 1.0f;
 //	float adjust_green_b = 1.0f;
 	if(cam_mul) {
-		for(int i = 0; i < 3; i++)
+		for(int i = 0; i < 3; ++i)
 			metadata->c_scale_camera[i] = dcraw->cam_mul[i];
 		if(dcraw->cam_mul[3] > metadata->c_scale_camera[1])
 			metadata->c_scale_camera[1] = dcraw->cam_mul[3];
@@ -393,14 +393,14 @@ cerr << "dcraw->pre_mul[3] == " << dcraw->pre_mul[3] << endl;
 //			adjust_green_b = cam_mul_green_b / cam_mul_green_r;
 		}
 		// normalize
-//		for(int i = 0; i < 3; i++)
+//		for(int i = 0; i < 3; ++i)
 //			metadata->c_scale_camera[i] /= metadata->c_scale_ref[i];
 		float f = metadata->c_scale_camera[1];
-		for(int i = 0; i < 3; i++)
+		for(int i = 0; i < 3; ++i)
 			metadata->c_scale_camera[i] /= f;
 	} else {
 		auto_wb(dcraw, metadata, dcraw_raw);
-//		for(int i = 0; i < 3; i++)
+//		for(int i = 0; i < 3; ++i)
 //			metadata->c_scale_camera[i] = 1.0;
 	}
 
@@ -410,12 +410,12 @@ cerr << "dcraw->pre_mul[3] == " << dcraw->pre_mul[3] << endl;
 	int p_green_r = __bayer_green_r(metadata->demosaic_pattern);
 	int p_green_b = __bayer_green_b(metadata->demosaic_pattern);
 	int p_blue = __bayer_blue(metadata->demosaic_pattern);
-//	for(int i = 0; i < 4; i++)
+//	for(int i = 0; i < 4; ++i)
 //		cerr << "c_scale_ref[" << i << "] == " << metadata->c_scale_ref[i] << endl;
 	//--
 	float scale[4] = {1.0, 1.0, 1.0, 1.0};
 ///*
-	for(int i = 0; i < 4; i++) {
+	for(int i = 0; i < 4; ++i) {
 		int s = __bayer_pos_to_c(i % 2, i / 2);
 		if(s == p_red) {
 			scale[i] = metadata->c_scale_ref[0];
@@ -436,7 +436,7 @@ cerr << "dcraw->pre_mul[3] == " << dcraw->pre_mul[3] << endl;
 	// fill metadata with signal levels and scaling factor for demosaic processing
 	float _import_prescale[4];
 	float _signal_max[4];
-	for(int i = 0; i < 4; i++) {
+	for(int i = 0; i < 4; ++i) {
 		_import_prescale[i] = scale[i];
 		_signal_max[i] = 0.0;
 //cerr << "normalization_factor[" << i << "] == " << normalization_factor[i] << endl;
@@ -446,12 +446,12 @@ cerr << "dcraw->pre_mul[3] == " << dcraw->pre_mul[3] << endl;
 	// odd enough, but sometimes 'dcraw->maximum' is not a real maximum - measure a real maximum of signal, and use it if more than one channel is clipped at that
 	// to avoid clipping because of underexposed signal
 	float bayer_signal_maximum[4];
-	for(int i = 0; i < 4; i++)
+	for(int i = 0; i < 4; ++i)
 		bayer_signal_maximum[i] = 1.0;
 //float max_0[4] = {0.0, 0.0, 0.0, 0.0};
 //float max_1[4] = {0.0, 0.0, 0.0, 0.0};
-	for(int j = 0; j < height; j++) {
-		for(int i = 0; i < width; i++) {
+	for(int j = 0; j < height; ++j) {
+		for(int i = 0; i < width; ++i) {
 			int s = __bayer_pos_to_c(i, j);
 			int index_4 = 0;
 			// use real pixels instead of possible garbage at DCRaw output "holes"
@@ -483,9 +483,9 @@ if(max_1[s] < value)
 	}
 /*
 cerr << "____________" << endl;
-	for(int k = 0; k < 4; k++)
+	for(int k = 0; k < 4; ++k)
 		cerr << "max_0[" << k << "] == " << max_0[k] << endl;
-	for(int k = 0; k < 4; k++)
+	for(int k = 0; k < 4; ++k)
 		cerr << "max_1[" << k << "] == " << max_1[k] << endl;
 cerr << "____________" << endl;
 */
@@ -508,7 +508,7 @@ cerr << "bayer_signal_maximum[p_green_b] == " << bayer_signal_maximum[3] << endl
 cerr << "dcraw->maximum == " << dcraw->maximum << endl;
 #endif
 	if((flag_1 == false || flag_2 == false) && flag_3 == false)
-		for(int i = 0; i < 4; i++)
+		for(int i = 0; i < 4; ++i)
 			bayer_signal_maximum[i] = dcraw->maximum;
 #if 0
 cerr << "bayer_signal_maximum[0] == " << bayer_signal_maximum[0] << endl;
@@ -519,7 +519,7 @@ cerr << "bayer_signal_maximum[3] == " << bayer_signal_maximum[3] << endl;
 	//--
 /*
 	float normalization_factor[4];
-	for(int i = 0; i < 4; i++) {
+	for(int i = 0; i < 4; ++i) {
 		normalization_factor[i] = bayer_signal_maximum[i];
 //cerr << "bayer_signal_max[" << i << "] == " << bayer_signal_maximum[i] << "; black_pixels_level[" << i << "] == " << black_pixels_level[i] << endl;
 	}
@@ -528,7 +528,7 @@ cerr << "bayer_signal_maximum[3] == " << bayer_signal_maximum[3] << endl;
 //		normalization_factor[i] = float(dcraw->maximum) - metadata->black_pixels_level[i];
 	// changed code from 'dcraw.c' - for black offset 'dcraw->cblack'
 	if(dcraw->filters > 1000 && (dcraw->cblack[4] + 1) / 2 == 1 && (dcraw->cblack[5] + 1) / 2 == 1) {
-		for(int c = 0; c < 4; c++) {
+		for(int c = 0; c < 4; ++c) {
 			const int row = c / 2;
 			const int col = c % 2;
 			const int index = (dcraw->filters >> ((((row) << 1 & 14) + ((col) & 1)) << 1) & 3);
@@ -538,11 +538,11 @@ cerr << "bayer_signal_maximum[3] == " << bayer_signal_maximum[3] << endl;
 	}	
 
 	float black_pixels_level[4];
-	for(int i = 0; i < 4; i++)
+	for(int i = 0; i < 4; ++i)
 		black_pixels_level[i] = dcraw->cblack[i] + dcraw->black;
 /*
 	float normalization_factor[4];
-	for(int i = 0; i < 4; i++)
+	for(int i = 0; i < 4; ++i)
 		normalization_factor[i] = bayer_signal_maximum[i] - black_pixels_level[i];
 */
 	//===================================================
@@ -550,13 +550,13 @@ cerr << "bayer_signal_maximum[3] == " << bayer_signal_maximum[3] << endl;
 	float *out_mem = (float *)area_out->ptr();
 	const int w4 = width + 4;
 	const int h4 = height + 4;
-	for(int y = 2; y < h4; y++) {
+	for(int y = 2; y < h4; ++y) {
 		out_mem[y * w4 + 0] = 0.0;
 		out_mem[y * w4 + 1] = 0.0;
 		out_mem[y * w4 + w4 - 1] = 0.0;
 		out_mem[y * w4 + w4 - 2] = 0.0;
 	}
-	for(int x = 0; x < w4; x++) {
+	for(int x = 0; x < w4; ++x) {
 		out_mem[x + 0 * w4] = 0.0;
 		out_mem[x + 1 * w4] = 0.0;
 		out_mem[x + (height + 3) * w4] = 0.0;
@@ -571,15 +571,15 @@ cerr << "bayer_signal_maximum[3] == " << bayer_signal_maximum[3] << endl;
 	if(metadata->sensor_fuji_45)
 		fuji_45 = new Fuji_45(metadata->sensor_fuji_45_width, metadata->width, metadata->height);
 	float cmax[3] = {0.0f, 0.0f, 0.0f};
-	for(int i = 0; i < 3; i++)
+	for(int i = 0; i < 3; ++i)
 		metadata->c_max[i] = 0.0f;
 
 //	float max1[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 //	float max2[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 //	float max3[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-	for(int j = 0; j < height; j++) {
+	for(int j = 0; j < height; ++j) {
 		int l = (j % 2) * 2;
-		for(int i = 0; i < width; i++) {			
+		for(int i = 0; i < width; ++i) {			
 			int s = __bayer_pos_to_c(i, j);
 			int index_4 = 0;
 			// use real pixels instead of possible garbage at DCRaw output "holes"
@@ -669,15 +669,15 @@ cerr << "bayer_signal_maximum[3] == " << bayer_signal_maximum[3] << endl;
 	}
 /*
 cerr << "____________" << endl;
-	for(int k = 0; k < 4; k++)
+	for(int k = 0; k < 4; ++k)
 		cerr << "max_1[" << k << "] == " << max1[k] << endl;
-	for(int k = 0; k < 4; k++)
+	for(int k = 0; k < 4; ++k)
 		cerr << "max_2[" << k << "] == " << max2[k] << endl;
-	for(int k = 0; k < 4; k++)
+	for(int k = 0; k < 4; ++k)
 		cerr << "max_3[" << k << "] == " << max3[k] << endl;
 cerr << "____________" << endl;
 */
-	for(int i = 0; i < 4; i++) {
+	for(int i = 0; i < 4; ++i) {
 		int s = __bayer_pos_to_c(i % 2, i / 2);
 		if(s == p_red) {
 			metadata->demosaic_import_prescale[0] = _import_prescale[i];
@@ -701,26 +701,26 @@ cerr << "dcraw->maximum == " << dcraw->maximum << endl;
 #endif
 /*
 cerr << "IMPORT_RAW: number of pixels below zero is: " << count << endl;
-for(int i = 0; i < 4; i++) {
+for(int i = 0; i < 4; ++i) {
 cerr << "scale[ " << i << "] == " << metadata->demosaic_import_prescale[i] << endl;
 }
-for(int i = 0; i < 4; i++) {
+for(int i = 0; i < 4; ++i) {
 cerr << "signal_max[ " << i << "] == " << metadata->demosaic_signal_max[i] << endl;
 }
 */
 //	metadata->c_histogram_count = (width * height) / 4;
 //	metadata->c_histogram_count = (metadata->width * metadata->height) / 4;
 /*
-	for(int i = 0; i < 3; i++) {
+	for(int i = 0; i < 3; ++i) {
 		cerr << "  c_max[" << i << "] == " << metadata->c_max[i] << endl;
 		cerr << "v_max_s[" << i << "] == " << v_max_s[i] << endl;
 	}
-	for(int i = 0; i < 4; i++)
+	for(int i = 0; i < 4; ++i)
 		cerr << "scale[" << i << "] == " << scale[i] << endl;
 */
 /*
 	// TODO: try to use primaries, check Lindbloom formulas
-	for(int i = 0; i < 9; i++) {
+	for(int i = 0; i < 9; ++i) {
 		metadata->cRGB_primaries[i] = dcraw->camera_primaries[i];
 	}
 	m3_dump(metadata->cRGB_primaries);
@@ -742,10 +742,10 @@ void Import_Raw::auto_wb(DCRaw *dcraw, Metadata *metadata, const uint16_t *dcraw
 	const int cell_size = 8;//2;
 	for(int row = 0; row < m_h; row += 8) {
 		for(int col = 0; col < m_w; col += 8) {
-			for(int i = 0; i < 8; i++)
+			for(int i = 0; i < 8; ++i)
 				sum[i] = 0;
-			for(int y = row; (y < row + cell_size) && (y < m_h); y++) {
-				for(int x = col; (x < col + cell_size) && (x < m_w); x++) {
+			for(int y = row; (y < row + cell_size) && (y < m_h); ++y) {
+				for(int x = col; (x < col + cell_size) && (x < m_w); ++x) {
 					int s = __bayer_pos_to_c(x, y);
 					int a = 0;
 					if(s == p_red) {
@@ -768,18 +768,18 @@ void Import_Raw::auto_wb(DCRaw *dcraw, Metadata *metadata, const uint16_t *dcraw
 					sum[a + 4]++;
 				}
 			}
-			for(int i = 0; i < 8; i++)
+			for(int i = 0; i < 8; ++i)
 				dsum[i] += sum[i];
 		}
 	}
-	for(int i = 0; i < 3; i++) {
+	for(int i = 0; i < 3; ++i) {
 		if(dsum[i])
 			metadata->c_scale_camera[i] = dsum[i + 4] / dsum[i];
 		else
 			metadata->c_scale_camera[i] = 1.0;
 	}
 	float f = metadata->c_scale_camera[1];
-	for(int i = 0; i < 3; i++)
+	for(int i = 0; i < 3; ++i)
 		metadata->c_scale_camera[i] /= f;
 }
 
@@ -970,7 +970,7 @@ uint8_t *Import_Raw::load_thumb(string filename, int thumb_width, int thumb_heig
 				string part_ext = filename;
 				part_ext.replace(0, i_dot + 1, "");
 				bool ext_is_valid = false;
-				for(int j = 0; j < valid_ext_len; j++)
+				for(int j = 0; j < valid_ext_len; ++j)
 					if(part_ext == valid_ext[j]) {
 						ext_is_valid = true;
 						break;
@@ -996,8 +996,8 @@ uint8_t *Import_Raw::load_thumb(string filename, int thumb_width, int thumb_heig
 			string prefix[2] = {"IMG_", "img_"};
 			string postfix[4] = {".JPG", ".jpg", ".JPEG", ".jpeg"};
 			bool flag = false;
-			for(int i = 0; i < 2; i++) {
-				for(int j = 0; j < 4; j++) {
+			for(int i = 0; i < 2; ++i) {
+				for(int j = 0; j < 4; ++j) {
 					newfn = part_folder + prefix[i] + part_number + postfix[j];
 //cerr << "newfn == " << newfn << endl;
 					ifstream ifile;

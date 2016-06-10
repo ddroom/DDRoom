@@ -39,7 +39,7 @@ void GUI_Curve_Histogram::draw_histogram(QPainter *painter, int size_w, int size
 			QVector<long> *v_scaled[2];
 			v_scaled[0] = &data->hist_before_scaled;
 			v_scaled[1] = &data->hist_after_scaled;
-			for(int k = 0; k < 2; k++) {
+			for(int k = 0; k < 2; ++k) {
 				if(v_scaled[k]->size() != size_w * 3) {
 					int size = v_unscaled[k]->size() / 3;
 					*v_scaled[k] = QVector<long>(size_w * 3);
@@ -47,11 +47,11 @@ void GUI_Curve_Histogram::draw_histogram(QPainter *painter, int size_w, int size
 					v_in = QVector<long>(size);
 					QVector<long> v_out;
 					v_out = QVector<long>(hist_size);
-					for(int j = 0; j < 3; j++) {
-						for(int i = 0; i < size; i++)
+					for(int j = 0; j < 3; ++j) {
+						for(int i = 0; i < size; ++i)
 							v_in[i] = (*v_unscaled[k])[j * size + i];
 						v_out = GUI_Histogram::rescale_histogram(v_in, size_w);
-						for(int i = 0; i < size_w; i++)
+						for(int i = 0; i < size_w; ++i)
 							(*v_scaled[k])[j * size_w + i] = v_out[i];
 					}
 				}
@@ -73,7 +73,7 @@ void GUI_Curve_Histogram::draw_histogram(QPainter *painter, int size_w, int size
 	}
 	painter->setOpacity(1.0);
 	painter->setCompositionMode(QPainter::CompositionMode_Plus);
-	for(int j = 0; j < 2; j++) {
+	for(int j = 0; j < 2; ++j) {
 		if(hist_ptr[j] == nullptr)
 			continue;
 		QVector<long> &hist = *hist_ptr[j];
@@ -84,8 +84,8 @@ void GUI_Curve_Histogram::draw_histogram(QPainter *painter, int size_w, int size
 				channels_count = 1;
 			float s = hist_h[j];
 			long max = hist[1];
-			for(int i = 0; i < channels_count; i++) {
-				for(int j = 1; j < hist_size - 1; j++) {
+			for(int i = 0; i < channels_count; ++i) {
+				for(int j = 1; j < hist_size - 1; ++j) {
 					long value = hist[i * hist_size + j];
 					if(value > max)
 						max = value;
@@ -98,9 +98,9 @@ void GUI_Curve_Histogram::draw_histogram(QPainter *painter, int size_w, int size
 			QColor colors[3] = {QColor(0x9F, 0x00, 0x00), QColor(0x00, 0x9F, 0x00), QColor(0x00, 0x00, 0x9F)};
 			if(lightness_only)
 				colors[0] = QColor(0x7F, 0x7F, 0x7F);
-			for(int k = 0; k < channels_count; k++) {
+			for(int k = 0; k < channels_count; ++k) {
 				painter->setPen(colors[k]);
-				for(int i = 0; i < hist_size; i++) {
+				for(int i = 0; i < hist_size; ++i) {
 					float _v = hist[k * hist_size + i];
 					if(!data->show_hist_linear)
 						_v = logf(_v);

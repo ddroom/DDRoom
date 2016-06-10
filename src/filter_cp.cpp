@@ -92,7 +92,7 @@ Area *FilterProcess_CP_Wrapper::process(MT_t *mt_obj, Process_t *process_obj, Fi
 		D_AREA_PTR(area_out);
 
 		// prepare post-pixel filters
-		for(int i = 0; i < size; i++) {
+		for(int i = 0; i < size; ++i) {
 			args[i] = new fp_cp_args_t;
 			args[i]->metadata = process_obj->metadata;
 			args[i]->mutators = process_obj->mutators;
@@ -112,7 +112,7 @@ Area *FilterProcess_CP_Wrapper::process(MT_t *mt_obj, Process_t *process_obj, Fi
 		}
 
 		y_flow = new std::atomic_int(0);
-		for(int i = 0; i < cores; i++) {
+		for(int i = 0; i < cores; ++i) {
 			tasks[i] = new task_t;
 			tasks[i]->flow_index = i;
 			tasks[i]->area_in = area_in;
@@ -131,13 +131,13 @@ Area *FilterProcess_CP_Wrapper::process(MT_t *mt_obj, Process_t *process_obj, Fi
 
 	subflow->sync_point();
 	if(subflow->is_master()) {
-		for(int i = 0; i < size; i++) {
+		for(int i = 0; i < size; ++i) {
 			fp_cp_vector[i].fp_cp->filter_post(args[i]);
 			delete[] args[i]->ptr_private;
 			delete args[i];
 		}
 		//
-		for(int i = 0; i < subflow->cores(); i++)
+		for(int i = 0; i < subflow->cores(); ++i)
 			delete tasks[i];
 		delete[] tasks;
 		delete y_flow;
@@ -172,21 +172,21 @@ void FilterProcess_CP_Wrapper::process(class SubFlow *subflow) {
 	while((j = task->y_flow->fetch_add(1)) < y_max) {
 		int it_in = ((j + in_my1) * in_width + in_mx1) * 4;
 		if(task->destructive) {
-			for(int i = 0; i < x_max; i++) {
+			for(int i = 0; i < x_max; ++i) {
 				if(in[it_in + 3] > 0.0)
-					for(int s = 0; s < size; s++)
+					for(int s = 0; s < size; ++s)
 						fp_cp_vector[s].fp_cp->filter(&in[it_in], task->filter_args[s]->ptr_private[task->flow_index]);
 				it_in += 4;
 			}
 		} else {
 			int it_out = ((j + out_my1) * out_width + out_mx1) * 4;
-			for(int i = 0; i < x_max; i++) {
+			for(int i = 0; i < x_max; ++i) {
 				mt[0] = in[it_in + 0];
 				mt[1] = in[it_in + 1];
 				mt[2] = in[it_in + 2];
 				mt[3] = in[it_in + 3];
 				if(mt[3] > 0.0)
-					for(int s = 0; s < size; s++)
+					for(int s = 0; s < size; ++s)
 						fp_cp_vector[s].fp_cp->filter(mt, (void *)task->filter_args[s]->ptr_private[task->flow_index]);
 				out[it_out + 0] = mt[0];
 				out[it_out + 1] = mt[1];

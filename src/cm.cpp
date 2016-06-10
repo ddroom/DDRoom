@@ -90,7 +90,7 @@ float h_to_H_quadrant(float h) {
 	const float ei[] = {0.8, 0.7, 1.0, 1.2, 0.8};
 	const float Hi[] = {0.0, 100.0, 200.0, 300.0, 400.0};
 	float H = 0.0;
-	for(int i = 0; i < 4; i++) {
+	for(int i = 0; i < 4; ++i) {
 		if(h < hi[i + 1]) {
 			H = Hi[i] + (100 * (h - hi[i]) / ei[i]) / ((h - hi[i]) / ei[i] + (hi[i + 1] - h) / ei[i + 1]);
 			break;
@@ -112,7 +112,7 @@ float H_quadrant_to_h(float H) {
 	const float ei[] = {0.8, 0.7, 1.0, 1.2, 0.8};
 	const float Hi[] = {0.0, 100.0, 200.0, 300.0, 400.0};
 	float h = 0.0;
-	for(int i = 0; i < 4; i++) {
+	for(int i = 0; i < 4; ++i) {
 		if(H >= Hi[i] && H < Hi[i + 1]) {
 			float A1 = (H - Hi[i]) / ei[i];
 			float A2 = (H - Hi[i]) / ei[i + 1];
@@ -319,7 +319,7 @@ CIELab::CIELab(CS_White white_in, CS_White white_out) {
 	// init functors
 	cm_xyz_to_jsh = new CIELab_XYZ_to_Jsh();
 	cm_jsh_to_xyz = new CIELab_Jsh_to_XYZ();
-	for(int i = 0; i < 9; i++) {
+	for(int i = 0; i < 9; ++i) {
 		cm_xyz_to_jsh->CAT[i] = CAT_in[i];
 		cm_jsh_to_xyz->CAT[i] = CAT_out[i];
 	}
@@ -637,7 +637,7 @@ class CM_Convert *CIECAM02_priv::get_convert_XYZ_to_Jsh(CAT02_t *cat02) {
 	c->tf_tc_l1 = tf_tc_l1;
 	c->tf_tc_l2 = tf_tc_l2;
 	c->tf_tc_l3 = tf_tc_l3;
-	for(int i = 0; i < 9; i++)
+	for(int i = 0; i < 9; ++i)
 		c->cat02_matrix[i] = cat02->matrix[i];
 	c->cat02_Aw = cat02->Aw;
 	c->cat02_s_const = cat02->_s_const;
@@ -649,7 +649,7 @@ class CM_Convert *CIECAM02_priv::get_convert_Jsh_to_XYZ(CAT02_t *cat02) {
 	c->_e_mult_const = _e_mult_const;
 	c->_t_pow_const = _t_pow_const;
 	c->_Nbb = _Nbb;
-	for(int i = 0; i < 9; i++)
+	for(int i = 0; i < 9; ++i)
 		c->cat02_matrix[i] = cat02->matrix[i];
 	c->cat02_Aw = cat02->Aw;
 	c->cat02_s_const = cat02->_s_const;
@@ -700,7 +700,7 @@ cerr << "\tcs white out: " << cs_white_out.get_name() << endl;
 	cat02->Aw = achromatic_response_for_white(_XYZw, _D, _Nbb);
 	double _CAT02w[3];
 	m3_v3_mult(_CAT02w, m_XYZ_to_CAT02, _XYZw);
-	for(int i = 0; i < 3; i++)
+	for(int i = 0; i < 3; ++i)
 		cat02->scale[i] = (((_XYZw[1] * _D) / _CAT02w[i]) + (1.0 - _D));
 	cat02->_s_const = (4.0 / _vc_c) * (cat02->Aw + 4.0); 
 	// CAT02 related matrices
@@ -708,7 +708,7 @@ cerr << "\tcs white out: " << cs_white_out.get_name() << endl;
 	double m2[9];
 	double vk1[9];
 	double vk2[9];
-	for(int i = 0; i < 9; i++) {
+	for(int i = 0; i < 9; ++i) {
 		vk1[i] = 0.0;
 		vk2[i] = 0.0;
 	}
@@ -723,14 +723,14 @@ cerr << "\tcs white out: " << cs_white_out.get_name() << endl;
 	if(inverse == false) {
 		if(use_CAT == false) {
 			// CAT02 XYZ to HPE
-			for(int i = 0; i < 3; i++) {
+			for(int i = 0; i < 3; ++i) {
 				vk1[i * 3 + i] = 1.0 / V_in[i];
 				vk2[i * 3 + i] = V_out[i];
 			}
 			m3_m3_mult(m2, vk1, m_XYZ_to_CAT02);
 			m3_m3_mult(m1, vk2, m2);
-			for(int i = 0; i < 3; i++)
-				for(int j = 0; j < 3; j++)
+			for(int i = 0; i < 3; ++i)
+				for(int j = 0; j < 3; ++j)
 					m1[i * 3 + j] *= cat02->scale[i];
 			m3_m3_mult(m2, m_CAT02_to_XYZ, m1);
 			m3_m3_mult(cat02->matrix, m_XYZ_to_HPE, m2);
@@ -740,8 +740,8 @@ cerr << "\tcs white out: " << cs_white_out.get_name() << endl;
 			float m_CAT[9];
 			cms_matrix->get_CAT(m_CAT, cs_white_in, cs_white_out);
 			m3_m3_mult(m1, m_XYZ_to_CAT02, m_CAT);
-			for(int i = 0; i < 3; i++)
-				for(int j = 0; j < 3; j++)
+			for(int i = 0; i < 3; ++i)
+				for(int j = 0; j < 3; ++j)
 					m1[i * 3 + j] *= cat02->scale[i];
 			m3_m3_mult(m2, m_CAT02_to_XYZ, m1);
 			m3_m3_mult(cat02->matrix, m_XYZ_to_HPE, m2);
@@ -750,10 +750,10 @@ cerr << "\tcs white out: " << cs_white_out.get_name() << endl;
 		if(use_CAT == false) {
 			// CAT02 HPE to XYZ
 			m3_m3_mult(m1, m_XYZ_to_CAT02, m_HPE_to_XYZ);
-			for(int i = 0; i < 3; i++)
-				for(int j = 0; j < 3; j++)
+			for(int i = 0; i < 3; ++i)
+				for(int j = 0; j < 3; ++j)
 					m1[i * 3 + j] /= (double)cat02->scale[i];
-			for(int i = 0; i < 3; i++) {
+			for(int i = 0; i < 3; ++i) {
 				vk1[i * 3 + i] = V_in[i];
 				vk2[i * 3 + i] = 1.0 / V_out[i];
 			}
@@ -765,8 +765,8 @@ cerr << "\tcs white out: " << cs_white_out.get_name() << endl;
 		} else {
 			// CAT
 			m3_m3_mult(m1, m_XYZ_to_CAT02, m_HPE_to_XYZ);
-			for(int i = 0; i < 3; i++)
-				for(int j = 0; j < 3; j++)
+			for(int i = 0; i < 3; ++i)
+				for(int j = 0; j < 3; ++j)
 					m1[i * 3 + j] /= (double)cat02->scale[i];
 			m3_m3_mult(m2, m_CAT02_to_XYZ, m1);
 			CMS_Matrix *cms_matrix = CMS_Matrix::instance();
@@ -852,7 +852,7 @@ CIECAM02_priv::CIECAM02_priv(void) {
 */
 	double _m_CAT02_to_XYZ[9];
 	m3_invert(_m_CAT02_to_XYZ, _m_XYZ_to_CAT02);
-	for(int i = 0; i < 9; i++) {
+	for(int i = 0; i < 9; ++i) {
 		m_XYZ_to_HPE[i] = _m_XYZ_to_HPE[i];
 		m_HPE_to_XYZ[i] = _m_HPE_to_XYZ[i];
 		m_XYZ_to_CAT02[i] = _m_XYZ_to_CAT02[i];
@@ -862,7 +862,7 @@ CIECAM02_priv::CIECAM02_priv(void) {
 
 double CIECAM02_priv::achromatic_response_for_white(const float *XYZ, float D, float Nbb) {
 	double _XYZ[3];
-	for(int i = 0; i < 3; i++)
+	for(int i = 0; i < 3; ++i)
 		_XYZ[i] = (double)XYZ[i];
 	double CAT02[3];
 	m3_v3_mult(CAT02, m_XYZ_to_CAT02, _XYZ);
@@ -927,7 +927,7 @@ float CS_to_CM::get_s_from_JCh(const float *JCh) {
 
 void CS_to_CM::convert(float *Jsh, const float *RGB) {
 	float rgb[3];
-	for(int i = 0; i < 3; i++) {
+	for(int i = 0; i < 3; ++i) {
 		rgb[i] = RGB[i];
 		if(rgb[i] < 0.0) rgb[i] = 0.0;
 		if(rgb[i] > 1.0) rgb[i] = 1.0;
@@ -951,7 +951,7 @@ CM_to_CS::CM_to_CS(CM::cm_type_en _cm_type, std::string _cs_name) {
 		float m_CAT[9];
 		cms_matrix->get_CAT(m_CAT, CS_White("E"), CS_White(cms_matrix->get_illuminant_name(cs_name)));
 		m3_m3_mult(m, matrix_XYZ_to_CS, m_CAT);
-		for(int i = 0; i < 9; i++)
+		for(int i = 0; i < 9; ++i)
 			matrix_XYZ_to_CS[i] = m[i];
 	}
 	cm_convert = cm->get_convert_Jsh_to_XYZ();
@@ -975,13 +975,13 @@ void CM_to_CS::convert(float *RGB, const float *Jsh, bool clip) {
 	cm_convert->convert(XYZ, Jsh);
 	m3_v3_mult(RGB, matrix_XYZ_to_CS, XYZ);
 	if(clip) {
-		for(int i = 0; i < 3; i++) {
+		for(int i = 0; i < 3; ++i) {
 			if(RGB[i] < 0.0) RGB[i] = 0.0;
 			if(RGB[i] > 1.0) RGB[i] = 1.0;
 			RGB[i] = (*gamma)(RGB[i]);
 		}
 	} else {
-		for(int i = 0; i < 3; i++) {
+		for(int i = 0; i < 3; ++i) {
 			if(RGB[i] < 0.0) RGB[i] = 0.0;
 			if(RGB[i] > 0.0 && RGB[i] < 1.0)
 				RGB[i] = (*gamma)(RGB[i]);
@@ -1038,7 +1038,7 @@ void primaries_to_matrix(float *M, const float *red_xy, const float *green_xy, c
 	xy_to_XYZ(XYZg, green_xy);
 	xy_to_XYZ(XYZb, blue_xy);
 	float m[9];
-	for(int i = 0 ; i < 3; i++) {
+	for(int i = 0 ; i < 3; ++i) {
 		m[i * 3 + 0] = XYZr[i];
 		m[i * 3 + 1] = XYZg[i];
 		m[i * 3 + 2] = XYZb[i];
@@ -1046,7 +1046,7 @@ void primaries_to_matrix(float *M, const float *red_xy, const float *green_xy, c
 	m3_invert(m, m);
 	float S[3];
 	m3_v3_mult(S, m, white_XYZ);
-	for(int i = 0; i < 3; i++) {
+	for(int i = 0; i < 3; ++i) {
 		M[i * 3 + 0] = S[0] * XYZr[i];
 		M[i * 3 + 1] = S[1] * XYZg[i];
 		M[i * 3 + 2] = S[2] * XYZb[i];

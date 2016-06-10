@@ -291,8 +291,8 @@ Area *FP_Soften::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_
 		const int kernel_offset = -floor(ps->radius);
 		const float kernel_offset_f = -floor(ps->radius);
 		kernel = new float[kernel_length * kernel_length];
-		for(int y = 0; y < kernel_length; y++) {
-			for(int x = 0; x < kernel_length; x++) {
+		for(int y = 0; y < kernel_length; ++y) {
+			for(int x = 0; x < kernel_length; ++x) {
 				float fx = kernel_offset_f + x;
 				float fy = kernel_offset_f + y;
 				float z = sqrtf(fx * fx + fy * fy);
@@ -323,7 +323,7 @@ Area *FP_Soften::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_
 		process_obj->OOM |= !area_out->valid();
 
 		y_flow = new std::atomic_int(0);
-		for(int i = 0; i < cores; i++) {
+		for(int i = 0; i < cores; ++i) {
 			tasks[i] = new task_t;
 			tasks[i]->area_in = area_in;
 			tasks[i]->area_out = area_out;
@@ -347,7 +347,7 @@ Area *FP_Soften::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_
 
 	if(subflow->sync_point_pre()) {
 		delete y_flow;
-		for(int i = 0; i < subflow->cores(); i++)
+		for(int i = 0; i < subflow->cores(); ++i)
 			delete tasks[i];
 		delete[] tasks;
 		delete[] kernel;
@@ -389,7 +389,7 @@ void FP_Soften::process(class SubFlow *subflow) {
 
 	int j = 0;
 	while((j = task->y_flow->fetch_add(1)) < y_max) {
-		for(int i = 0; i < x_max; i++) {
+		for(int i = 0; i < x_max; ++i) {
 			int l = ((j + in_y_offset) * in_width + (i + in_x_offset)) * 4;
 			int k = ((j + out_y_offset) * out_width + (i + out_x_offset)) * 4;
 
@@ -400,11 +400,11 @@ void FP_Soften::process(class SubFlow *subflow) {
 				out[k + 2] = in[l + 2];
 				continue;
 			}
-			for(int ci = 0; ci < 3; ci++) {
+			for(int ci = 0; ci < 3; ++ci) {
 				float v_blur = 0.0;
 				float v_blur_w = 0.0;
-				for(int y = 0; y < kernel_length; y++) {
-					for(int x = 0; x < kernel_length; x++) {
+				for(int y = 0; y < kernel_length; ++y) {
+					for(int x = 0; x < kernel_length; ++x) {
 						const int in_x = i + x + kernel_offset + in_x_offset;
 						const int in_y = j + y + kernel_offset + in_y_offset;
 						if(in_x >= 0 && in_x < in_w && in_y >= 0 && in_y < in_h) {

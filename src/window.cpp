@@ -187,7 +187,7 @@ Window::Window(void) {
 	styles_blacklist.insert("windows");
 //	styles_blacklist.insert("cde");
 	QStringList l = QStyleFactory::keys();
-	for(int i = 0; i < l.size(); i++) {
+	for(int i = 0; i < l.size(); ++i) {
 		QString entry = l[i].toLower();
 		if(!styles_blacklist.contains(entry))
 			cerr << "Style: \"" << l[i].toLocal8Bit().constData() << "\"" << endl;

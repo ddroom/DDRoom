@@ -54,7 +54,7 @@ public:
 		gamma_transition = -1.0;
 		gamma_slope = -1.0;
 		gamma_simple = false;
-		for(int i = 0; i < 9; i++) {
+		for(int i = 0; i < 9; ++i) {
 			matrix[i] = 0.0;
 		}
 		matrix[0] = 1.0;
@@ -473,7 +473,7 @@ CMS_Matrix::CMS_Matrix(void) {
 bool CMS_Matrix::get_matrix_XYZ_to_CS(string cs_name, float *matrix) {
 	for(list<color_space_t>::iterator it = color_spaces.begin(); it != color_spaces.end(); ++it) {
 		if((*it).key == cs_name) {
-			for(int k = 0; k < 9; k++)
+			for(int k = 0; k < 9; ++k)
 				matrix[k] = (*it).matrix[k];
 			return true;
 		}

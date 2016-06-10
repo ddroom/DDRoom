@@ -142,15 +142,15 @@ Area *Import_Jpeg::load_image(Metadata *metadata, bool is_thumb) {
 			}
 */
 			JSAMPLE *sample_ptr = nullptr;
-			for(int i = 0; i < 3; i++)
+			for(int i = 0; i < 3; ++i)
 				metadata->c_max[i] = 0.0;
 			int width = cinfo.output_width;
 			while(cinfo.output_scanline < cinfo.output_height) {
 				jpeg_read_scanlines(&cinfo, buffer, 1);
 				//put_scanline_someplace(buffer[0], row_stride);
 				sample_ptr = buffer[0];
-				for(int i = 0; i < width; i++) {
-					for(int j = 0; j < 3; j++) {
+				for(int i = 0; i < width; ++i) {
+					for(int j = 0; j < 3; ++j) {
 						int in_channel = (channels == 3) ? j : 0;
 						float v = float(GETJSAMPLE(sample_ptr[i * channels + in_channel])) / scale;
 						if(!is_thumb) {

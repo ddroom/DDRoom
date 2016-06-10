@@ -39,6 +39,7 @@ public:
 	void set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t args);
 	FS_Base *newFS(void);
 	void saveFS(FS_Base *fs_base);
+	void init_le_aspect_from_photo_aspect(void);	// init once when checkbox clicked but crop is undefined - used from FP_Crop
 
 	void *_get_ps(void);	// for edit purposes, called from FP_Crop
 
@@ -49,7 +50,6 @@ public slots:
 	void slot_btn_original(bool);
 	void slot_btn_revert(bool);
 	void slot_edit_action(bool checked);
-	void slot_le_aspect_update(void);
 	//
 	void slot_checkbox_scale(int state);
 	void slot_le_scale(void);
@@ -58,7 +58,6 @@ public slots:
 signals:
 	void signal_view_refresh(void *);
 	void signal_filter_edit(FilterEdit *, bool, int);
-	void signal_le_aspect_update(void);
 
 protected:
 	class PS_Crop *ps;

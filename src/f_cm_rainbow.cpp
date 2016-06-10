@@ -101,7 +101,7 @@ void PS_CM_Rainbow::reset(void) {
 	enabled = false;
 	color_enabled = QVector<bool>(12);
 	color_saturation = QVector<double>(12);
-	for(int i = 0; i < 12; i++) {
+	for(int i = 0; i < 12; ++i) {
 		color_enabled[i] = (i % 2 == 1) ? true : false;
 		color_saturation[i] = 1.0;
 	}
@@ -110,7 +110,7 @@ void PS_CM_Rainbow::reset(void) {
 bool PS_CM_Rainbow::load(DataSet *dataset) {
 	reset();
 	dataset->get("enabled", enabled);
-	for(int i = 0; i < 12; i++) {
+	for(int i = 0; i < 12; ++i) {
 		QString str_enabled = QString("color_%1_enabled").arg(i);
 		QString str_saturation = QString("color_%1_saturation").arg(i);
 		dataset->get(str_enabled.toLatin1().constData(), color_enabled[i]);
@@ -121,7 +121,7 @@ bool PS_CM_Rainbow::load(DataSet *dataset) {
 
 bool PS_CM_Rainbow::save(DataSet *dataset) {
 	dataset->set("enabled", enabled);
-	for(int i = 0; i < 12; i++) {
+	for(int i = 0; i < 12; ++i) {
 		QString str_enabled = QString("color_%1_enabled").arg(i);
 		QString str_saturation = QString("color_%1_saturation").arg(i);
 		dataset->set(str_enabled.toLatin1().constData(), color_enabled[i]);
@@ -212,7 +212,7 @@ void F_CM_Rainbow::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_ar
 */
 	// apply settings from PS to GUI
 	checkbox_enable->setCheckState(ps->enabled ? Qt::Checked : Qt::Unchecked);
-	for(int i = 0; i < 12; i++) {
+	for(int i = 0; i < 12; ++i) {
 		color_checkbox[i]->setCheckState(ps->color_enabled[i] ? Qt::Checked : Qt::Unchecked);
 		color_slider[i]->setValue(ps->color_saturation[i]);
 	}
@@ -264,7 +264,7 @@ QWidget *F_CM_Rainbow::controls(QWidget *parent) {
 	color_labels[10] = tr("violet");
 	color_labels[11] = tr("purple");
 	// colors
-	for(int i = 0; i < 12; i++) {
+	for(int i = 0; i < 12; ++i) {
 		color_checkbox[i] = new QCheckBox();
 		l->addWidget(color_checkbox[i], 1 + i, 0);
 		QLabel *label = new QLabel(color_labels[i]);
@@ -287,14 +287,14 @@ void F_CM_Rainbow::reconnect(bool to_connect) {
 	if(to_connect) {
 		connect(checkbox_enable, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_enable(int)));
 		connect(button_reset, SIGNAL(clicked(bool)), this, SLOT(slot_reset(bool)));
-		for(int i = 0; i < 12; i++) {
+		for(int i = 0; i < 12; ++i) {
 			connect(color_checkbox[i], SIGNAL(stateChanged(int)), this, SLOT(slot_color_checkbox(int)));
 			connect(color_slider[i], SIGNAL(signal_changed(double)), this, SLOT(slot_color_slider(double)));
 		}
 	} else {
 		disconnect(checkbox_enable, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_enable(int)));
 		disconnect(button_reset, SIGNAL(clicked(bool)), this, SLOT(slot_reset(bool)));
-		for(int i = 0; i < 12; i++) {
+		for(int i = 0; i < 12; ++i) {
 			disconnect(color_checkbox[i], SIGNAL(stateChanged(int)), this, SLOT(slot_color_checkbox(int)));
 			disconnect(color_slider[i], SIGNAL(signal_changed(double)), this, SLOT(slot_color_slider(double)));
 		}
@@ -313,7 +313,7 @@ void F_CM_Rainbow::slot_checkbox_enable(int state) {
 void F_CM_Rainbow::slot_color_checkbox(int state) {
 	QObject *obj = sender();
 	int index = 0;
-	for(; index < 12; index++) {
+	for(; index < 12; ++index) {
 		if(color_checkbox_obj[index] == obj)
 			break;
 	}
@@ -328,7 +328,7 @@ void F_CM_Rainbow::slot_color_checkbox(int state) {
 void F_CM_Rainbow::slot_color_slider(double value) {
 	QObject *obj = sender();
 	int index = 0;
-	for(; index < 12; index++) {
+	for(; index < 12; ++index) {
 		if(color_slider_obj[index] == obj)
 			break;
 	}
@@ -357,7 +357,7 @@ void F_CM_Rainbow::slot_reset(bool clicked) {
 	QVector<double> v_sat = ps->color_saturation;
 	reconnect(false);
 	ps->reset();
-	for(int i = 0; i < 12; i++) {
+	for(int i = 0; i < 12; ++i) {
 		color_checkbox[i]->setCheckState(ps->color_enabled[i] ? Qt::Checked : Qt::Unchecked);
 		color_slider[i]->setValue(ps->color_saturation[i]);
 	}
@@ -394,7 +394,7 @@ protected:
 
 TF_Rainbow::TF_Rainbow(QVector<bool> v_enabled, QVector<double> v_saturation) : TableFunction() {
 	QVector<float> values = QVector<float>(12);
-	for(int i = 0; i < 12; i++) {
+	for(int i = 0; i < 12; ++i) {
 		float value = v_saturation[i];
 /*
 		float v = ddr::abs(value - 1.0);
@@ -422,7 +422,7 @@ TF_Rainbow::TF_Rainbow(QVector<bool> v_enabled, QVector<double> v_saturation) : 
  	nodes[10] = 0.83; // violet
  	nodes[11] = 0.92; // magenta
 	int count = 0;
-	for(int i = 0; i < 12; i++)
+	for(int i = 0; i < 12; ++i)
 		count += v_enabled[i] ? 1 : 0;
 	v_nodes = QVector<float>(count + 1);
 	v_values = QVector<float>(count + 1);
@@ -430,11 +430,11 @@ TF_Rainbow::TF_Rainbow(QVector<bool> v_enabled, QVector<double> v_saturation) : 
 	node_min = 0.0;
 	value_min = 1.0;
 	bool flag_min = true;
-	for(int i = 0; i < 12; i++) {
+	for(int i = 0; i < 12; ++i) {
 		if(v_enabled[i]) {
 			v_nodes[count] = nodes[i];
 			v_values[count] = values[i];
-			count++;
+			++count;
 			//--
 			if(flag_min) {
 				flag_min = false;
@@ -445,7 +445,7 @@ TF_Rainbow::TF_Rainbow(QVector<bool> v_enabled, QVector<double> v_saturation) : 
 	}
 	v_nodes[count] = node_min + 1.0;
 	v_values[count] = value_min;
-//	for(int i = 0; i <= count; i++)
+//	for(int i = 0; i <= count; ++i)
 //		cerr << "node == " << v_nodes[i] << "; value == " << v_values[i] << endl;
 	_init(0.0, 1.0, 4096);
 }
@@ -461,7 +461,7 @@ float TF_Rainbow::function(float x) {
 	float v_value_prev = value_min;
 	if(x < node_min)
 		x += 1.0;
-	for(int i = 0; i < v_nodes.size(); i++) {
+	for(int i = 0; i < v_nodes.size(); ++i) {
 		if(x <= v_nodes[i]) {
 			value = v_values[i];
 #if 0
@@ -548,7 +548,7 @@ void FP_CM_Rainbow::filter_pre(fp_cp_args_t *args) {
 	args->mutators->get("CM_ocs", cs_name);
 	//--
 	bool tf_rainbow_is_one = true;
-	for(int i = 0; i < 12; i++) {
+	for(int i = 0; i < 12; ++i) {
 		if(ps->color_saturation[i] != 1.0)
 			tf_rainbow_is_one = false;
 	}
@@ -557,7 +557,7 @@ void FP_CM_Rainbow::filter_pre(fp_cp_args_t *args) {
 	if(!tf_rainbow_is_one)
 		fp_cache->tf_rainbow = new TF_Rainbow(ps->color_enabled, ps->color_saturation);
 	//--
-	for(int i = 0; i < args->cores; i++) {
+	for(int i = 0; i < args->cores; ++i) {
 		task_t *task = new task_t;
 		task->fp_cache = fp_cache;
 		args->ptr_private[i] = (void *)task;
@@ -567,7 +567,7 @@ void FP_CM_Rainbow::filter_pre(fp_cp_args_t *args) {
 void FP_CM_Rainbow::filter_post(fp_cp_args_t *args) {
 //	task_t *task = (task_t *)args->ptr_private[0];
 //	task_t **tasks = (task_t **)&args->ptr_private[0];
-	for(int i = 0; i < args->cores; i++) {
+	for(int i = 0; i < args->cores; ++i) {
 		FP_CM_Rainbow::task_t *t = (FP_CM_Rainbow::task_t *)args->ptr_private[i];
 		delete t;
 	}

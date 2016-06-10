@@ -28,7 +28,7 @@ Flow::Flow(void (*method)(void *, class SubFlow *, void *), void *object, void *
 	c_lock.store(0);
 	c_jobs.store(0);
 
-	for(int i = 0; i < cores; i++) {
+	for(int i = 0; i < cores; ++i) {
 		SubFlow *subflow(nullptr);
 		if(flow_method == flow_method_thread) {
 			SubFlow_Thread *st = new SubFlow_Thread(this, (i == 0), cores);
@@ -53,9 +53,9 @@ Flow::Flow(void (*method)(void *, class SubFlow *, void *), void *object, void *
 
 Flow::~Flow(void) {
 //cerr << "Flow::~Flow()" << endl;
-	for(int i = 0; i < cores; i++)
+	for(int i = 0; i < cores; ++i)
 		subflows[i]->wait();
-	for(int i = 0; i < cores; i++)
+	for(int i = 0; i < cores; ++i)
 		delete subflows[i];
 	delete[] subflows;	
 //cerr << "Flow::~Flow()... done" << endl;
@@ -63,15 +63,15 @@ Flow::~Flow(void) {
 
 void Flow::flow(void) {
 //cerr << "Flow::flow()" << endl;
-	for(int i = 0; i < cores; i++)
+	for(int i = 0; i < cores; ++i)
 		subflows[i]->start();
-	for(int i = 0; i < cores; i++)
+	for(int i = 0; i < cores; ++i)
 		subflows[i]->wait();
 //cerr << "Flow::flow()" << endl;
 }
 
 void Flow::set_private(void **data) {
-	for(int i = 0; i < cores; i++)
+	for(int i = 0; i < cores; ++i)
 		subflows[i]->_target_private = data[i];
 }
 

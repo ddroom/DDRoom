@@ -16,32 +16,24 @@
 
 using namespace std;
 
-//#define TILE_LENGTH 256
-//#define TILE_LENGTH 300
-//#define TILE_LENGTH 384
-
+// 4.00 MB each - 4(float) * 4(RGBA) * 512 * 512 == 4,194,304
 #define TILE_LENGTH 512
-//#define TILE_LENGTH 6000
-
-//#define TILE_LENGTH 600
-#define TILE_LENGTH_MAX (65535 * 255)
+// 1.98 MB each - 4(float) * 4(RGBA) * 360 * 360 == 2,073,600
+//#define TILE_LENGTH 360
+// 1.00 MB each - 4(float) * 4(RGBA) * 256 * 256 == 1,048,576
+//#define TILE_LENGTH 256
 
 //------------------------------------------------------------------------------
-std::mutex ID_t::_mutex;
-long long ID_t::_counter = 0;
+std::atomic_int ID_t::_counter(0);
 
 ID_t::ID_t(void) : empty(true) {
 }
 
 bool ID_t::operator==(const ID_t &other) {
-	bool equal = true;
 	if(empty || other.empty)
 		return false;
-	if(counter != other.counter)
-		equal = false;
-	if(uuid != other.uuid)
-		equal = false;
-	return equal;
+	return (counter == other.counter) && (chronostamp == other.chronostamp);
+	return true;
 }
 
 void ID_t::generate() {
@@ -49,25 +41,15 @@ void ID_t::generate() {
 }
 
 void ID_t::_generate(ID_t *_this) {
-	_mutex.lock();
-	_counter++;
-	_this->counter = _counter;
-	_mutex.unlock();
-	_this->uuid = QUuid::createUuid();
-}
-
-//------------------------------------------------------------------------------
-Tile_t::Tile_t(void) {
-	area = nullptr;
-	index = -1;
-	priority = -1;
+	_this->counter = _counter++;
+	_this->chronostamp = std::chrono::system_clock::now();
 }
 
 //------------------------------------------------------------------------------
 void TilesDescriptor_t::reset(void) {
 	is_empty = true;
 	index_list_lock.lock();
-//	for(int i = 0; i < tiles.size(); i++)
+//	for(int i = 0; i < tiles.size(); ++i)
 //		if(tiles[i].area != nullptr)
 //			delete tiles[i].area;
 	index_list.clear();
@@ -125,73 +107,28 @@ int TilesReceiver::add_request_ID(int ID) {
 	request_ID_lock.lock();
 	old_ID = request_ID;
 	request_ID = ID;
-	request_IDs.append(ID);
+	request_IDs.push_back(ID);
 	request_ID_lock.unlock();
 	return old_ID;
 }
 
-/*
-double TilesReceiver::scale_to_window(int &w, int &h, int ww, int wh, bool to_fill_not_to_fit) {
-	if(w < 1 || h < 1 || ww < 1 || wh < 1)
-		return 1.0;
-	double sw = double(w) / ww;
-	double sh = double(h) / wh;
-	double s = sw;
-	if(to_fill_not_to_fit) {
-		if(s > sh)
-			s = sh;
-	} else {
-		if(s < sh)
-			s = sh;
-	}
-	w = double(w) / s;
-	h = double(h) / s;
-	if(w > ww)	w = ww;
-	if(h > wh)	h = wh;
-	return s;
-}
-*/
-
 int TilesReceiver::split_line(int l, int **m) {
-	int tile_length = tiling_enabled ? TILE_LENGTH : TILE_LENGTH_MAX;
-	int c = l / tile_length + 1;
+	const int tile_length = TILE_LENGTH;
+	int c = tiling_enabled ? (l / tile_length + 1) : 1;
 	int *a = new int[c];
 	*m = a;
-	for(int i = 0; i < c; i++)
-		a[i] = tile_length;
-//	int z = l;
-	if(l < tile_length) {
+	if(c == 1) {
 		a[0] = l;
-	} else if(l < tile_length * 2) {
-		a[1] = l / 2;
-		a[0] = l - a[1];
-	} else {
-		l -= tile_length * (c - 2);
-		a[c - 1] = l / 2;
-		a[0] = l - a[c - 1];
+		return 1;
 	}
-/*
-	if(c > 1) {
-		long l = a[0] / 2;
-		a[0] -= l;
-		a[c - 1] += l;
+	for(int i = 1; i < c - 1; ++i) {
+		a[i] = tile_length;
+		l -= tile_length;
 	}
-*/
-/*
-cerr << "_split_line(" << l << ") == " << c;
-for(int i = 0; i < c; i++)
-cerr << ", " << a[i];
-cerr << endl;
-*/
+	a[0] = l / 2;
+	a[c - 1] = l - a[0];
 	return c;
 }
-
-/*
-void TilesReceiver::set_thumb(Area *_area_thumb, class Metadata *metadata, int real_width, int real_height) {
-	// convert thumb to 8bit RGB for export
-//	area_thumb = AreaHelper::convert(_area_thumb, Area::format_t::format_rgb_8, metadata->rotation);
-}
-*/
 
 void TilesReceiver::process_done(bool is_thumb) {
 }
@@ -199,18 +136,23 @@ void TilesReceiver::process_done(bool is_thumb) {
 void TilesReceiver::long_wait(bool set) {
 }
 
+void TilesReceiver::do_split(bool flag) {
+	flag_do_split = flag;
+}
+
 void TilesReceiver::receive_tile(Tile_t *tile, bool is_thumb) {
-	bool keep_it = false;
+	bool keep_tile = false;
 	request_ID_lock.lock();
-	keep_it |= (tile->request_ID == request_ID);
-	for(int i = 0; i < request_IDs.size(); i++)
-		if(tile->request_ID == request_IDs.at(i)) {
-			keep_it = true;
+	keep_tile |= (tile->request_ID == request_ID);
+	for(auto it = request_IDs.begin(); it != request_IDs.end(); ++it)
+		if(tile->request_ID == *it) {
+			keep_tile = true;
 			break;
 		}
 //	int ID = request_ID;
 	request_ID_lock.unlock();
-	if(keep_it == false) {
+	// TODO: convert tile into desired format, and merge it into the whole result image
+	if(!keep_tile) {
 //	if(tile->request_ID != ID) {
 //		cerr << "TilesReceiver::receive_tile(): request_ID == " << request_ID << ", tile's request_ID == " << tile->request_ID << endl;
 		if(tile->area != nullptr)
@@ -239,10 +181,13 @@ TilesDescriptor_t *TilesReceiver::get_tiles(void) {
 }
 
 TilesDescriptor_t *TilesReceiver::get_tiles(Area::t_dimensions *d, int cw_rotation, bool is_thumb) {
+	// TODO: create a real tiles if necessary
+/*
+- determine tiles 
+*/
 	tiles_descriptor.reset();
 	TilesDescriptor_t *t = &tiles_descriptor;
 	t->receiver = this;
-	// BUG ? - check how it's used later uninitialized - fix it !
 	int r_scaled_width = scaled_width;
 	int r_scaled_height = scaled_height;
 	if(cw_rotation == 90 || cw_rotation == 270) {
@@ -251,13 +196,8 @@ TilesDescriptor_t *TilesReceiver::get_tiles(Area::t_dimensions *d, int cw_rotati
 	}
 	t->post_width = d->width();
 	t->post_height = d->height();
-	t->index_list = QList<int>();
-	t->index_list.append(0);
-	t->tiles = QVector<Tile_t>(1);
-	Tile_t &tile = t->tiles[0];
-	tile.index = 0;
-	tile.priority = 0;
-	tile.dimensions_post = *d;
+	// calculate resulting size
+	Area::t_dimensions dimensions_post(*d);
 	if(do_scale && is_thumb == false) {
 		// do resize for process_export()
 		Area::t_dimensions td = *d;
@@ -267,16 +207,62 @@ TilesDescriptor_t *TilesReceiver::get_tiles(Area::t_dimensions *d, int cw_rotati
 			Area::scale_dimensions_to_size_fill(&td, r_scaled_width, r_scaled_height);
 		t->scale_factor_x = td.position.px_size_x;
 		t->scale_factor_y = td.position.px_size_y;
-		tile.dimensions_post.position.x = td.position.x;
-		tile.dimensions_post.position.y = td.position.y;
-		tile.dimensions_post.position.px_size_x = t->scale_factor_x;
-		tile.dimensions_post.position.px_size_y = t->scale_factor_y;
-		tile.dimensions_post.size.w = td.width();
-		tile.dimensions_post.size.h = td.height();
+		dimensions_post.position.x = td.position.x;
+		dimensions_post.position.y = td.position.y;
+		dimensions_post.position.px_size_x = t->scale_factor_x;
+		dimensions_post.position.px_size_y = t->scale_factor_y;
+		dimensions_post.size.w = td.width();
+		dimensions_post.size.h = td.height();
 	} else {
 		t->scale_factor_x = d->position.px_size_x;
 		t->scale_factor_y = d->position.px_size_y;
 	}
+//	if(!flag_do_split || is_thumb) {
+		t->index_list = std::list<int>();
+		t->index_list.push_back(0);
+		t->tiles = std::vector<Tile_t>(1);
+		Tile_t &tile = t->tiles[0];
+		tile.index = 0;
+		tile.priority = 0;
+		tile.dimensions_post = dimensions_post;
+//	} else {
+#if 0
+		// so now we have result description - split it
+		// how much tiles...
+		int *lx;
+		int *ly;
+		const int cx = split_line(dimensions_post.size.w, &lx);
+		const int cy = split_line(dimensions_post.size.h, &ly);
+		const int tiles_count = cx * cy;
+		// ...we should create with indexes mapping...
+		t->index_list = std::list<int>();
+		fot(int i = 0; i < tiles_count; ++i)
+			t->index_list.push_back(i);
+		t->tiles = std::vector<Tile_t>(tiles_count);
+		// 
+cerr << "split X to: " << cx << " chunks" << endl;
+cerr << "split Y to: " << cy << " chunks" << endl;
+		cerr << endl; for(int i = 0; i < cx; ++i) cerr << "cx[" << i << "] == " << lx[i] << endl;
+		cerr << endl; for(int i = 0; i < cy; ++i)	cerr << "cy[" << i << "] == " << ly[i] << endl;
+		// ...and then describe them, with correct edges offsets, position and size.
+		int tile_index = 0;
+		const float scale_factor_x = dimensions_post.position.px_size_x;
+		const float scale_factor_y = dimensions_post.position.px_size_y;
+		float pos_y = dimensions_post.position.y;
+		for(int y = 0; y < cy; ++y) {
+			const int len_y = ly[y];
+			float pos_x = dimensions_post.position.x;
+			for(int x = 0; x < cx; ++x) {
+				const int len_x = lx[x];
+				Tile_t &t = t->tiles[tile_index];
+				t.index = tile_index++;
+				//
+				pos_x += scale_factor_x * len_x;
+			}
+			pos_y += scale_factor_y * len_y;
+		}
+#endif
+//	}
 	return t;
 }
 

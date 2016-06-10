@@ -15,6 +15,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <set>
 
 #include <QtCore>
 
@@ -64,7 +65,7 @@ protected:
 	//
 	static int ID_counter;
 	static std::mutex ID_counter_lock;
-	static QSet<int> IDs_in_process;
+	static std::set<int> IDs_in_process;
 	static void ID_add(int ID);
 	static void ID_remove(int ID);
 	static bool ID_to_abort(int ID);

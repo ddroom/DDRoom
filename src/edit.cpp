@@ -101,7 +101,7 @@ void Process_Runner::queue(void *ptr, std::shared_ptr<Photo_t> photo, TilesRecei
 	Process::ID_request_abort(request_ID_to_abort);
 
 	map<Filter *, std::shared_ptr<PS_Base> > map_ps_base;
-	for(auto it = photo->map_ps_base_current.begin(); it != photo->map_ps_base_current.end(); it++) {
+	for(auto it = photo->map_ps_base_current.begin(); it != photo->map_ps_base_current.end(); ++it) {
 		map_ps_base[(*it).first] = std::shared_ptr<PS_Base>((*it).first->newPS());
 		map_ps_base[(*it).first]->load(&photo->map_dataset_current[(*it).first]);
 	}
@@ -117,7 +117,7 @@ void Process_Runner::queue(void *ptr, std::shared_ptr<Photo_t> photo, TilesRecei
 	QList<task_t *> list_new;
 	list_new.push_back(t);
 	task_lock.lock();
-	for(auto it = tasks_list.begin(); it != tasks_list.end(); it++) {
+	for(auto it = tasks_list.begin(); it != tasks_list.end(); ++it) {
 		if((*it)->photo.get() != photo.get() && (*it)->tiles_receiver != t->tiles_receiver) {
 			list_new.push_back((*it));
 		} else {
@@ -241,11 +241,11 @@ Edit::Edit(Process *process, Browser *_browser) {
 	views_box = new QHBoxLayout(views_widget);
 	views_box->setSpacing(0);
 	views_box->setContentsMargins(0, 0, 0, 0);
-	for(int i = 0; i < 3; i++)
+	for(int i = 0; i < 3; ++i)
 		views_splitter[i] = nullptr;
 	views_parent = nullptr;
 	// create 4 sessions and views
-	for(int i = 0; i < 4; i++) {
+	for(int i = 0; i < 4; ++i) {
 		session = new EditSession_t;
 		session->view = View::create(this);
 		sessions.push_back(session);
@@ -295,7 +295,7 @@ Edit::~Edit() {
 	Config::instance()->set(CONFIG_SECTION_VIEW, "views_layout_3_orientation", views_orientation[1]);
 	Config::instance()->set(CONFIG_SECTION_VIEW, "views_layout_4_orientation", views_orientation[2]);
 	//--
-	for(int i = 0; i < sessions.size(); i++) {
+	for(int i = 0; i < sessions.size(); ++i) {
 		if(sessions[i]->photo) {
 cerr << "close photo " << sessions[i]->photo->photo_id.get_export_file_name() << endl;
 			photo_close(i);
@@ -341,17 +341,17 @@ View_Zoom *Edit::get_view_zoom(void) {
 }
 
 void Edit::_reassign_views_layout(void) {
-	for(int i = 0; i < 3; i++) {
+	for(int i = 0; i < 3; ++i) {
 		if(views_splitter[i] != nullptr)
 			views_splitter[i]->setVisible(false);
 	}
-	for(int i = 0; i < 4; i++) {
+	for(int i = 0; i < 4; ++i) {
 		if(views_parent != nullptr)
 			sessions[i]->view->widget()->setParent(views_parent);
 		sessions[i]->view->widget()->hide();
 	}
 	views_box->removeWidget(views_splitter[0]);
-	for(int i = 2; i >= 0; i--) {
+	for(int i = 2; i >= 0; --i) {
 		if(views_splitter[i] != nullptr) {
 			delete views_splitter[i];
 			views_splitter[i] = nullptr;
@@ -376,14 +376,14 @@ void Edit::_reassign_views_layout(void) {
 		int *indexes = indexes_horizontal;
 		if(orientation % 2)
 			indexes = indexes_vertical;
-		for(int i = 0; i < 4; i++) {
+		for(int i = 0; i < 4; ++i) {
 			int j = i / 2 + 1;
 			views_splitter[j]->addWidget(sessions[indexes[i]]->view->widget());
 			views_splitter[j]->setStretchFactor(i % 2, 1);
 			views_splitter[j]->setCollapsible(i % 2, false);
 			sessions[i]->view->widget()->show();
 		}
-		for(int i = 0; i < 2; i++) {
+		for(int i = 0; i < 2; ++i) {
 			views_splitter[0]->addWidget(views_splitter[i + 1]);
 			views_splitter[0]->setStretchFactor(i, 1);
 			views_splitter[0]->setCollapsible(i, false);
@@ -404,7 +404,7 @@ void Edit::_reassign_views_layout(void) {
 				indexes[0] = 2;
 				indexes[1] = 1;
 			}
-			for(int i = 0; i < 2; i++) {
+			for(int i = 0; i < 2; ++i) {
 				views_splitter[1]->addWidget(sessions[indexes[i]]->view->widget());
 				views_splitter[1]->setStretchFactor(i % 2, 1);
 				views_splitter[1]->setCollapsible(i % 2, false);
@@ -416,7 +416,7 @@ void Edit::_reassign_views_layout(void) {
 			sessions[1]->view->widget()->show();
 			sessions[2]->view->widget()->show();
 		} else {
-			for(int i = 0; i < views_layout; i++) {
+			for(int i = 0; i < views_layout; ++i) {
 				views_splitter[0]->addWidget(sessions[i]->view->widget());
 				views_splitter[0]->setStretchFactor(i, 1);
 				views_splitter[0]->setCollapsible(i, false);
@@ -427,7 +427,7 @@ void Edit::_reassign_views_layout(void) {
 	_realign_views_layout();
 	views_box->addWidget(views_splitter[0], 1);
 /*
-	for(int i = 0; i < 3; i++) {
+	for(int i = 0; i < 3; ++i) {
 		if(views_splitter[i] != nullptr)
 			views_splitter[i]->setOpaqueResize(false);
 	}
@@ -445,17 +445,17 @@ void Edit::_reassign_views_layout(void) {
 
 void Edit::_realign_views_layout(void) {
 	// set equal sizes inside splitter
-	for(int i = 2; i >= 0; i--) {
+	for(int i = 2; i >= 0; --i) {
 		if(views_splitter[i] == nullptr)
 			continue;
 		QList<int> s = views_splitter[i]->sizes();
 		if(s.size() == 0)
 			continue;
 		int sum = 0;
-		for(int j = 0; j < s.size(); j++)
+		for(int j = 0; j < s.size(); ++j)
 			sum += s[j];
 		sum /= s.size();
-		for(int j = 0; j < s.size(); j++)
+		for(int j = 0; j < s.size(); ++j)
 			s[j] = sum;
 		views_splitter[i]->setSizes(s);
 	}
@@ -550,7 +550,7 @@ Photo_ID Edit::active_photo(void) {
 
 //------------------------------------------------------------------------------
 bool Edit::version_is_open(Photo_ID photo_id) {
-	for(int i = 0; i < sessions.size(); i++) {
+	for(int i = 0; i < sessions.size(); ++i) {
 		if(sessions[i] != nullptr)
 			if(sessions[i]->photo)
 				if(sessions[i]->photo->photo_id == photo_id)
@@ -573,7 +573,7 @@ PS_Loader *Edit::version_get_current_ps_loader(Photo_ID photo_id) {
 void Edit::slot_view_close(void *data) {
 	View *view = (View *)data;
 	int session_id = -1;
-	for(int i = 0; i < sessions.size(); i++) {
+	for(int i = 0; i < sessions.size(); ++i) {
 		if(sessions[i]->view == view) {
 			session_id = i;
 			break;
@@ -597,7 +597,7 @@ void Edit::slot_view_close(void *data) {
 void Edit::slot_view_browser_reopen(void *data) {
 	View *view = (View *)data;
 	std::shared_ptr<Photo_t> open_photo;
-	for(int i = 0; i < sessions.size(); i++) {
+	for(int i = 0; i < sessions.size(); ++i) {
 		if(sessions[i]->view == view) {
 			open_photo = sessions[i]->photo;
 			break;
@@ -614,7 +614,7 @@ void Edit::slot_view_active(void *data) {
 	View *view = (View *)data;
 	bool update = false;
 	std::shared_ptr<Photo_t> photo_prev = sessions[session_active]->photo;
-	for(int i = 0; i < sessions.size(); i++) {
+	for(int i = 0; i < sessions.size(); ++i) {
 		if(sessions[i]->view == view) {
 			set_session_active(i);
 			update = true;
@@ -688,12 +688,12 @@ void Edit::filters_control_clear(void) {
 //------------------------------------------------------------------------------
 void Edit::slot_update_opened_photo_ids(QList<Photo_ID> ids_list) {
 	int c = ids_list.size() / 2;
-	for(int i = 0; i < c; i++) {
+	for(int i = 0; i < c; ++i) {
 		Photo_ID id_before = ids_list.at(i * 2 + 0);
 		Photo_ID id_after = ids_list.at(i * 2 + 1);
 //cerr << "id_before == " << id_before.get_export_file_name() << endl;
 //cerr << " id_after == " << id_after.get_export_file_name() << endl;
-		for(int j = 0; j < 4; j++) {
+		for(int j = 0; j < 4; ++j) {
 			if(sessions[j]->photo) {
 				if(sessions[j]->photo->photo_id == id_before) {
 					std::list<int> v_list = PS_Loader::versions_list(id_after.get_file_name());
@@ -868,7 +868,7 @@ cerr << endl << "===============>>>> close photo: " << photo->photo_id.get_expor
 
 bool Edit::flush_current_ps(void) {
 	bool was_changed = false;
-	for(int i = 0; i < sessions.size(); i++) {
+	for(int i = 0; i < sessions.size(); ++i) {
 		if(sessions[i] != nullptr)	{
 			if(sessions[i]->photo)
 				was_changed = flush_current_ps(sessions[i]->photo);
@@ -993,7 +993,7 @@ QWidget *Edit::get_controls_widget(QWidget *parent) {
 //	page_widgets[6].push_back(fstore->f_curve->controls());
 //	page_widgets[7].push_back(fstore->f_cm_rainbow->controls());
 
-	for(int i = 0; i < pages_count; i++) {
+	for(int i = 0; i < pages_count; ++i) {
 		pages[i] = new QWidget();
 		pages[i]->setMinimumWidth(pages_min_width);
 		QVBoxLayout *l = new QVBoxLayout(pages[i]);
@@ -1008,13 +1008,13 @@ QWidget *Edit::get_controls_widget(QWidget *parent) {
 		tab_widget->addTab(controls_areas[i], page_names[i].c_str());
 	}
 	int max = pages[0]->width();
-	for(int i = 0; i < pages_count; i++)
+	for(int i = 0; i < pages_count; ++i)
 		if(max < pages[i]->width())
 			max = pages[i]->width();
-	for(int i = 0; i < pages_count; i++)
+	for(int i = 0; i < pages_count; ++i)
 		pages[i]->setMinimumWidth(max);
 	max += controls_areas[0]->verticalScrollBar()->sizeHint().width();
-	for(int i = 0; i < pages_count; i++) {
+	for(int i = 0; i < pages_count; ++i) {
 		controls_areas[i]->setMinimumWidth(max);
 		controls_areas[i]->setWidgetResizable(true);
 	}
@@ -1117,7 +1117,7 @@ void Edit::history_apply(list<eh_record_t> l, bool is_undo) {
 	int filters_count = record.filter_records.size();
 	PS_and_FS_args_t args(photo->metadata, photo->cw_rotation);
 	ProcessSource::process s_id = ProcessSource::s_none;
-	for(int i = 0; i < filters_count; i++) {
+	for(int i = 0; i < filters_count; ++i) {
 //cerr << "filters_count == " << filters_count << endl;
 		eh_filter_record_t &f_record = record.filter_records[i];
 		Filter *filter = f_record.filter;
@@ -1146,7 +1146,7 @@ void Edit::history_apply(list<eh_record_t> l, bool is_undo) {
 
 Edit::EditSession_t *Edit::session_of_view(View *view) {
 	EditSession_t *session = nullptr;
-	for(int i = 0; i < sessions.size(); i++) {
+	for(int i = 0; i < sessions.size(); ++i) {
 		if(sessions[i]->view == view) {
 			session = sessions[i];
 			break;
@@ -1468,13 +1468,13 @@ Copy_Paste_Dialog::Copy_Paste_Dialog(bool to_copy, std::set<std::string> *_copy_
 }
 
 Copy_Paste_Dialog::~Copy_Paste_Dialog(void) {
-	for(int i = 0; i < flags.size(); i++)
+	for(int i = 0; i < flags.size(); ++i)
 		if(flags[i].first != nullptr)
 			delete flags[i].first;
 }
 
 void Copy_Paste_Dialog::slot_button_ok(void) {
-	for(int i = 0; i < flags.size(); i++) {
+	for(int i = 0; i < flags.size(); ++i) {
 		std::string id = flags[i].second;
 		bool skip = (flags[i].first->checkState() == Qt::Unchecked);
 		if(skip)

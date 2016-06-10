@@ -9,14 +9,12 @@
  *
  */
 
-
-#include <QVector>
-#include <QUuid>
-#include <QSize>
-#include <QPoint>
-
+#include <atomic>
+#include <chrono>
+#include <list>
 #include <map>
 #include <mutex>
+#include <vector>
 
 #include "area.h"
 
@@ -31,28 +29,25 @@ public:
 	void generate(void);
 
 protected:
-	QUuid uuid;
+	std::chrono::time_point<std::chrono::system_clock> chronostamp;
 	long long counter;
 	bool empty;
 
 	static void _generate(ID_t *_this);
-	static std::mutex _mutex;
-	static long long _counter;
+	static std::atomic_int _counter;
 };
 
 //------------------------------------------------------------------------------
 class Tile_t {
 public:
-	Tile_t(void);
-	int request_ID;
-//	ID_t id;
-	class Area *area;	// set by Process, delete by TilesReceiver; result area after processing;
-	int index;			// index at array of image_t in View
-	int priority;
+	Tile_t(void) = default;
+	int request_ID = 0;
+	class Area *area = nullptr;	// set by Process, delete by TilesReceiver; result area after processing;
+	int index = -1;			// index at array of image_t in View
+	int priority = -1;
 	Area::t_dimensions dimensions_post;	// asked by TilesReceiver
 	Area::t_dimensions dimensions_pre;	// should be used at start of workflow
-	class t_position {
-		public:
+	struct t_position {
 		double x;
 		double y;
 		int width;
@@ -74,8 +69,8 @@ public:
 class TilesDescriptor_t {
 public:
 	class TilesReceiver *receiver;
-	QVector<Tile_t> tiles;
-	QList<int> index_list; // list of tiles indexes to process; TODO: replace it with a real tiles object (?)
+	std::vector<Tile_t> tiles;
+	std::list<int> index_list; // list of tiles indexes to process; TODO: replace it with a real tiles object (?)
 	std::mutex index_list_lock;
 	// something to indicate that process is run or not
 
@@ -101,6 +96,7 @@ public:
 	// return previous request ID, and add this new ID into the IDs list, so already processed tiles would not be wasted
 	virtual int add_request_ID(int request_ID);
 
+	virtual void do_split(bool);
 	// argument is result of chain of calls all filter's Filter::size_forward(),
 	// i.e. is size of photo after processing at 1:1 scale;
 	// TilesReceiver should remember that size, scale and crop it if necessary, and then
@@ -115,6 +111,7 @@ public:
 	virtual void receive_tile(Tile_t *tile, bool is_thumb);
 	// all asked tiles are processed
 	virtual void process_done(bool is_thumb);
+	// notice tiles receiver that processing will took long
 	virtual void long_wait(bool set);
 
 	Area *area_image;
@@ -122,6 +119,7 @@ public:
 
 protected:
 	void _init(void);
+	bool flag_do_split = false;
 	bool do_scale;
 	bool scale_to_fit;
 	int scaled_width;
@@ -130,7 +128,7 @@ protected:
 	// last, or only, request ID
 	int request_ID;
 	// IDs for View, on panning event
-	QList<int> request_IDs;
+	std::list<int> request_IDs;
 	std::mutex request_ID_lock;
 
 	int split_line(int l, int **m);

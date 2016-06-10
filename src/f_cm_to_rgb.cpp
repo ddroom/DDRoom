@@ -162,7 +162,7 @@ void FP_CM_to_RGB::filter_pre(fp_cp_args_t *args) {
 //	void *tasks[args->cores];
 //	task_prepare(tasks, args->cores, args->mutators, args->mutators_mpass, false, (FP_CM_to_RGB_Cache_t *)args->cache);
 	QVector<class task_t *> tasks = task_prepare(args->cores, args->mutators, args->mutators_mpass, false, (FP_CM_to_RGB_Cache_t *)args->cache);
-	for(int i = 0; i < args->cores; i++)
+	for(int i = 0; i < args->cores; ++i)
 		args->ptr_private[i] = tasks[i];
 //		args->ptr_private[i] = tasks[i];
 //	delete[] tasks;
@@ -210,7 +210,7 @@ QVector<class FP_CM_to_RGB::task_t *> FP_CM_to_RGB::task_prepare(int cores, clas
 	// input - Jsh at E
 	CMS_Matrix *cms_matrix = CMS_Matrix::instance();
 	cms_matrix->get_matrix_XYZ_to_CS(ocs_name, m_xyz_to_output);
-//	for(int i = 0; i < 9; i++)
+//	for(int i = 0; i < 9; ++i)
 //		matrix[i] = m_xyz_to_output[i];
 	TableFunction *gamma = cms_matrix->get_gamma(ocs_name);
 
@@ -221,13 +221,13 @@ QVector<class FP_CM_to_RGB::task_t *> FP_CM_to_RGB::task_prepare(int cores, clas
 	CM_Convert *cm_convert = cm->get_convert_Jsh_to_XYZ();
 //	void **tasks = new void *[cores];
 	QVector<class task_t *> tasks(cores);
-	for(int i = 0; i < cores; i++) {
+	for(int i = 0; i < cores; ++i) {
 		task_t *task = new task_t;
 		task->gamma = gamma;
 //		task->to_skip = to_skip;
 		task->cm = cm;
 		task->cm_convert = cm_convert;
-		for(int j = 0; j < 9; j++)
+		for(int j = 0; j < 9; ++j)
 			task->cmatrix[j] = m_xyz_to_output[j];
 //			task->cmatrix[j] = matrix[j];
 		//--
@@ -237,7 +237,7 @@ QVector<class FP_CM_to_RGB::task_t *> FP_CM_to_RGB::task_prepare(int cores, clas
 		if(do_analyze) {
 			task->smax_count = new int[101];
 			task->smax_value = new float[101];
-			for(int j = 0; j < 101; j++) {
+			for(int j = 0; j < 101; ++j) {
 				task->smax_count[j] = 0;
 				task->smax_value[j] = 0.0;
 			}
@@ -271,15 +271,15 @@ void FP_CM_to_RGB::task_release(void **tasks, int cores, class DataSet *mutators
 		// determine saturation factor
 		int   smax_count[101];
 		float smax_value[101];
-		for(int i = 0; i < 101; i++) {
+		for(int i = 0; i < 101; ++i) {
 			smax_count[i] = 0;
 			smax_value[i] = 0.0;
 		}
 		int pixels_count = 0;
-		for(int j = 0; j < cores; j++) {
+		for(int j = 0; j < cores; ++j) {
 			t = (FP_CM_to_RGB::task_t *)tasks[j];
 			pixels_count += t->pixels_count;
-			for(int i = 0; i < 101; i++) {
+			for(int i = 0; i < 101; ++i) {
 				smax_count[i] += t->smax_count[i];
 				smax_value[i] = (smax_value[i] > t->smax_value[i]) ? smax_value[i] : t->smax_value[i];
 			}
@@ -288,7 +288,7 @@ void FP_CM_to_RGB::task_release(void **tasks, int cores, class DataSet *mutators
 		int c = 0;
 		float smax_factor = 0.0;
 //int index = 0;
-		for(int i = 1; i < 101; i++) {
+		for(int i = 1; i < 101; ++i) {
 //index = i;
 			if(c >= pixels_count && smax_factor > 1.0)
 				break;
@@ -314,7 +314,7 @@ void FP_CM_to_RGB::task_release(void **tasks, int cores, class DataSet *mutators
 			}
 		}
 	}
-	for(int j = 0; j < cores; j++) {
+	for(int j = 0; j < cores; ++j) {
 		t = (FP_CM_to_RGB::task_t *)tasks[j];
 		if(t->smax_count)
 			delete[] t->smax_count;
@@ -367,7 +367,7 @@ void FP_CM_to_RGB::filter(float *pixel, void *data) {
 	// convert XYZ to RGB
 	m3_v3_mult(pixel, task->cmatrix, XYZ);
 	// apply gamma
-	for(int i = 0; i < 3; i++)
+	for(int i = 0; i < 3; ++i)
 		pixel[i] = (*task->gamma)(pixel[i]);
 }
 
@@ -392,7 +392,7 @@ Area *FP_CM_to_RGB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filt
 //		task_prepare((void **)&t_tasks, cores, mutators, mutators_mpass, true, fp_cache);
 		QVector<class task_t *> t_tasks = task_prepare(cores, mutators, mutators_mpass, true, fp_cache);
 //		void **t_tasks = task_prepare(cores, mutators, mutators_mpass, true, fp_cache);
-//		for(int i = 0; i < args->cores; i++)
+//		for(int i = 0; i < args->cores; ++i)
 //			args->ptr_private[i] = t_tasks[i];
 //	void **FP_CM_to_RGB::task_prepare(int cores, class DataSet *mutators, class DataSet *mutators_mpass) {
 		// TODO: check here destructive processing
@@ -401,7 +401,7 @@ D_AREA_PTR(_area_out)
 		_flow_p1 = new std::atomic_int(0);
 		_flow_p2 = new std::atomic_int(0);
 		tasks = new task_t *[cores];
-		for(int i = 0; i < cores; i++) {
+		for(int i = 0; i < cores; ++i) {
 //			tasks[i] = (FP_CM_to_RGB::task_t *)t_tasks[i];
 			tasks[i] = t_tasks[i];
 //			tasks[i] = new task_t;
@@ -447,7 +447,7 @@ D_AREA_PTR(_area_out)
 	while((y = task->flow_p1->fetch_add(1)) < y_max) {
 		int in_index = ((y + in_my) * in_width + in_mx) * 4;
 		int out_index = ((y + out_my) * out_width + out_mx) * 4;
-		for(int x = 0; x < x_max; x++) {
+		for(int x = 0; x < x_max; ++x) {
 			float *pixel = &in[in_index];
 			//--
 			if(pixel[0] > 1.0)	pixel[0] = 1.0;
@@ -472,10 +472,10 @@ D_AREA_PTR(_area_out)
 					if(index > 100)	index = 100;
 				}
 */
-					task->smax_count[index]++;
+					++task->smax_count[index];
 					if(task->smax_value[index] < pixel[1] / s_max)
 						task->smax_value[index] = pixel[1] / s_max;
-					task->pixels_count++;
+					++task->pixels_count;
 				}
 			}
 			in_index += 4;
@@ -493,7 +493,7 @@ D_AREA_PTR(_area_out)
 //		void **t_tasks = task_prepare(cores, mutators, mutators_mpass, false, fp_cache);
 		// TODO: check here destructive processing
 		tasks = new task_t *[cores];
-		for(int i = 0; i < cores; i++) {
+		for(int i = 0; i < cores; ++i) {
 //			tasks[i] = (FP_CM_to_RGB::task_t *)t_tasks[i];
 			tasks[i] = t_tasks[i];
 			tasks[i]->area_in = area_in;
@@ -511,7 +511,7 @@ D_AREA_PTR(_area_out)
 	while((y = task->flow_p2->fetch_add(1)) < y_max) {
 		int in_index = ((y + in_my) * in_width + in_mx) * 4;
 		int out_index = ((y + out_my) * out_width + out_mx) * 4;
-		for(int x = 0; x < x_max; x++) {
+		for(int x = 0; x < x_max; ++x) {
 			float *pixel = &in[in_index];
 			filter(pixel, (void *)task);
 			out[out_index + 0] = in[in_index + 0];
@@ -529,7 +529,7 @@ D_AREA_PTR(_area_out)
 		task_release((void **)tasks, cores, mutators_mpass, false, fp_cache);
 		delete _flow_p1;
 		delete _flow_p2;
-//		for(int i = 0; i < subflow->cores(); i++)
+//		for(int i = 0; i < subflow->cores(); ++i)
 //			delete tasks[i];
 		delete[] tasks;
 	}

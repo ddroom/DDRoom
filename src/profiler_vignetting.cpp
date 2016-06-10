@@ -40,7 +40,7 @@ void Profiler_Vignetting::process(string folder) {
 	QFileInfoList file_list = dir.entryInfoList();
 
 	QMap<float, std::string> map_fn_to_fl;
-	for(int i = 0; i < file_list.size(); i++) {
+	for(int i = 0; i < file_list.size(); ++i) {
 		QFileInfo file_info = file_list.at(i);
 		string name = file_info.fileName().toLocal8Bit().constData();
 //		string file_name = current_folder_id.toLocal8Bit().constData();

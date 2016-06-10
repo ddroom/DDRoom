@@ -189,17 +189,13 @@ public:
 // filter process and pre-process
 class FP_size_t {
 public:
-	FP_size_t(class PS_Base *_ps_base, class Metadata *_metadata = nullptr, class Filter *_filter = nullptr) {
-		ps_base = _ps_base;
-		metadata = _metadata;
-		filter = _filter;
-		mutators = nullptr;
-	}
-	PS_Base *ps_base;	// mandatory
-	class Metadata *metadata;	// used for lens correction detection 
-	class DataSet *mutators;	// name -> value
-	Filter *filter;		// 'Edit' mode - f_crop etc...
-	bool is_tile;
+	FP_size_t(class PS_Base *_ps_base) : ps_base(_ps_base) {}
+	PS_Base *ps_base = nullptr;			// mandatory
+	class Metadata *metadata = nullptr;	// used for lens correction detection 
+	Filter *filter = nullptr;			// 'Edit' mode - f_crop etc...
+	class DataSet *mutators = nullptr;	// name -> value
+	int cw_rotation = 0;
+//	bool is_tile;
 };
 
 // keep cached photo-relative tables here, like tables for gui_curve etc...

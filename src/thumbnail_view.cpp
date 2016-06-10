@@ -258,7 +258,7 @@ void PhotoList_Delegate::paint(QPainter *painter, const QStyleOptionViewItem &op
 		QString text_n;
 		int width_p = fmt.width("...");
 		int width_n = text_rect.width() - width_p - width_ext;
-		for(int i = 0; fmt.width(text_n) <= width_n; i++)
+		for(int i = 0; fmt.width(text_n) <= width_n; ++i)
 			text_n += text.at(i);;
 		text_n.remove(text_n.length() - 1, 1);
 		text = text_n + "...";
@@ -712,7 +712,7 @@ void PhotoList::set_folder_f(void) {
 				folder_not_empty = true;
 				list_whole = new std::list<thumbnail_record_t>;
 				long index = 0;
-				for(int i = 0; i < file_list.size(); i++) {
+				for(int i = 0; i < file_list.size(); ++i) {
 					QFileInfo file_info = file_list.at(i);
 					string name = file_info.fileName().toLocal8Bit().constData();
 //					string file_name = current_folder_id.toLocal8Bit().constData();
@@ -857,7 +857,7 @@ void PhotoList::update_thumbnail(Photo_ID photo_id, QImage thumbnail) {
 	bool update = false;
 	if(folder_id == current_folder_id) {
 		if(index < 0 && index >= items.size()) {
-			for(index = 0; index < items.size(); index++) {
+			for(index = 0; index < items.size(); ++index) {
 				if(items[index].photo_id == photo_id)
 					break;
 			}
@@ -886,7 +886,7 @@ void PhotoList::photo_close(Photo_ID photo_id, bool was_changed) {
 		index = (*it).second.index;
 		if(folder_id == current_folder_id) {
 			if(index < 0 && index >= items.size()) {
-				for(index = 0; index < items.size(); index++) {
+				for(index = 0; index < items.size(); ++index) {
 					if(items[index].photo_id == photo_id)
 						break;
 				}
@@ -921,7 +921,7 @@ void PhotoList::thumbs_update(void) {
 	//	- check flag 'all items already loaded'
 	//	- try to found indexes by points at viewport edges
 	QList<string> list_photo;
-	for(int i = 0; i < items_size; i++) {
+	for(int i = 0; i < items_size; ++i) {
 		QModelIndex model_index = createIndex(i, 0);
 		if(model_index.isValid()) {
 			QRect rect = view->visualRect(model_index);
@@ -986,7 +986,7 @@ void PhotoList::update_icons(void) {
 list<Photo_ID> PhotoList::get_selection_list(void) {
 	list<Photo_ID> _list;
 	const QModelIndexList l = view->get_selected_indexes();
-	for(int i = 0; i < l.size(); i++) {
+	for(int i = 0; i < l.size(); ++i) {
 		int index = l.at(i).row();
 		_list.push_back(items[index].photo_id);
 //		cerr << items[index].file_name << endl;
@@ -1078,7 +1078,7 @@ void PhotoList::slot_version_add(void) {
 		else
 			break;
 	}
-	for(int i = context_menu_index + 1; i < items.size(); i++)
+	for(int i = context_menu_index + 1; i < items.size(); ++i)
 		if(items[i].file_name == file_name) {
 			items[i].version_index++;
 			items[i].photo_id = Photo_ID(file_name, items[i].version_index);
@@ -1105,7 +1105,7 @@ void PhotoList::slot_version_remove(void) {
 			items[i].version_count--;
 		else
 			break;
-	for(int i = context_menu_index + 1; i < items.size(); i++)
+	for(int i = context_menu_index + 1; i < items.size(); ++i)
 		if(items[i].file_name == file_name) {
 			items[i].version_index--;
 			items[i].photo_id = Photo_ID(file_name, items[i].version_index);

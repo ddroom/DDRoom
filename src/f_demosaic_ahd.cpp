@@ -85,8 +85,8 @@ void FP_Demosaic::process_AHD(class SubFlow *subflow) {
 	int p_blue = __bayer_blue(bayer_pattern);
 
 	//== interpolate GREEN H and V
-	for(int y = y_min; y < y_max; y++) {
-		for(int x = x_min; x < x_max; x++) {
+	for(int y = y_min; y < y_max; ++y) {
+		for(int x = x_min; x < x_max; ++x) {
 			int k4 = ((width + 4) * (y + 2) + x + 2) * 4;
 			int s = __bayer_pos_to_c(x, y);
 			if(s == p_green_r || s == p_green_b) {
@@ -131,15 +131,15 @@ void FP_Demosaic::process_AHD(class SubFlow *subflow) {
 	//== reconstruct RED and BLUE at BLUE and REED
 	float *mf[] = {fH, fV};
 	float *ml[] = {lH, lV};
-	for(int y = y_min; y < y_max; y++) {
-		for(int x = x_min; x < x_max; x++) {
+	for(int y = y_min; y < y_max; ++y) {
+		for(int x = x_min; x < x_max; ++x) {
 			float c1, c2, c3, c4, g, g1, g2, g3, g4;
 //			int k3 = ((width + 4) * (y + 2) + x + 2) * 3;
 			int k4 = ((width + 4) * (y + 2) + x + 2) * 4;
 			int s = __bayer_pos_to_c(x, y);
 			if(s == p_red || s == p_blue) {
 				int ci = (s == p_red) ? 2 : 0;
-				for(int n = 0; n < 2; n++) {
+				for(int n = 0; n < 2; ++n) {
 					float *f = mf[n];
 					g = f[k4 + 1];
 					g1 = f[k4 - w4 - 4 + 1];
@@ -181,8 +181,8 @@ void FP_Demosaic::process_AHD(class SubFlow *subflow) {
 	subflow->sync_point_post();
 
 	//== reconstruct RED and BLUE at GREEN
-	for(int y = y_min; y < y_max; y++) {
-		for(int x = x_min; x < x_max; x++) {
+	for(int y = y_min; y < y_max; ++y) {
+		for(int x = x_min; x < x_max; ++x) {
 			float c1, c2, g, g1, g2;
 //			float c1, c2, c3, c4, g, g1, g2, g3, g4;
 //			int k3 = ((width + 4) * (y + 2) + x + 2) * 3;
@@ -190,7 +190,7 @@ void FP_Demosaic::process_AHD(class SubFlow *subflow) {
 			int s = __bayer_pos_to_c(x, y);
 			if(s == p_green_r || s == p_green_b) {
 				int ci = (s == p_green_r) ? 0 : 2;
-				for(int n = 0; n < 2; n++) {
+				for(int n = 0; n < 2; ++n) {
 					float *f = mf[n];
 					g = f[k4 + 1];
 					g1 = f[k4 - 4 + 1];
@@ -221,14 +221,14 @@ void FP_Demosaic::process_AHD(class SubFlow *subflow) {
 	subflow->sync_point_post();
 
 	//== calculate Lab
-	for(int y = y_min; y < y_max; y++) {
-		for(int x = x_min; x < x_max; x++) {
+	for(int y = y_min; y < y_max; ++y) {
+		for(int x = x_min; x < x_max; ++x) {
 //			float c1, c2, c3, c4, g, g1, g2, g3, g4;
 			int k3 = ((width + 4) * (y + 2) + x + 2) * 3;
 			int k4 = ((width + 4) * (y + 2) + x + 2) * 4;
 //			int s = __bayer_pos_to_c(x, y);
 			// calculate Lab
-			for(int n = 0; n < 2; n++) {
+			for(int n = 0; n < 2; ++n) {
 				float *f = mf[n];
 				float *l = ml[n];
 				float rgb[3];
@@ -262,23 +262,23 @@ void FP_Demosaic::process_AHD(class SubFlow *subflow) {
 	float dl[2][4];
 	float dc[2][4];
 	int offsets[4] = {3, -3, w3, -w3};
-	for(int y = y_min; y < y_max; y++) {
-		for(int x = x_min; x < x_max; x++) {
+	for(int y = y_min; y < y_max; ++y) {
+		for(int x = x_min; x < x_max; ++x) {
 			int k3 = ((width + 4) * (y + 2) + x + 2) * 3;
 			int k4 = ((width + 4) * (y + 2) + x + 2) * 4;
-			for(int n = 0; n < 2; n++) {
+			for(int n = 0; n < 2; ++n) {
 				float *l = ml[n];
-				for(int i = 0; i < 4; i++) {
+				for(int i = 0; i < 4; ++i) {
 					dl[n][i] = ddr::abs(l[k3] - l[k3 + offsets[i]]);
 					dc[n][i] = _square(l[k3 + 1] - l[k3 + offsets[i] + 1]) + _square(l[k3 + 2] - l[k3 + offsets[i] + 2]);
 				}
 			}
 			float el = ddr::min(ddr::max(dl[0][0], dl[0][1]), ddr::max(dl[1][2], dl[1][3]));
 			float ec = ddr::min(ddr::max(dc[0][0], dc[0][1]), ddr::max(dc[1][2], dc[1][3]));
-			for(int n = 0; n < 2; n++) {
+			for(int n = 0; n < 2; ++n) {
 				float *f = mf[n];
 				f[k4 + 3] = 0.0;
-				for(int i = 0; i < 4; i++) {
+				for(int i = 0; i < 4; ++i) {
 					if(dl[n][i] <= el && dc[n][i] <= ec)
 						f[k4 + 3] += 1.0;
 				}
@@ -294,15 +294,15 @@ void FP_Demosaic::process_AHD(class SubFlow *subflow) {
 	//== combine fH and fV
 //	const float black_offset = task->black_offset;
 //	const float black_scale = 1.0 / (1.0 - black_offset);
-	for(int y = y_min; y < y_max; y++) {
-		for(int x = x_min; x < x_max; x++) {
+	for(int y = y_min; y < y_max; ++y) {
+		for(int x = x_min; x < x_max; ++x) {
 			int k4 = ((width + 4) * (y + 2) + x + 2) * 4;
 			float w[2];
-			for(int n = 0; n < 2; n++) {
+			for(int n = 0; n < 2; ++n) {
 				w[n] = 0.0;
 				float *f = mf[n];
-				for(int j = -1; j <= 1; j++) {
-					for(int i = -1; i <= 1; i++) {
+				for(int j = -1; j <= 1; ++j) {
+					for(int i = -1; i <= 1; ++i) {
 						w[n] += f[k4 + w4 * j + i * 4 + 3];
 					}
 				}

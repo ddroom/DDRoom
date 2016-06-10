@@ -63,7 +63,7 @@ std::list<int> PS_Loader::versions_list(std::string file_name) {
 				if(xml.isStartElement() && xml.name() == "version" && is_ddr) {
 					int version_index = 0;
 					const QXmlStreamAttributes &v_attributes = xml.attributes();
-					for(int i = 0; i < v_attributes.size(); i++) {
+					for(int i = 0; i < v_attributes.size(); ++i) {
 						string key = v_attributes[i].name().toString().toLocal8Bit().constData();
 						QString value = v_attributes[i].value().toString();
 						if(key == "index")
@@ -117,7 +117,7 @@ void PS_Loader::load(Photo_ID photo_id, bool use_lock) {
 				if(xml.isStartElement() && xml.name() == "version" && is_ddr) {
 					int version_index = 0;
 					const QXmlStreamAttributes &v_attributes = xml.attributes();
-					for(int i = 0; i < v_attributes.size(); i++) {
+					for(int i = 0; i < v_attributes.size(); ++i) {
 						string key = v_attributes[i].name().toString().toLocal8Bit().constData();
 						string value = v_attributes[i].value().toString().toLocal8Bit().constData();
 						if(key == "index")
@@ -142,7 +142,7 @@ void PS_Loader::load(Photo_ID photo_id, bool use_lock) {
 										string field_name = xml.name().toString().toLocal8Bit().constData();
 										if(field_name == "cw_rotation") {
 											const QXmlStreamAttributes &attributes = xml.attributes();
-											for(int i = 0; i < attributes.size(); i++) {
+											for(int i = 0; i < attributes.size(); ++i) {
 												string key = attributes[i].name().toString().toLocal8Bit().constData();
 												string value = attributes[i].value().toString().toLocal8Bit().constData();
 												if(key == "angle" && (value == "0" || value == "90" || value == "180" || value == "270")) {
@@ -163,7 +163,7 @@ void PS_Loader::load(Photo_ID photo_id, bool use_lock) {
 										string filter_name = xml.name().toString().toLocal8Bit().constData();
 //										cerr << "---> " << filter_name.c_str() << endl;
 										const QXmlStreamAttributes &attributes = xml.attributes();
-										for(int i = 0; i < attributes.size(); i++) {
+										for(int i = 0; i < attributes.size(); ++i) {
 											string key = attributes[i].name().toString().toLocal8Bit().constData();
 											string value = attributes[i].value().toString().toLocal8Bit().constData();
 //											cerr << "----> \"" << key.c_str() << "\" == \"" << value.c_str() << "\"" << endl;
@@ -256,7 +256,7 @@ void PS_Loader::version_rearrange(Photo_ID photo_id, bool remove_not_create, PS_
 	// copy versions and add 
 	map<int, PS_Loader *> ps_map;
 	PS_Loader *ps_base = _ps_map[v_index];
-	for(int i = 1; i <= _ps_map.size(); i++) {
+	for(int i = 1; i <= _ps_map.size(); ++i) {
 		if(remove_not_create) {
 			if(i < v_index)
 				ps_map.insert(std::pair<int, PS_Loader *>(i, _ps_map[i]));

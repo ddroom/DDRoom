@@ -52,7 +52,7 @@ QVector<long> GUI_Histogram::rescale_histogram(const QVector<long> &hist, int ne
 	}
 	QVector<long> rez;
 	rez.resize(new_size);
-	for(int i = 0; i < new_size; i++)
+	for(int i = 0; i < new_size; ++i)
 		rez[i] = 0;
 	// upscale
 	if(size < new_size) {
@@ -60,7 +60,7 @@ QVector<long> GUI_Histogram::rescale_histogram(const QVector<long> &hist, int ne
 		double scale = 1.0 / f_step;
 		double f_index = f_step;
 		int index = 0;
-		for(int i = 0; i < new_size; i++) {
+		for(int i = 0; i < new_size; ++i) {
 			rez[i] = hist[index];
 			f_index += f_step;
 //cerr << "- i == " << i << "; index == " << index << "; " << endl;
@@ -308,7 +308,7 @@ bool _GUI_Curve__point_less_than(const QPointF &p1, const QPointF &p2) {
 void GUI_Curve::points_normalize(void) {
 	QVector<QPointF> &points = curves[curve_active_index];
 	bool to_sort = false;
-	for(int i = 0; i < points.size() - 1; i++) {
+	for(int i = 0; i < points.size() - 1; ++i) {
 		if(points[i].x() > points[i + 1].x()) {
 			to_sort = true;
 			break;
@@ -320,7 +320,7 @@ void GUI_Curve::points_normalize(void) {
 			current_point = points[point_active_index];
 		qSort(points.begin(), points.end(), _GUI_Curve__point_less_than);
 		if(point_active_index != -1) {
-			for(int i = 0; i < points.size(); i++) {
+			for(int i = 0; i < points.size(); ++i) {
 				if(points[i] == current_point) {
 					point_active_index = i;
 					break;
@@ -328,7 +328,7 @@ void GUI_Curve::points_normalize(void) {
 			}
 		}
 /*
-		for(int i = 0; i < points.size(); i++)
+		for(int i = 0; i < points.size(); ++i)
 			cerr << "points[" << i << "].x() == " << points[i].x() << endl;
 		cerr << endl;
 */
@@ -351,7 +351,7 @@ bool GUI_Curve::point_to_be_removed(QPointF position) {
 		const float y = position.y();
 		const float x_scale = (size_w - 1) * (size_w - 1);
 		const float y_scale = (size_h - 1) * (size_h - 1);
-		for(int i = 0; i < points.size(); i++) {
+		for(int i = 0; i < points.size(); ++i) {
 			if(i == point_active_index)
 				continue;
 			float len = (x - points[i].x()) * (x - points[i].x()) * x_scale + (y - points[i].y()) * (y - points[i].y()) * y_scale;
@@ -494,7 +494,7 @@ void GUI_Curve::mouse_event(QMouseEvent *event) {
 				if(levels.size() > 1) {
 					int level_active_index_prev = level_active_index;
 					level_active_index = -1;
-					for(int i = 0; i < 2; i++) {
+					for(int i = 0; i < 2; ++i) {
 						int pos_x = (levels[i] * (size_w - 1) + 0.5);
 						if(_x > pos_x - 5 && _x < pos_x + 5) {
 							level_active_index = i;
@@ -518,7 +518,7 @@ cerr << "level_active_index == " << level_active_index << endl;
 		if(!skip_points) {
 			int near_index = -1;
 			long near_length = 0;
-			for(int i = 0; i < points.size(); i++) {
+			for(int i = 0; i < points.size(); ++i) {
 				long length = (x - points[i].x() * (size_w - 1)) * (x - points[i].x() * (size_w - 1)) + (y - points[i].y() * (size_h - 1)) * (y - points[i].y() * (size_h - 1));
 				if(near_index == -1) {
 					near_index = 0;
@@ -605,7 +605,7 @@ bool GUI_Curve::update_active_index(QMouseEvent *event) {
 			if(levels.size() > 1) {
 				int level_active_index_prev = level_active_index;
 				level_active_index = -1;
-				for(int i = 0; i < 2; i++) {
+				for(int i = 0; i < 2; ++i) {
 					int pos_x = (levels[i] * (size_w - 1) + 0.5);
 					if(_x > pos_x - 5 && _x < pos_x + 5) {
 						level_active_index = i;
@@ -629,7 +629,7 @@ bool GUI_Curve::update_active_index(QMouseEvent *event) {
 	if(!skip_points) {
 		int near_index = -1;
 		long near_length = 0;
-		for(int i = 0; i < points.size(); i++) {
+		for(int i = 0; i < points.size(); ++i) {
 			long length = (x - points[i].x() * (size_w - 1)) * (x - points[i].x() * (size_w - 1)) + (y - points[i].y() * (size_h - 1)) * (y - points[i].y() * (size_h - 1));
 //			if(near_index == -1) {
 			if(near_index < 0) {
@@ -664,7 +664,7 @@ QVector<QPointF> GUI_Curve::on_edit_points(void) {
 	if(points.size() == 2)
 		return points;
 	QVector<QPointF> rez;
-	for(int i = 0; i < points.size(); i++) {
+	for(int i = 0; i < points.size(); ++i) {
 		bool to_remove = false;
 		if(i == point_active_index) {
 			if(point_to_be_removed(points[i]))
@@ -756,14 +756,14 @@ void GUI_Curve::draw(QPainter *_painter) {
 			indexes.push_back(curve_channel_t::channel_red);
 		}
 		indexes.push_back(curve_channel_t::channel_rgb);
-		for(int i = 0; i < indexes.size(); i++) {
+		for(int i = 0; i < indexes.size(); ++i) {
 			if(indexes[i] == curve_active_index) {
 				indexes.remove(i);
 				break;
 			}
 		}
 		indexes.push_back(curve_active_index);
-		for(int i = 0; i < indexes.size(); i++) {
+		for(int i = 0; i < indexes.size(); ++i) {
 			QVector<QPointF> cpoints;
 			QPen pen(curve_colors[indexes[i]]);
 			if(indexes[i] == curve_active_index) {
@@ -778,7 +778,7 @@ void GUI_Curve::draw(QPainter *_painter) {
 			Spline_Calc spline(cpoints, 1.0, true, left_type, left_df, right_type, right_df);
 			float _px = cpoints[0].x();
 			float _py = cpoints[0].y();
-			for(int i = 0; i < x_max; i++) {
+			for(int i = 0; i < x_max; ++i) {
 				float _x = float(i) / x_max;
 				float _y = spline.f(_x) * y_max;
 				_x *= x_max;
@@ -799,17 +799,17 @@ void GUI_Curve::draw(QPainter *_painter) {
 			float Jsh[3] = {0.0, 0.0, 0.0};
 			float RGB[3] = {0.0, 0.0, 0.0};
 			CM_to_CS converter(cm_type, "sRGB");
-			for(int i = 0; i < size_w; i++) {
+			for(int i = 0; i < size_w; ++i) {
 				Jsh[0] = float(i) / size_w;
 				converter.convert(RGB, Jsh);
 				cm_type_bw[i] = RGB[0] * 0xFF;
 			}
 		} else {
-			for(int i = 0; i < size_w; i++)
+			for(int i = 0; i < size_w; ++i)
 				cm_type_bw[i] = (float(i) / size_w) * 0xFF;
 		}
 	}
-	for(int i = 0; i < size_w; i++) {
+	for(int i = 0; i < size_w; ++i) {
 		// TODO: check output color space - how correct is that usage?
 		int c = cm_type_bw[i];
 		painter->setPen(QColor(c, c, c, 0xFF));
@@ -828,7 +828,7 @@ void GUI_Curve::draw(QPainter *_painter) {
 //		QColor color_line[2]	= {QColor(Qt::black), QColor(Qt::white)};
 		QColor color_line[2]	= {QColor(0xBF, 0xBF, 0xBF), QColor(0xFF, 0xFF, 0xFF)};
 		// skip black level for lightness
-		for(int i = 0; i < 2; i++) {
+		for(int i = 0; i < 2; ++i) {
 			QPen pen(color_pen[i]);
 			pen.setWidthF(1.00);
 			if(level_active_index == i)
@@ -863,7 +863,7 @@ void GUI_Curve::draw(QPainter *_painter) {
 		painter->setBrush(curve_colors[curve_active_index]);
 		pen = QPen(curve_colors[curve_active_index]);
 		const QVector<QPointF> &points = curves[curve_active_index];
-		for(int i = 0; i < points.size(); i++) {
+		for(int i = 0; i < points.size(); ++i) {
 			if(i != point_active_index)
 				painter->drawEllipse(QPointF(points[i].x() * x_max, points[i].y() * y_max), 3.0, 3.0);
 //				painter->drawEllipse(QPointF(points[i].x() * 255.0, points[i].y() * 255.0), 3.0, 3.0);

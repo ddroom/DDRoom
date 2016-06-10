@@ -8,20 +8,12 @@
  */
 
 /*
-
 NOTE:
-	- this filter should disable himself when in edit mode, and is last in a geometry filters chain,
-	  so there is no a real reason to complicate things and move filter into GP_Wrapper.
-	- this filter keep crop coordinates in inclusive form, w/o dependency on px_size
-		so when usually coordinate of image 4x4 with center at (0,0) coordinate of top right
-		pixel would be (1.5, 1.5), here top right corner would be (2.0, 2.0);
+	- filter shouldn't apply crop at the edit time;
+	- crop coordinates are in inclusive form as for px_size == 1.0;
 	- on 'scale to size':
 		- disable scaling at the UI editing time;
 		- apply scaling only on the result of the crop operation;
-
-TODO:
-	- check correctness of 'inclusiveness' of coordinates in processing and editing chain
-
 */
 
 #include <iostream>
@@ -53,7 +45,8 @@ TODO:
 */
 #define _ASPECT_MAX 50.0
 #define _ASPECT_MIN 0.02
-#define _MIN_SIZE_PX 32
+#define _MIN_SIZE_PX 2
+//#define _MIN_SIZE_PX 32
 
 using namespace std;
 
@@ -63,6 +56,9 @@ class PS_Crop : public PS_Base {
 public:
 	PS_Crop(void);
 	virtual ~PS_Crop();
+	// crop an actual 1:1 image to the cropped one
+	struct t_rect;
+	PS_Crop::t_rect apply_to_image(const PS_Crop::t_rect &image);
 	PS_Base *copy(void);
 	void reset(void);
 	bool load(DataSet *);
@@ -72,20 +68,30 @@ public:
 	bool enabled_crop;
 
 	// inclusive coordinates; aligned to edges, i.e. not at center of pixels; in scale of position.(x_max|y_max) (i.e. 1:1)
+	// pay attention, that those coordinates in PS_Base are coordinates of 'unrotated' photo, and differ from those at edit time
+	struct t_rect {
+		double x1 = 0.0;	// left
+		double x2 = 0.0;	// right
+		double y1 = 0.0;	// top
+		double y2 = 0.0;	// bottom edges
+	};
+	struct t_rect crop;
+/*
 	double crop_x1;	// left
 	double crop_x2;	// right
 	double crop_y1;	// top
 	double crop_y2;	// bottom
-///*
-	double im_x1;	// for edit purpose only
-	double im_x2;	// saved size of unscaled image before crop filter
-	double im_y1;
-	double im_y2;
-//*/
-	bool fixed_aspect;	// Fixed aspect
+*/
+
+	bool fixed_aspect;
 	string crop_aspect_str;
 
-	double photo_aspect;	// edit time only, original aspect of photo
+	// for edit purpose only
+	double im_x1;	// saved size of unscaled image before crop filter
+	double im_x2;
+	double im_y1;
+	double im_y2;
+	double photo_aspect;	// original aspect of photo
 
 	// scale
 	bool enabled_scale;
@@ -121,6 +127,15 @@ PS_Crop::PS_Crop(void) {
 PS_Crop::~PS_Crop() {
 }
 
+PS_Crop::t_rect PS_Crop::apply_to_image(const PS_Crop::t_rect &image) {
+	t_rect res = image;
+	if(res.x1 < crop.x1) res.x1 = crop.x1;
+	if(res.y1 < crop.y1) res.y1 = crop.y1;
+	if(res.x2 > crop.x2) res.x2 = crop.x2;
+	if(res.y2 > crop.y2) res.y2 = crop.y2;
+	return res;
+}
+
 PS_Base *PS_Crop::copy(void) {
 	PS_Crop *ps = new PS_Crop;
 	*ps = *this;
@@ -132,19 +147,19 @@ void PS_Crop::reset(void) {
 	defined = false;
 	enabled_crop = false;
 
-	crop_x1 = 0;
-	crop_x2 = 0;
-	crop_y1 = 0;
-	crop_y2 = 0;
+	crop.x1 = 0.0;
+	crop.x2 = 0.0;
+	crop.y1 = 0.0;
+	crop.y2 = 0.0;
 ///*
-	im_x1 = 0;
-	im_x2 = 0;
-	im_y1 = 0;
-	im_y2 = 0;
+	im_x1 = 0.0;
+	im_x2 = 0.0;
+	im_y1 = 0.0;
+	im_y2 = 0.0;
 //*/
 	fixed_aspect = false;
 	crop_aspect_str = "0-0";
-	photo_aspect = 1.0;
+	photo_aspect = 0.0;
 
 	enabled_scale = false;
 	scale_str = "0x0";
@@ -155,10 +170,10 @@ bool PS_Crop::load(DataSet *dataset) {
 	reset();
 	dataset->get("defined", defined);
 	dataset->get("enabled", enabled_crop);
-	dataset->get("crop_x1", crop_x1);
-	dataset->get("crop_x2", crop_x2);
-	dataset->get("crop_y1", crop_y1);
-	dataset->get("crop_y2", crop_y2);
+	dataset->get("crop_x1", crop.x1);
+	dataset->get("crop_x2", crop.x2);
+	dataset->get("crop_y1", crop.y1);
+	dataset->get("crop_y2", crop.y2);
 	dataset->get("fixed_aspect", fixed_aspect);
 	dataset->get("crop_aspect", crop_aspect_str);
 	dataset->get("enabled_scale", enabled_scale);
@@ -166,20 +181,20 @@ bool PS_Crop::load(DataSet *dataset) {
 	dataset->get("scale_to_fit", scale_to_fit);
 	// verify
 	if(defined) {
-		if(crop_x1 > crop_x2)
-			ddr::swap(crop_x2, crop_x1);
-		if(crop_y1 > crop_y2)
-			ddr::swap(crop_y2, crop_y1);
+		if(crop.x1 > crop.x2)
+			ddr::swap(crop.x2, crop.x1);
+		if(crop.y1 > crop.y2)
+			ddr::swap(crop.y2, crop.y1);
 		const double min_size = _MIN_SIZE_PX;
-		if(crop_x2 - crop_x1 < min_size) {
-			double cx = (crop_x2 + crop_x1) / 2.0;
-			crop_x2 = cx - min_size / 2.0;
-			crop_x1 = cx + min_size / 2.0;
+		if(crop.x2 - crop.x1 < min_size) {
+			double cx = (crop.x2 + crop.x1) / 2.0;
+			crop.x2 = cx - min_size / 2.0;
+			crop.x1 = cx + min_size / 2.0;
 		}
-		if(crop_y2 - crop_y1 < min_size) {
-			double cy = (crop_y2 + crop_y1) / 2.0;
-			crop_y2 = cy - min_size / 2.0;
-			crop_y1 = cy + min_size / 2.0;
+		if(crop.y2 - crop.y1 < min_size) {
+			double cy = (crop.y2 + crop.y1) / 2.0;
+			crop.y2 = cy - min_size / 2.0;
+			crop.y1 = cy + min_size / 2.0;
 		}
 		
 	}
@@ -192,15 +207,15 @@ bool PS_Crop::save(DataSet *dataset) {
 	// don't save undefined things
 	if(defined) {
 /*
-cerr << "crop_x1 == " << crop_x1 << endl;
-cerr << "crop_x2 == " << crop_x2 << endl;
-cerr << "crop_y1 == " << crop_y1 << endl;
-cerr << "crop_y2 == " << crop_y2 << endl;
+cerr << "crop_x1 == " << crop.x1 << endl;
+cerr << "crop_x2 == " << crop.x2 << endl;
+cerr << "crop_y1 == " << crop.y1 << endl;
+cerr << "crop_y2 == " << crop.y2 << endl;
 */
-		dataset->set("crop_x1", crop_x1);
-		dataset->set("crop_x2", crop_x2);
-		dataset->set("crop_y1", crop_y1);
-		dataset->set("crop_y2", crop_y2);
+		dataset->set("crop_x1", crop.x1);
+		dataset->set("crop_x2", crop.x2);
+		dataset->set("crop_y1", crop.y1);
+		dataset->set("crop_y2", crop.y2);
 		dataset->set("fixed_aspect", fixed_aspect);
 		dataset->set("crop_aspect", crop_aspect_str);
 	}
@@ -224,7 +239,6 @@ F_Crop::F_Crop(int id) {
 	ps_base = ps;
 	widget = nullptr;
 	q_action_edit = nullptr;
-	connect(this, SIGNAL(signal_le_aspect_update(void)), this, SLOT(slot_le_aspect_update(void)));
 	reset();
 	mouse_is_pressed = false;
 }
@@ -355,7 +369,7 @@ QWidget *F_Crop::controls(QWidget *parent) {
 	b_revert->setToolTip(tr("Revert aspect"));
 	b_revert->setToolButtonStyle(Qt::ToolButtonIconOnly);
 	crop_l1->addWidget(b_revert, 0, Qt::AlignRight);
-	gl->addLayout(crop_l1, row++, 1);
+	gl->addLayout(crop_l1, ++row, 1);
 
 	// row 2
 /*
@@ -370,7 +384,7 @@ QWidget *F_Crop::controls(QWidget *parent) {
 
 	le_aspect = new QLineEdit("");
 	le_aspect->setValidator(new QRegExpValidator(QRegExp("[0-9]{1,5}[.|,|x|X|/|\\-| ]{,1}[0-9]{,5}"), le_aspect));
-	gl->addWidget(le_aspect, row++, 1);
+	gl->addWidget(le_aspect, ++row, 1);
 //	crop_l2->addWidget(le_aspect);
 
 	// scale
@@ -379,7 +393,7 @@ QWidget *F_Crop::controls(QWidget *parent) {
 	gl->addWidget(scale_label_name, row, 0);
 
 	scale_label = new QLabel(tr("NNNN x NNNN"));
-	gl->addWidget(scale_label, row++, 1);
+	gl->addWidget(scale_label, ++row, 1);
 */
 	//--
 	checkbox_scale = new QCheckBox(tr("Scale to size"));
@@ -389,7 +403,7 @@ QWidget *F_Crop::controls(QWidget *parent) {
 	le_scale->setValidator(new QRegExpValidator(QRegExp("|[0-9]{1,5}[x|X|/|\\-| ]{1,1}[0-9]{1,5}"), le_scale));
 //	le_scale->setValidator(new QRegExpValidator(QRegExp("[0-9]{1,5}[x|X|/|\\-| ]{1,1}[0-9]{1,5}"), le_scale));
 //	le_scale->setValidator(new QRegExpValidator(QRegExp("[0-9]{1,5}[.|,|x|X|/|\\-| ]{,1}[0-9]{,5}"), le_scale));
-	gl->addWidget(le_scale, row++, 1);
+	gl->addWidget(le_scale, ++row, 1);
 	//--
 	scale_radio = new QButtonGroup(gl);
 	QToolButton *b_size_fit = new QToolButton(parent);
@@ -415,7 +429,7 @@ QWidget *F_Crop::controls(QWidget *parent) {
 	l_fit->addWidget(b_size_fit, 0, Qt::AlignLeft);
 	l_fit->addWidget(l_size_fit, 0, Qt::AlignLeft);
 	l_fit->addStretch(1);
-	gl->addLayout(l_fit, row++, 0, 1, 0);
+	gl->addLayout(l_fit, ++row, 0, 1, 0);
 
 	QHBoxLayout *l_fill = new QHBoxLayout();
 	l_fill->setSpacing(8);
@@ -423,7 +437,7 @@ QWidget *F_Crop::controls(QWidget *parent) {
 	l_fill->addWidget(b_size_fill, 0, Qt::AlignLeft);
 	l_fill->addWidget(l_size_fill, 0, Qt::AlignLeft);
 	l_fill->addStretch(1);
-	gl->addLayout(l_fill, row++, 0, 1, 0);
+	gl->addLayout(l_fill, ++row, 0, 1, 0);
 #else
 	QHBoxLayout *l_fit_fill = new QHBoxLayout();
 	l_fit_fill->setSpacing(8);
@@ -435,7 +449,7 @@ QWidget *F_Crop::controls(QWidget *parent) {
 	l_fit_fill->addWidget(l_size_fill, 0, Qt::AlignLeft);
 	l_fit_fill->addStretch(1);
 
-	gl->addLayout(l_fit_fill, row++, 0, 1, 0);
+	gl->addLayout(l_fit_fill, ++row, 0, 1, 0);
 #endif
 	reset();
 	connect(b_original, SIGNAL(clicked(bool)), this, SLOT(slot_btn_original(bool)));
@@ -513,7 +527,7 @@ FP_Crop::FP_Crop(void) : FilterProcess_2D() {
 
 bool FP_Crop::is_enabled(const PS_Base *ps_base) {
 	PS_Crop *ps = (PS_Crop *)ps_base;
-	if(ps->crop_x1 == 0.0 && ps->crop_x2 == 0.0 && ps->crop_y1 == 0.0 && ps->crop_y2 == 0.0)	// enable call of size_forward() to init edit mode
+	if(ps->crop.x1 == 0.0 && ps->crop.x2 == 0.0 && ps->crop.y1 == 0.0 && ps->crop.y2 == 0.0)	// enable call of size_forward() to init edit mode
 		return true;
 //	bool is_enabled = ps->enabled;
 //	return is_enabled;
@@ -544,13 +558,18 @@ void FP_Crop::size_forward(FP_size_t *fp_size, const Area::t_dimensions *d_befor
 			_ps->im_y1 = im_y1;
 			_ps->im_y2 = im_y2;
 			_ps->photo_aspect = d_before->position._x_max / d_before->position._y_max;
-			if(_ps->crop_x1 == 0.0 && _ps->crop_x2 == 0.0 && _ps->crop_y1 == 0.0 && _ps->crop_y2 == 0.0) {
+			((F_Crop *)fp_size->filter)->init_le_aspect_from_photo_aspect();
+			// TODO: update le_aspect && le_crop_to_size according to the photo rotation
+			// fp_size->cw_rotation
+cerr << "F_Crop::size_forward, cw_rotation == " << fp_size->cw_rotation << endl;
+			if(_ps->crop.x1 == 0.0 && _ps->crop.x2 == 0.0 && _ps->crop.y1 == 0.0 && _ps->crop.y2 == 0.0) {
+				// set default crop with each edge at 10%
 				double w = im_x2 - im_x1;
 				double h = im_y2 - im_y1;
-				_ps->crop_x1 = im_x1 + w * 0.1;
-				_ps->crop_x2 = im_x2 - w * 0.1;
-				_ps->crop_y1 = im_y1 + h * 0.1;
-				_ps->crop_y2 = im_y2 - h * 0.1;
+				_ps->crop.x1 = im_x1 + w * 0.1;
+				_ps->crop.x2 = im_x2 - w * 0.1;
+				_ps->crop.y1 = im_y1 + h * 0.1;
+				_ps->crop.y2 = im_y2 - h * 0.1;
 			}
 		}
 		if(edit_mode == false) {
@@ -561,22 +580,12 @@ cerr << "FP_Crop::size_forward()" << endl;
 //cerr << "              im_x2 == " << im_x2 << endl;
 //cerr << "              im_y1 == " << im_y1 << endl;
 //cerr << "              im_y2 == " << im_y2 << endl;
-cerr << "        ps->crop_x1 == " << ps->crop_x1 << endl;
-cerr << "        ps->crop_x2 == " << ps->crop_x2 << endl;
-cerr << "        ps->crop_y1 == " << ps->crop_y1 << endl;
-cerr << "        ps->crop_y2 == " << ps->crop_y2 << endl;
-cerr << "....    size:   " << ps->crop_x2 - ps->crop_x1 << "x" << ps->crop_y2 - ps->crop_y1 << endl;
-cerr << "....    offset: " << float(ps->crop_x2 + ps->crop_x1) / 2.0 << "x" << float(ps->crop_y2 + ps->crop_y1) / 2.0 << endl;
-*/
-/*
-			int x1 = ps->crop_x1 - im_x1;
-			int x2 = im_x2 - ps->crop_x2;
-			int y1 = ps->crop_y1 - im_y1;
-			int y2 = im_y2 - ps->crop_y2;
-			if(x1 < 0) x1 = 0;
-			if(x2 < 0) x2 = 0;
-			if(y1 < 0) y1 = 0;
-			if(y2 < 0) y2 = 0;
+cerr << "        ps->crop.x1 == " << crop.x1 << endl;
+cerr << "        ps->crop.x2 == " << crop.x2 << endl;
+cerr << "        ps->crop.y1 == " << crop.y1 << endl;
+cerr << "        ps->crop.y2 == " << crop.y2 << endl;
+cerr << "....    size:   " << ps->crop.x2 - ps->crop.x1 << "x" << ps->crop.y2 - ps->crop.y1 << endl;
+cerr << "....    offset: " << (ps->crop.x2 + ps->crop.x1) / 2.0 << "x" << (ps->crop.y2 + ps->crop.y1) / 2.0 << endl;
 */
 /*
 cerr << endl;
@@ -587,29 +596,19 @@ cerr << "  position: " << d_after->position.x << " - " << d_after->position.y <<
 */
 			const float px_size_x = d_after->position.px_size_x;
 			const float px_size_y = d_after->position.px_size_y;
-			float x1 = d_after->position.x - px_size_x * 0.5;
-			float y1 = d_after->position.y - px_size_y * 0.5;
-			float x2 = x1 + px_size_x * (d_after->size.w + 1.0);
-			float y2 = y1 + px_size_y * (d_after->size.h + 1.0);
-			if(x1 < ps->crop_x1)
-				x1 = ps->crop_x1;
-			if(y1 < ps->crop_y1)
-				y1 = ps->crop_y1;
-			if(x2 > ps->crop_x2)
-				x2 = ps->crop_x2;
-			if(y2 > ps->crop_y2)
-				y2 = ps->crop_y2;
+			PS_Crop::t_rect image;
+			image.x1 = d_after->position.x - px_size_x * 0.5;
+			image.y1 = d_after->position.y - px_size_y * 0.5;
+			image.x2 = image.x1 + px_size_x * (d_after->size.w + 1.0);
+			image.y2 = image.y1 + px_size_y * (d_after->size.h + 1.0);
+			PS_Crop::t_rect crop = ps->apply_to_image(image);
 			// correct
-			d_after->position.x = x1 + px_size_x * 0.5;
-			d_after->position.y = y1 + px_size_y * 0.5;
-			d_after->size.w = (x2 - x1 - px_size_x) / px_size_x;
-			d_after->size.h = (y2 - y1 - px_size_y) / px_size_y;
-/*
-			d_after->position.x = ps->crop_x1;
-			d_after->position.y = ps->crop_y1;
-			d_after->size.w = ps->crop_x2 - ps->crop_x1;
-			d_after->size.h = ps->crop_y2 - ps->crop_y1;
-*/
+			d_after->position.x = crop.x1 + px_size_x * 0.5;
+			d_after->position.y = crop.y1 + px_size_y * 0.5;
+//cerr << "x1 == " << x1 << ", pos_x == " << d_after->position.x << endl;
+//cerr << "y1 == " << y1 << ", pos_y == " << d_after->position.y << endl;
+			d_after->size.w = (crop.x2 - crop.x1) / px_size_x;
+			d_after->size.h = (crop.y2 - crop.y1) / px_size_y;
 /*
 cerr << "size_forward(): d_after->size.w == " << d_after->size.w << "; d_after->size.h == " << d_after->size.h << endl;
 cerr << "  offsets: " << x1 << " - " << x2 << "; " << y1 << " - " << y2 << "; size: " << d_after->width() << "x" << d_after->height() << endl;
@@ -631,17 +630,6 @@ d_after->dump();
 			Area::scale_dimensions_to_size_fit(d_after, width, height);
 		else
 			Area::scale_dimensions_to_size_fill(d_after, width, height);
-/*
-		int width = 0;
-		int height = 0;
-		PS_Crop::scale_string_to_size(width, height, ps->scale_str);
-		if(fp_size->mutators != nullptr) {
-			fp_size->mutators->set("scale_to_size", enabled_scale);
-			fp_size->mutators->set("scale_to_width", width);
-			fp_size->mutators->set("scale_to_height", height);
-			fp_size->mutators->set("scale_to_fit", ps->scale_to_fit);
-		}
-*/
 	}
 }
 
@@ -663,8 +651,8 @@ int PS_Crop::_split_scale_string(char &separator, std::string str) {
 	const char *p = str.c_str();
 	int index;
 	int s;
-	for(index = 0; index < 5; index++) {
-		for(s = 0; p[s] && p[s] != ch[index]; s++);
+	for(index = 0; index < 5; ++index) {
+		for(s = 0; p[s] && p[s] != ch[index]; ++s);
 		if(p[s])
 			break;
 	}
@@ -685,7 +673,7 @@ void PS_Crop::scale_string_to_size(int &width, int &height, std::string str) {
 		return;
 	const char *p = str.c_str();
 	char *buffer = new char[str.size()];
-	for(int i = 0; (buffer[i] = p[i]); i++);
+	for(int i = 0; (buffer[i] = p[i]); ++i);
 	buffer[pos++] = ' ';
 	std::istringstream iss(buffer);
 	iss >> width;
@@ -758,10 +746,6 @@ void F_Crop::slot_scale_radio(int index) {
 }
 
 //------------------------------------------------------------------------------
-void F_Crop::slot_le_aspect_update(void) {
-	le_aspect->setText(ps->crop_aspect_str.c_str());
-}
-
 void F_Crop::slot_checkbox_crop(int state) {
 	bool value = (state == Qt::Checked);
 	if(value == ps->enabled_crop)
@@ -806,6 +790,16 @@ double F_Crop::crop_aspect(string s) {
 	return aspect;
 }
 
+void F_Crop::init_le_aspect_from_photo_aspect(void) {
+	if(le_aspect->text() == "" && !(ps->photo_aspect == 0.0)) {
+		QString s;
+		s.setNum(ps->photo_aspect);
+		ps->crop_aspect_str = s.toStdString();
+cerr << "set aspect: " << ps->crop_aspect_str << endl;
+		le_aspect->setText(ps->crop_aspect_str.c_str());
+	}
+}
+
 void F_Crop::slot_checkbox_aspect(int state) {
 	bool value = false;
 	if(state == Qt::Checked)
@@ -814,12 +808,7 @@ void F_Crop::slot_checkbox_aspect(int state) {
 		return;
 	ps->fixed_aspect = value;
 	if(ps->fixed_aspect) {
-		if(le_aspect->text() == "") {
-			QString s;
-			s.setNum(ps->photo_aspect);
-			ps->crop_aspect_str = s.toStdString();
-			le_aspect->setText(ps->crop_aspect_str.c_str());
-		}
+		init_le_aspect_from_photo_aspect();
 		if(!ps->enabled_crop)
 			checkbox_crop->setChecked(true);
 		if(aspect_normalize()) {
@@ -880,7 +869,7 @@ void F_Crop::slot_btn_original(bool checked) {
 
 bool F_Crop::update_aspect(bool crop_was_revert) {
 	if(!ps->fixed_aspect) {
-		double aspect = (ps->crop_x2 - ps->crop_x1) / (ps->crop_y2 - ps->crop_y1);
+		double aspect = (ps->crop.x2 - ps->crop.x1) / (ps->crop.y2 - ps->crop.y1);
 		if(!crop_was_revert)
 			aspect = 1.0 / aspect;
 		QString text;
@@ -940,19 +929,19 @@ bool F_Crop::aspect_normalize(void) {
 		s.setNum(ps->photo_aspect);
 		ps->crop_aspect_str = s.toStdString();
 	}
-	double w2 = (ps->crop_x2 - ps->crop_x1) / 2.0;
-	double h2 = (ps->crop_y2 - ps->crop_y1) / 2.0;
-	double cx = ps->crop_x1 + w2;
-	double cy = ps->crop_y1 + h2;
+	double w2 = (ps->crop.x2 - ps->crop.x1) / 2.0;
+	double h2 = (ps->crop.y2 - ps->crop.y1) / 2.0;
+	double cx = ps->crop.x1 + w2;
+	double cy = ps->crop.y1 + h2;
 	double scale = sqrt(w2 * w2 + h2 * h2);
 	double aspect = crop_aspect(); // crop_aspect == w / h
 	double angle = atan(1.0 / aspect);
 	w2 = scale * cos(angle);
 	h2 = scale * sin(angle);
-	ps->crop_x1 = cx - w2;
-	ps->crop_x2 = cx + w2;
-	ps->crop_y1 = cy - h2;
-	ps->crop_y2 = cy + h2;
+	ps->crop.x1 = cx - w2;
+	ps->crop.x2 = cx + w2;
+	ps->crop.y1 = cy - h2;
+	ps->crop.y2 = cy + h2;
 	return true;
 }
 
@@ -1003,78 +992,84 @@ public:
 
 rotated_crop_t::rotated_crop_t(PS_Crop *ps, int _rotation) {
 	rotation = _rotation;
-	crop_x1 = ps->crop_x1;
-	crop_x2 = ps->crop_x2;
-	crop_y1 = ps->crop_y1;
-	crop_y2 = ps->crop_y2;
-	im_x1 = ps->im_x1;
-	im_x2 = ps->im_x2;
-	im_y1 = ps->im_y1;
-	im_y2 = ps->im_y2;
 //cerr << "ROTATION == " << rotation << endl;
-	if(rotation == 90) {
-		crop_x1 = -ps->crop_y2;
-		crop_x2 = -ps->crop_y1;
-		crop_y1 = ps->crop_x1;
-		crop_y2 = ps->crop_x2;
+	switch (rotation) {
+	case 0:
+		crop_x1 = ps->crop.x1;
+		crop_x2 = ps->crop.x2;
+		crop_y1 = ps->crop.y1;
+		crop_y2 = ps->crop.y2;
+		im_x1 = ps->im_x1;
+		im_x2 = ps->im_x2;
+		im_y1 = ps->im_y1;
+		im_y2 = ps->im_y2;
+		break;
+	case 90:
+		crop_x1 = -ps->crop.y2;
+		crop_x2 = -ps->crop.y1;
+		crop_y1 = ps->crop.x1;
+		crop_y2 = ps->crop.x2;
 		im_x1 = -ps->im_y2;
 		im_x2 = -ps->im_y1;
 		im_y1 = ps->im_x1;
 		im_y2 = ps->im_x2;
-	}
-	if(rotation == 180) {
-		crop_x1 = -ps->crop_x2;
-		crop_x2 = -ps->crop_x1;
-		crop_y1 = -ps->crop_y2;
-		crop_y2 = -ps->crop_y1;
+		break;
+	case 180:
+		crop_x1 = -ps->crop.x2;
+		crop_x2 = -ps->crop.x1;
+		crop_y1 = -ps->crop.y2;
+		crop_y2 = -ps->crop.y1;
 		im_x1 = -ps->im_x2;
 		im_x2 = -ps->im_x1;
 		im_y1 = -ps->im_y2;
 		im_y2 = -ps->im_y1;
-	}
-	if(rotation == 270) {
-		crop_x1 = ps->crop_y1;
-		crop_x2 = ps->crop_y2;
-		crop_y1 = -ps->crop_x2;
-		crop_y2 = -ps->crop_x1;
+		break;
+	case 270:
+		crop_x1 = ps->crop.y1;
+		crop_x2 = ps->crop.y2;
+		crop_y1 = -ps->crop.x2;
+		crop_y2 = -ps->crop.x1;
 		im_x1 = ps->im_y1;
 		im_x2 = ps->im_y2;
 		im_y1 = -ps->im_x2;
 		im_y2 = -ps->im_x1;
+		break;
 	}
 }
 
 void rotated_crop_t::apply_to_ps(PS_Crop *ps) {
-	if(rotation == 0) {
-		ps->crop_x1 = crop_x1;
-		ps->crop_x2 = crop_x2;
-		ps->crop_y1 = crop_y1;
-		ps->crop_y2 = crop_y2;
-	}
-	if(rotation == 90) {
-		ps->crop_x1 = crop_y1;
-		ps->crop_x2 = crop_y2;
-		ps->crop_y1 = -crop_x2;
-		ps->crop_y2 = -crop_x1;
-	}
-	if(rotation == 180) {
-		ps->crop_x1 = -crop_x2;
-		ps->crop_x2 = -crop_x1;
-		ps->crop_y1 = -crop_y2;
-		ps->crop_y2 = -crop_y1;
-	}
-	if(rotation == 270) {
-		ps->crop_x1 = -crop_y2;
-		ps->crop_x2 = -crop_y1;
-		ps->crop_y1 = crop_x1;
-		ps->crop_y2 = crop_x2;
+	switch (rotation) {
+	case 0:
+		ps->crop.x1 = crop_x1;
+		ps->crop.x2 = crop_x2;
+		ps->crop.y1 = crop_y1;
+		ps->crop.y2 = crop_y2;
+		break;
+	case 90:
+		ps->crop.x1 = crop_y1;
+		ps->crop.x2 = crop_y2;
+		ps->crop.y1 = -crop_x2;
+		ps->crop.y2 = -crop_x1;
+		break;
+	case 180:
+		ps->crop.x1 = -crop_x2;
+		ps->crop.x2 = -crop_x1;
+		ps->crop.y1 = -crop_y2;
+		ps->crop.y2 = -crop_y1;
+		break;
+	case 270:
+		ps->crop.x1 = -crop_y2;
+		ps->crop.x2 = -crop_y1;
+		ps->crop.y1 = crop_x1;
+		ps->crop.y2 = crop_x2;
+		break;
 	}
 }
 
 QRect F_Crop::view_crop_rect(const QRect &image, image_and_viewport_t transform) {
 	int im_x1, im_x2, im_y1, im_y2;
-	transform.photo_to_image(im_x1, im_y1, ps->crop_x1, ps->crop_y1);
-	transform.photo_to_image(im_x2, im_y2, ps->crop_x2, ps->crop_y2);
+	transform.photo_to_image(im_x1, im_y1, ps->crop.x1, ps->crop.y1);
+	transform.photo_to_image(im_x2, im_y2, ps->crop.x2, ps->crop.y2);
 	int x1, x2, y1, y2;
 	transform.image_to_viewport(x1, y1, im_x1, im_y1, true);
 	transform.image_to_viewport(x2, y2, im_x2, im_y2, true);
@@ -1165,7 +1160,7 @@ void F_Crop::draw(QPainter *painter, FilterEdit_event_t *et) {
 		QPen(QColor(0, 0, 0, 255), 1.0),
 		QPen(QColor(255, 255, 255, 127), 1.5)
 	};
-	for(int i = 0; i < 2; i++) {
+	for(int i = 0; i < 2; ++i) {
 		painter->setPen(pens[i]);
 		// horizontal
 		painter->drawLine(QLineF(0.5 + crop_x,	0.5 + crop_y + crop_h / 3,		0.5 + crop_x + crop_w,	0.5 + crop_y + crop_h / 3));
@@ -1215,10 +1210,10 @@ void F_Crop::draw(QPainter *painter, FilterEdit_event_t *et) {
 		QString tr_aspect = tr("aspect");
 		QString *tr_str[] = {&tr_size, &tr_offset, &tr_aspect};
 		int tr_l = tr_str[0]->length();
-		for(int i = 0; i < 3; i++)
+		for(int i = 0; i < 3; ++i)
 			if(tr_str[i]->length() > tr_l)
 				tr_l = tr_str[i]->length();
-		for(int i = 0; i < 3; i++)
+		for(int i = 0; i < 3; ++i)
 			while(tr_str[i]->length() < tr_l)
 				*tr_str[i] = QString(" ") + *tr_str[i];
 
@@ -1238,10 +1233,10 @@ void F_Crop::draw(QPainter *painter, FilterEdit_event_t *et) {
 		painter->setPen(text_color);
 
 /*
-		double mx1 = ps->crop_x1;
-		double mx2 = double(1.0) - ps->crop_x2;
-		double my1 = ps->crop_y1;
-		double my2 = double(1.0) - ps->crop_y2;
+		double mx1 = ps->crop.x1;
+		double mx2 = double(1.0) - ps->crop.x2;
+		double my1 = ps->crop.y1;
+		double my2 = double(1.0) - ps->crop.y2;
 		int n_width = s_width;
 		int n_height = s_height;
 		double off_x1 = mx1 * n_width;
@@ -1251,8 +1246,8 @@ void F_Crop::draw(QPainter *painter, FilterEdit_event_t *et) {
 		n_width = double(n_width) - off_x1 - off_x2;
 		n_height = double(n_height) - off_y1 - off_y2;
 */
-		int n_width = ps->crop_x2 - ps->crop_x1;
-		int n_height = ps->crop_y2 - ps->crop_y1;
+		int n_width = ps->crop.x2 - ps->crop.x1;
+		int n_height = ps->crop.y2 - ps->crop.y1;
 
 		str.sprintf(": %dx%d", n_width, n_height);
 		str = tr_size + str;
@@ -1261,8 +1256,8 @@ void F_Crop::draw(QPainter *painter, FilterEdit_event_t *et) {
 		painter->setPen(text_color);
 		painter->drawText(QPointF(rx + 5 - 1, ry + qfm.height() - 1), str);
 
-		double off_x = (ps->crop_x1 + ps->crop_x2) / 2.0;
-		double off_y = (ps->crop_y1 + ps->crop_y2) / 2.0;
+		double off_x = (ps->crop.x1 + ps->crop.x2) / 2.0;
+		double off_y = (ps->crop.y1 + ps->crop.y2) / 2.0;
 		str.sprintf(": %dx%d", int(off_x), int(off_y));
 		str = tr_offset + str;
 		painter->setPen(QColor(0x00, 0x00, 0x00));
@@ -1535,10 +1530,10 @@ bool F_Crop::mouseMoveEvent(FilterEdit_event_t *mt, bool &accepted, Cursor::curs
 //cerr << "x == " << x << "; y == " << y << endl;
 
 		// pan or resize crop area
-		double crop_x1_prev = ps->crop_x1;
-		double crop_x2_prev = ps->crop_x2;
-		double crop_y1_prev = ps->crop_y1;
-		double crop_y2_prev = ps->crop_y2;
+		double crop_x1_prev = ps->crop.x1;
+		double crop_x2_prev = ps->crop.x2;
+		double crop_y1_prev = ps->crop.y1;
+		double crop_y2_prev = ps->crop.y2;
 		rotated_crop_t rc(ps, rotation);
 		if(crop_move == _CROP_MOVE_PAN) {
 			if(x <= 0)	x = -1;
@@ -1803,10 +1798,10 @@ bool F_Crop::mouseMoveEvent(FilterEdit_event_t *mt, bool &accepted, Cursor::curs
 
 		rc.apply_to_ps(ps);
 
-//cerr << "crop: x = " << ps->crop_x1 << " - " << ps->crop_x2 << "; y = " << ps->crop_y1 << " - " << ps->crop_y2 << endl;
-		if(ps->crop_x1 != crop_x1_prev || ps->crop_x2 != crop_x2_prev || ps->crop_y1 != crop_y1_prev || ps->crop_y2 != crop_y2_prev) {
+//cerr << "crop: x = " << ps->crop.x1 << " - " << ps->crop.x2 << "; y = " << ps->crop.y1 << " - " << ps->crop.y2 << endl;
+		if(ps->crop.x1 != crop_x1_prev || ps->crop.x2 != crop_x2_prev || ps->crop.y1 != crop_y1_prev || ps->crop.y2 != crop_y2_prev) {
 			edit_mirror_cursor(cursor, rotation);
-//cerr << "crop_x: " << ps->crop_x1 << " - " << ps->crop_x2 << "; crop_y: " << ps->crop_y1 << " - " << ps->crop_y2 << endl;
+//cerr << "crop_x: " << ps->crop.x1 << " - " << ps->crop.x2 << "; crop_y: " << ps->crop.y1 << " - " << ps->crop.y2 << endl;
 			return true;
 		}
 	}
@@ -1862,10 +1857,10 @@ void F_Crop::edit_update_cursor(Cursor::cursor &cursor, FilterEdit_event_t *mt) 
 //cerr << "x = " << x_left << " - " << x_right << "; y = " << y_top << " - " << y_bottom << endl;
 //cerr << "x == " << x << "; y == " << y << endl;
 /*
-	int x_left = int(ps->crop_x1 * image.width());
-	int x_right = int(ps->crop_x2 * image.width());
-	int y_top = int(ps->crop_y1 * image.height());
-	int y_bottom = int(ps->crop_y2 * image.height());
+	int x_left = int(ps->crop.x1 * image.width());
+	int x_right = int(ps->crop.x2 * image.width());
+	int y_top = int(ps->crop.y1 * image.height());
+	int y_bottom = int(ps->crop.y2 * image.height());
 */
 	// off_e - offset around corners
 	// off_w - offset around edges

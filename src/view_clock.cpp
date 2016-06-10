@@ -116,7 +116,7 @@ void ViewClock::draw(QPainter *painter, float center_x, float center_y) {
 	int p = clock_angle;
 	int c1 = 127;
 	int c2 = 255;
-	for(int i = 0; i <= 3; i++) {
+	for(int i = 0; i <= 3; ++i) {
 		painter->save();
 		painter->setBrush(QBrush(QColor(c_r, c_g, c_b, c1)));
 		painter->setPen(QPen(QColor(c_r, c_g, c_b, c2), 1.0));
@@ -149,7 +149,7 @@ void ViewClock::draw_wait(QPainter *painter, float center_x, float center_y) {
 	int p = clock_angle;
 	int c1 = 127;
 	int c2 = 255;
-	for(int i = 0; i <= 3; i++) {
+	for(int i = 0; i <= 3; ++i) {
 		painter->save();
 		painter->setBrush(QBrush(QColor(c_r, c_g, c_b, c1)));
 		painter->setPen(QPen(QColor(c_r, c_g, c_b, c2), 1.0));

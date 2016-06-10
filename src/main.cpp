@@ -101,7 +101,7 @@ bool parse_arguments(int argc, char *argv[]) {
 #if 0
 //	cerr << "here is arguments:" << endl;
 	bool rez = false;
-	for(int i = 1; i < argc; i++) {
+	for(int i = 1; i < argc; ++i) {
 		string arg = argv[i];
 		if(arg == "--help") {
 			cerr << "--generate-sgt - calculate and save saturation gamut tables as cm-cs-ver.sgt files" << endl;

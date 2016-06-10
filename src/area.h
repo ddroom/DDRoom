@@ -24,13 +24,12 @@
 // Keeps coordinates of the upper left pixel corresponding to the original photo coordinates; and rescaling factor as well.
 class Area {
 public:
-	class t_position {
+	struct t_position {
 	//	position of tile in image_center-based coordinates:
 	//	x axis from left to right;
 	//	y axis from top to bottom;
 	//  coordinates are coordinates of imaginary center of pixel, so _x_max == (photo_width - 1.0) / 2.0;
 	//	_x_max == 0.5 when width of photo is 2px, _x_max == 1.0 for photo with width of 3px, and so on.
-	public:
 		// position (of center) of top left point (pixel) of actual data (i.e. skipping edges), with scale 1:1
 		double x = 0.0;
 		double y = 0.0;
@@ -44,24 +43,21 @@ public:
 	};
 
 	// described size of whole area in memory
-	class t_size {
-	public:
+	struct t_size {
 		int32_t w = 0;	// width
 		int32_t h = 0;	// height
 		t_size() = default;
 		t_size(int32_t _w, int32_t _h) : w(_w), h(_h) {}
 	};
 	// described actual data in memory; edges should be not processed within filters
-	class t_edges {
-	public:
+	struct t_edges {
 		int32_t x1 = 0;	// left offset
 		int32_t x2 = 0;	// right offset
 		int32_t y1 = 0;	// top offset
 		int32_t y2 = 0;	// bottom offset
 	};
 
-	class t_dimensions {
-	public:
+	struct t_dimensions {
 		t_dimensions(void)  = default;
 		t_dimensions(int width, int height) : size(width, height) {}
 		void dump(void);

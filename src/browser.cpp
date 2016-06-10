@@ -100,7 +100,7 @@ Browser::Browser(void) {
 	#endif
 #endif
 	tree->setUniformRowHeights(true);
-	for(int i = fs_model->columnCount(); i > 0; i--)
+	for(int i = fs_model->columnCount(); i > 0; --i)
 		tree->setColumnHidden(i, true);
 	tree->setHeaderHidden(true);
 
@@ -318,7 +318,7 @@ void Browser::folder_collapsed(const QModelIndex &index) {
 	const char *f1 = _f.c_str();
 	const char *f2 = n.c_str();
 	unsigned i = 0;
-	for(; f1[i] && f2[i]; i++)
+	for(; f1[i] && f2[i]; ++i)
 		if(f1[i] != f2[i])
 			break;
 	if(i == n.length()) {

@@ -83,7 +83,7 @@ FP_GP_Shift::FP_GP_Shift(const class Metadata *metadata, double angle_v, double 
 	float mv[9];
 	float mh[9];
 	float mr[9];
-	for(int i = 0; i < 9; i++) {
+	for(int i = 0; i < 9; ++i) {
 		mv[i] = 0.0;
 		mh[i] = 0.0;
 		mr[i] = 0.0;
@@ -214,16 +214,16 @@ bool PS_Shift::load(DataSet *dataset) {
 	dataset->get("angle_r", angle_r);
 	//--
 	QVector<float> guide(4);
-	for(int i = 0; i < 4; i++)	guide[i] = 0.0;
+	for(int i = 0; i < 4; ++i)	guide[i] = 0.0;
 	dataset->get("guide_first", guide);
-	for(int i = 0; i < 4; i++)	guide_first[i] = guide[i];
+	for(int i = 0; i < 4; ++i)	guide_first[i] = guide[i];
 	
-	for(int i = 0; i < 4; i++)	guide[i] = 0.0;
+	for(int i = 0; i < 4; ++i)	guide[i] = 0.0;
 	dataset->get("guide_second", guide);
-	for(int i = 0; i < 4; i++)	guide_second[i] = guide[i];
+	for(int i = 0; i < 4; ++i)	guide_second[i] = guide[i];
 	//--
 /*
-	for(int i = 0; i < 4; i++)	{
+	for(int i = 0; i < 4; ++i)	{
 cerr << guide_first[i] << endl;
 cerr << guide_second[i] << endl;
 	}
@@ -238,23 +238,23 @@ bool PS_Shift::save(DataSet *dataset) {
 	dataset->set("angle_r", angle_r);
 	//--
 	QVector<float> guide(4);
-	for(int i = 0; i < 4; i++)	guide[i] = guide_first[i];
+	for(int i = 0; i < 4; ++i)	guide[i] = guide_first[i];
 	dataset->set("guide_first", guide);
-	for(int i = 0; i < 4; i++)	guide[i] = guide_second[i];
+	for(int i = 0; i < 4; ++i)	guide[i] = guide_second[i];
 	dataset->set("guide_second", guide);
 	return true;
 }
 
 void PS_Shift::guide_reset(int guide_n) {
 	float *g = (guide_n == 0) ? guide_first : guide_second;
-	for(int i = 0; i < 4; i++)
+	for(int i = 0; i < 4; ++i)
 		g[i] = 0.0;
 }
 
 bool PS_Shift::guide_undefined(int guide_n) {
 	float *g = (guide_n == 0) ? guide_first : guide_second;
 	bool rez = false;
-	for(int i = 0; i < 4; i++)
+	for(int i = 0; i < 4; ++i)
 		rez |= (g[i] != 0.0);
 	return !rez;
 }
@@ -564,11 +564,11 @@ void F_Shift::draw(QPainter *painter, FilterEdit_event_t *et) {
 	float *guides[2];
 	guides[0] = ps->guide_first;
 	guides[1] = ps->guide_second;
-	for(int i = 0; i < 2; i++) {
+	for(int i = 0; i < 2; ++i) {
 		if(ps->guide_undefined(i))
 			continue;
 		float vp[4];
-		for(int j = 0; j < 2; j++) {
+		for(int j = 0; j < 2; ++j) {
 			int off = j * 2;
 			float im[2];
 			et->transform.photo_to_image_f(im[0], im[1], guides[i][0 + off], guides[i][1 + off]);
@@ -600,7 +600,7 @@ void F_Shift::draw(QPainter *painter, FilterEdit_event_t *et) {
 			QPen(QColor(255, 255, 255, 63), 3.0),
 			QPen(QColor(0, 0, 0, 127), 1.0),
 		};
-		for(int i = 0; i < 2; i++) {
+		for(int i = 0; i < 2; ++i) {
 			painter->setPen(pens[i]);
 //			painter->setPen(QPen(QColor(255, 255, 255, 63)));
 
@@ -735,7 +735,7 @@ edit_OSD_angle = 0.0;
 				const float x0 = et->cursor_pos.x();
 				const float y0 = et->cursor_pos.y();
 				QPointF mp(et->cursor_pos);
-				for(int i = 0; i < 2; i++) {
+				for(int i = 0; i < 2; ++i) {
 					float x1, y1;
 					float x2, y2;
 					float im[2];
@@ -816,7 +816,7 @@ void F_Shift::edit_UI_process_guide(QLineF guide, FilterEdit_event_t *et) {
 	vp[1] = guide.y1();
 	vp[2] = guide.x2();
 	vp[3] = guide.y2();
-	for(int j = 0; j < 2; j++) {
+	for(int j = 0; j < 2; ++j) {
 		int off = j * 2;
 		float im[2];
 		et->transform.viewport_to_image_f(im[0], im[1], vp[0 + off], vp[1 + off]);
@@ -830,7 +830,7 @@ void F_Shift::edit_UI_process_guide(QLineF guide, FilterEdit_event_t *et) {
 		double angle_r = 0.0f;
 		float guide_first[4];
 		float guide_second[4];
-		for(int i = 0; i < 4; i++) {
+		for(int i = 0; i < 4; ++i) {
 			guide_first[i] = ps->guide_first[i];
 			guide_second[i] = ps->guide_second[i];
 		}

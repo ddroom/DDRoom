@@ -15,7 +15,6 @@
 
 */
 
-//#include <stdint.h>
 #include <QtCore>
 
 #include <iostream>
@@ -111,13 +110,13 @@ void export_parameters_t::set_file_name(string file_name) {
 	const char *ptr = file_name.c_str();
 	char separator = QDir::toNativeSeparators("/").toLocal8Bit().constData()[0];
 	int i = file_name.length();
-	for(; i >= 0; i--)
+	for(; i >= 0; --i)
 		if(ptr[i] == separator)
 			break;
 	new_name = &ptr[i + 1];
 	i = new_name.length();
 	ptr = new_name.c_str();
-	for(; i >= 0; i--)
+	for(; i >= 0; --i)
 		if(ptr[i] == '.')
 			break;
 	if(i > 0) {
@@ -135,13 +134,13 @@ void export_parameters_t::cut_and_set_file_name(string file_name) {
 	// remove possible folder separators
 	char separator = QDir::toNativeSeparators("/").toLocal8Bit().constData()[0];
 	int i = file_name.length();
-	for(; i >= 0; i--)
+	for(; i >= 0; --i)
 		if(ptr[i] == separator)
 			break;
 	// part w/o folders; check extension
 	new_name = &ptr[i + 1];
 	ptr = new_name.c_str();
-	for(i = new_name.length(); i >= 0; i--)
+	for(i = new_name.length(); i >= 0; --i)
 		if(ptr[i] == '.')
 			break;
 	if(i >= 0) {
@@ -476,7 +475,7 @@ cerr << "FATAL ERROR - 3 !!!" << endl;
 //cerr << "width == " << width << "; bits == " << bits << "; row_stride == " << row_stride << endl;
 	uint8_t *image_buffer = (uint8_t *)image;
 //	while(cinfo.next_scanline < cinfo.image_height) {
-	for(int i = 0; i < height; i++) {
+	for(int i = 0; i < height; ++i) {
 		png_byte *row_pointer = (png_byte *)&image_buffer[i * row_stride];
 		// looks like most of programs just ignore swap order, so do real bytes swap here
 		bool do_swap = true;
@@ -488,7 +487,7 @@ cerr << "FATAL ERROR - 3 !!!" << endl;
 			if(bits == 16) {
 				uint16_t *p = (uint16_t *)&image_buffer[i * row_stride];
 				int j_max = row_stride / 2;
-				for(int j = 0; j < j_max; j++) {
+				for(int j = 0; j < j_max; ++j) {
 					uint16_t v = p[j];
 					p[j] = (v << 8 & 0xFF00) + (v >> 8);
 				}

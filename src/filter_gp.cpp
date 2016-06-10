@@ -49,12 +49,12 @@ void FP_GP::process_backward(float &in_x, float &in_y, const float &out_x, const
 }
 
 void FP_GP::process_forward_rgb(const float *in, float *out) {
-	for(int i = 0; i < 3; i++)
+	for(int i = 0; i < 3; ++i)
 		process_forward(in[i * 2 + 0], in[i * 2 + 1], out[i * 2 + 0], out[i * 2 + 1]);
 }
 
 void FP_GP::process_backward_rgb(float *in, const float *out) {
-	for(int i = 0; i < 3; i++)
+	for(int i = 0; i < 3; ++i)
 		process_backward(in[i * 2 + 0], in[i * 2 + 1], out[i * 2 + 0], out[i * 2 + 1]);
 }
 
@@ -90,7 +90,7 @@ FilterProcess_GP_Wrapper::FilterProcess_GP_Wrapper(const vector<class FP_GP_Wrap
 
 FilterProcess_GP_Wrapper::~FilterProcess_GP_Wrapper(void) {
 //cerr << "_____________________________________________    FilterProcess_GP_Wrapper::~FilterProcess_GP_Wrapper(void)" << endl;
-	for(int i = 0; i < gp_vector.size(); i++)
+	for(int i = 0; i < gp_vector.size(); ++i)
 		delete gp_vector[i];
 }
 
@@ -100,7 +100,7 @@ bool FilterProcess_GP_Wrapper::is_enabled(const PS_Base *) {
 
 void FilterProcess_GP_Wrapper::init_gp(class Metadata *metadata) {
 	if(gp_vector.size() == 0) {
-		for(int i = 0; i < fp_gp_vector.size(); i++) {
+		for(int i = 0; i < fp_gp_vector.size(); ++i) {
 			FP_GP_data_t data;
 			data.metadata = metadata;
 			data.filter = fp_gp_vector[i].filter;
@@ -113,7 +113,7 @@ void FilterProcess_GP_Wrapper::init_gp(class Metadata *metadata) {
 }
 
 void FilterProcess_GP_Wrapper::size_forward_point(float in_x, float in_y, bool *flag_min_max, float *x_min_max, float *y_min_max) {
-	for(int c = 0; c < 3; c++) {
+	for(int c = 0; c < 3; ++c) {
 		float in[6];
 		float out[6];
 		in[0] = in_x;
@@ -122,11 +122,11 @@ void FilterProcess_GP_Wrapper::size_forward_point(float in_x, float in_y, bool *
 		in[3] = in[1];
 		in[4] = in[0];
 		in[5] = in[1];
-		for(int i = 0; i < 6; i++)
+		for(int i = 0; i < 6; ++i)
 			out[i] = in[i];
-		for(int i = 0; i < gp_vector.size(); i++) {
+		for(int i = 0; i < gp_vector.size(); ++i) {
 			gp_vector[i]->process_forward_rgb(in, out);
-			for(int k = 0; k < 6; k++)
+			for(int k = 0; k < 6; ++k)
 				in[k] = out[k];
 		}
 		if(flag_min_max[c]) {
@@ -164,7 +164,7 @@ void FilterProcess_GP_Wrapper::size_forward(FP_size_t *fp_size, const Area::t_di
 	bool flag_min_max[3];
 	float x_min_max[6];
 	float y_min_max[6];
-	for(int i = 0; i < 3; i++)
+	for(int i = 0; i < 3; ++i)
 		flag_min_max[i] = true;
 
 	// search for min and max values for processed points at each edge
@@ -181,7 +181,7 @@ void FilterProcess_GP_Wrapper::size_forward(FP_size_t *fp_size, const Area::t_di
 	float x__max = x_min_max[1];
 	float y__min = y_min_max[0];
 	float y__max = y_min_max[1];
-	for(int c = 1; c < 3; c++) {
+	for(int c = 1; c < 3; ++c) {
 		x__min = (x__min > x_min_max[c * 2 + 0]) ? x__min : x_min_max[c * 2 + 0];
 		x__max = (x__max < x_min_max[c * 2 + 1]) ? x__max : x_min_max[c * 2 + 1];
 		y__min = (y__min > y_min_max[c * 2 + 0]) ? y__min : y_min_max[c * 2 + 0];
@@ -237,7 +237,7 @@ cerr << endl;
 //cerr << "px == " << px << endl;
 //cerr << "py == " << py << endl;
 	// process sizes for each filter and fold accordingly
-	for(int i = 0; i < gp_vector.size(); i++) {
+	for(int i = 0; i < gp_vector.size(); ++i) {
 		bool to_clip = gp_vector[i]->to_clip();
 		float p_min_in[6];
 		float p_min_out[6];
@@ -258,7 +258,7 @@ cerr << endl;
 				y1_new = p_min_out[3];
 				y2_new = p_max_out[3];
 			}
-			for(int j = 0; j < 3; j++) {
+			for(int j = 0; j < 3; ++j) {
 				if(to_clip) {
 					y1_new = (y1_new < p_min_out[j * 2 + 1]) ? p_min_out[j * 2 + 1] : y1_new;
 					y2_new = (y2_new > p_max_out[j * 2 + 1]) ? p_max_out[j * 2 + 1] : y2_new;
@@ -279,7 +279,7 @@ cerr << endl;
 				x1_new = p_min_out[2];
 				x2_new = p_max_out[2];
 			}
-			for(int j = 0; j < 3; j++) {
+			for(int j = 0; j < 3; ++j) {
 				if(to_clip) {
 					x1_new = (x1_new < p_min_out[j * 2]) ? p_min_out[j * 2] : x1_new;
 					x2_new = (x2_new > p_max_out[j * 2]) ? p_max_out[j * 2] : x2_new;
@@ -338,7 +338,7 @@ cerr << endl;
 }
 
 void FilterProcess_GP_Wrapper::size_backward_point(float out_x, float out_y, bool *flag_min_max, float *x_min_max, float *y_min_max) {
-	for(int c = 0; c < 3; c++) {
+	for(int c = 0; c < 3; ++c) {
 		float in[6];
 		float out[6];
 		out[0] = out_x;
@@ -347,11 +347,11 @@ void FilterProcess_GP_Wrapper::size_backward_point(float out_x, float out_y, boo
 		out[3] = out[1];
 		out[4] = out[0];
 		out[5] = out[1];
-		for(int i = 0; i < 6; i++)
+		for(int i = 0; i < 6; ++i)
 			in[i] = out[i];
 		for(int i = gp_vector.size() - 1; i >= 0; i--) {
 			gp_vector[i]->process_backward_rgb(in, out);
-			for(int k = 0; k < 6; k++)
+			for(int k = 0; k < 6; ++k)
 				out[k] = in[k];
 		}
 		if(flag_min_max[c]) {
@@ -389,7 +389,7 @@ void FilterProcess_GP_Wrapper::size_backward(FP_size_t *fp_size, Area::t_dimensi
 	bool flag_min_max[3];
 	float x_min_max[6];
 	float y_min_max[6];
-	for(int i = 0; i < 3; i++)
+	for(int i = 0; i < 3; ++i)
 		flag_min_max[i] = true;
 	// search for min and max values for processed points at each edge
 	for(float x = x1; x < x2 + 0.5; x += 1.0) {
@@ -405,7 +405,7 @@ void FilterProcess_GP_Wrapper::size_backward(FP_size_t *fp_size, Area::t_dimensi
 	float x__max = x_min_max[1];
 	float y__min = y_min_max[0];
 	float y__max = y_min_max[1];
-	for(int c = 1; c < 3; c++) {
+	for(int c = 1; c < 3; ++c) {
 		x__min = (x__min < x_min_max[c * 2 + 0]) ? x__min : x_min_max[c * 2 + 0];
 		x__max = (x__max > x_min_max[c * 2 + 1]) ? x__max : x_min_max[c * 2 + 1];
 		y__min = (y__min < y_min_max[c * 2 + 0]) ? y__min : y_min_max[c * 2 + 0];
@@ -438,7 +438,7 @@ Area *FilterProcess_GP_Wrapper::process(MT_t *mt_obj, Process_t *process_obj, Fi
 	if(subflow->sync_point_pre()) {
 		bool just_copy = (fp_gp_vector.size() == 0 && process_obj->position.px_size_x == 1.0 && process_obj->position.px_size_y == 1.0);
 		tasks = new task_t *[cores];
-		for(int i = 0; i < cores; i++) {
+		for(int i = 0; i < cores; ++i) {
 			tasks[i] = new task_t;
 			tasks[i]->just_copy = just_copy;
 		}
@@ -451,7 +451,7 @@ Area *FilterProcess_GP_Wrapper::process(MT_t *mt_obj, Process_t *process_obj, Fi
 	bool just_copy = task->just_copy;
 
 	if(subflow->sync_point_pre()) {
-		for(int i = 0; i < cores; i++)
+		for(int i = 0; i < cores; ++i)
 			delete tasks[i];
 		delete[] tasks;
 	}
@@ -510,7 +510,7 @@ Area *FilterProcess_GP_Wrapper::process_copy(MT_t *mt_obj, Process_t *process_ob
 
 		double wb_a[3];
 		double wb_b[3];
-		for(int j = 0; j < 3; j++) {
+		for(int j = 0; j < 3; ++j) {
 			wb_a[j] = 1.0;
 			wb_b[j] = 0.0;
 		}
@@ -523,7 +523,7 @@ Area *FilterProcess_GP_Wrapper::process_copy(MT_t *mt_obj, Process_t *process_ob
 
 		tasks = new task_copy_t *[cores];
 		y_flow = new std::atomic_int(0);
-		for(int i = 0; i < cores; i++) {
+		for(int i = 0; i < cores; ++i) {
 			tasks[i] = new task_copy_t;
 			tasks[i]->area_in = area_in;
 			tasks[i]->area_out = area_out;
@@ -546,7 +546,7 @@ Area *FilterProcess_GP_Wrapper::process_copy(MT_t *mt_obj, Process_t *process_ob
 		process_copy(subflow);
 	//--==--
 	if(subflow->sync_point_pre()) {
-		for(int i = 0; i < cores; i++)
+		for(int i = 0; i < cores; ++i)
 			delete tasks[i];
 		delete[] tasks;
 		delete y_flow;
@@ -600,7 +600,7 @@ void FilterProcess_GP_Wrapper::process_copy(SubFlow *subflow) {
 
 	int it_y = 0;
 	while((it_y = task->y_flow->fetch_add(1)) < out_y_max) {
-		for(int it_x = 0; it_x < out_x_max; it_x++) {
+		for(int it_x = 0; it_x < out_x_max; ++it_x) {
 			float *out = &_out[(it_y * out_width + it_x) * 4 + 0];
 			const int in_x = in_x_offset + it_x;
 			const int in_y = in_y_offset + it_y;
@@ -633,10 +633,10 @@ void FilterProcess_GP_Wrapper::process_copy(SubFlow *subflow) {
 			if((it_y == my && it_x < mx - mark_near && it_x > mx - mark_far) || (it_y > my - mark_far && it_y < my - mark_near && it_x == mx))
 				flag_mark_rb = true;
 			if(flag_mark_lt)
-				for(int i = 0; i < 4; i++)
+				for(int i = 0; i < 4; ++i)
 					out[i] = mark_lt_pixel[i];
 			if(flag_mark_rb)
-				for(int i = 0; i < 4; i++)
+				for(int i = 0; i < 4; ++i)
 					out[i] = mark_rb_pixel[i];
 #endif
 		}
@@ -757,7 +757,7 @@ cerr << endl;
 		int cores = subflow->cores();
 		tasks_coordinates_prep = new task_coordinates_prep_t *[cores];
 		y_flow_coordinates_prep = new std::atomic_int(0);
-		for(int i = 0; i < cores; i++) {
+		for(int i = 0; i < cores; ++i) {
 			tasks_coordinates_prep[i] = new task_coordinates_prep_t;
 			tasks_coordinates_prep[i]->area_out = area_coordinates_prep;
 			tasks_coordinates_prep[i]->y_flow = y_flow_coordinates_prep;
@@ -794,7 +794,7 @@ cerr << endl;
 			d_out.edges.y1 = 0;
 			d_out.edges.y2 = 0;
 
-			for(int i = 0; i < gp_vector.size(); i++)
+			for(int i = 0; i < gp_vector.size(); ++i)
 				coordinates_rgb |= gp_vector[i]->is_rgb();
 			if(coordinates_rgb)
 				area_out_coordinates = new Area(&d_out, Area::type_t::type_float_p6);
@@ -805,7 +805,7 @@ cerr << endl;
 			int cores = subflow->cores();
 			tasks_coordinates = new task_coordinates_t *[cores];
 			y_flow_coordinates = new std::atomic_int(0);
-			for(int i = 0; i < cores; i++) {
+			for(int i = 0; i < cores; ++i) {
 				tasks_coordinates[i] = new task_coordinates_t;
 				tasks_coordinates[i]->area_in = area_coordinates_prep;
 				tasks_coordinates[i]->area_out = area_out_coordinates;
@@ -847,7 +847,7 @@ cerr << endl;
 /*
 		double wb_a[3];
 		double wb_b[3];
-		for(int j = 0; j < 3; j++) {
+		for(int j = 0; j < 3; ++j) {
 			wb_a[j] = 1.0;
 			wb_b[j] = 0.0;
 		}
@@ -861,7 +861,7 @@ cerr << endl;
 		int cores = subflow->cores();
 		tasks_sampling = new task_sampling_t *[cores];
 		y_flow_sampling = new std::atomic_int(0);
-		for(int i = 0; i < cores; i++) {
+		for(int i = 0; i < cores; ++i) {
 			tasks_sampling[i] = new task_sampling_t;
 			tasks_sampling[i]->area_in = area_in;
 			if(!resampling_only) {
@@ -879,7 +879,7 @@ cerr << endl;
 			tasks_sampling[i]->offset_x = offset_x;
 			tasks_sampling[i]->offset_y = offset_y;
 /*
-			for(int j = 0; j < 3; j++) {
+			for(int j = 0; j < 3; ++j) {
 				tasks_sampling[i]->wb_a[j] = wb_a[j];
 				tasks_sampling[i]->wb_b[j] = wb_b[j];
 			}
@@ -896,18 +896,18 @@ cerr << endl;
 	if(subflow->sync_point_pre()) {
 		int cores = subflow->cores();
 		delete area_coordinates_prep;
-		for(int i = 0; i < cores; i++)
+		for(int i = 0; i < cores; ++i)
 			delete tasks_coordinates_prep[i];
 		delete[] tasks_coordinates_prep;
 		delete y_flow_coordinates_prep;
 		if(!resampling_only) {
 			delete area_out_coordinates;
-			for(int i = 0; i < cores; i++)
+			for(int i = 0; i < cores; ++i)
 				delete tasks_coordinates[i];
 			delete[] tasks_coordinates;
 			delete y_flow_coordinates;
 		}
-		for(int i = 0; i < cores; i++)
+		for(int i = 0; i < cores; ++i)
 			delete tasks_sampling[i];
 		delete[] tasks_sampling;
 		delete y_flow_sampling;
@@ -942,7 +942,7 @@ void FilterProcess_GP_Wrapper::prepare_coordinates(SubFlow *subflow) {
 		value_y += delta_y * (it_y - it_y_prev);
 		it_y_prev = it_y;
 		float value_x = start_x;
-		for(int it_x = 0; it_x < out_x_max; it_x++) {
+		for(int it_x = 0; it_x < out_x_max; ++it_x) {
 			float *rez = &_out[(it_y * out_width + it_x) * 2];
 			rez[0] = value_x;
 			rez[1] = value_y;
@@ -977,7 +977,7 @@ void FilterProcess_GP_Wrapper::process_coordinates(SubFlow *subflow) {
 	const int j_max = gp_vector.size() - 1;
 	if(task->coordinates_rgb) {
 		while((it_y = task->y_flow->fetch_add(1)) < out_y_max) {
-			for(int it_x = 0; it_x < out_x_max; it_x++) {
+			for(int it_x = 0; it_x < out_x_max; ++it_x) {
 				float in[6];
 				float out[6];
 				out[0] = _in[(it_y * out_width + it_x) * 2 + 0];
@@ -994,7 +994,7 @@ void FilterProcess_GP_Wrapper::process_coordinates(SubFlow *subflow) {
 							out[5] = out[1];
 						}
 						gp_vector[j]->process_backward_rgb(in, out);
-						for(int i = 0; i < 6; i++)
+						for(int i = 0; i < 6; ++i)
 							out[i] = in[i];
 					} else {
 						gp_vector[j]->process_backward(in[0], in[1], out[0], out[1]);
@@ -1002,13 +1002,13 @@ void FilterProcess_GP_Wrapper::process_coordinates(SubFlow *subflow) {
 						out[1] = in[1];
 					}
 				}
-				for(int i = 0; i < 6; i++)
+				for(int i = 0; i < 6; ++i)
 					_out[(it_y * out_width + it_x) * 6 + i] = in[i];
 			}
 		}
 	} else {
 		while((it_y = task->y_flow->fetch_add(1)) < out_y_max) {
-			for(int it_x = 0; it_x < out_x_max; it_x++) {
+			for(int it_x = 0; it_x < out_x_max; ++it_x) {
 				float in[2];
 				float out[2];
 				out[0] = _in[(it_y * out_width + it_x) * 2 + 0];
@@ -1091,12 +1091,12 @@ void FilterProcess_GP_Wrapper::process_sampling(SubFlow *subflow) {
 	const int rgb_count = task->coordinates_rgb ? 4 : 1;
 	const int rgb_size = task->coordinates_rgb ? 6 : 2;
 	while((it_y = task->y_flow->fetch_add(1)) < out_y_max) {
-		for(int it_x = 0; it_x < out_x_max; it_x++) {
+		for(int it_x = 0; it_x < out_x_max; ++it_x) {
 			float *rez = &_out[(it_y * out_width + it_x) * 4];
 			float px_sum[4];
-			for(int i = 0; i < 4; i++)
+			for(int i = 0; i < 4; ++i)
 				px_sum[i] = 0.0;
-			for(int k = 0; k < rgb_count; k++) {
+			for(int k = 0; k < rgb_count; ++k) {
 				int rgb_offset = 2 * k;
 				// use coordinates for green channel for alpha channel for now
 				if(k == 3)
@@ -1155,7 +1155,7 @@ cerr << "px_size_x == " << px_size_x << endl;
 				// --==--
 				// empty pixels
 				if(flag_to_skip) {
-					for(int i = 0; i < 4; i++)
+					for(int i = 0; i < 4; ++i)
 						rez[i] = empty_pixel[i];
 					continue;
 				}
@@ -1166,12 +1166,12 @@ cerr << "px_size_x == " << px_size_x << endl;
 				if(w_y < 0.0)
 					w_y = -w_y;
 				float l_y = ly;
-				for(int y = iy1; y <= iy2; y++) {
+				for(int y = iy1; y <= iy2; ++y) {
 					float w_x = wx;
 					if(w_x < 0.0)
 						w_x = -w_x;
 					float l_x = lx;
-					for(int x = ix1; x <= ix2; x++) {
+					for(int x = ix1; x <= ix2; ++x) {
 						float w = w_x * w_y;
 #if 0
 if(it_x == 0 && it_y == 0 && y == iy1) {
@@ -1223,13 +1223,13 @@ cerr << "..." << endl;
 //								px_sum[0] += r * w;
 //								px_sum[1] += g * w;
 //								px_sum[2] += b * w;
-								for(int i = 0; i < 3; i++) {
+								for(int i = 0; i < 3; ++i) {
 									// apply WB and [0.0, 1.0] clip
 									px_sum[i] += ddr::clip(_in[((y) * _w + x) * 4 + i] * task->wb_a[i] + task->wb_b[i]) * w;
 //									px_sum[i] += _in[((y) * _w + x) * 4 + i] * w;
 								}
 #endif
-								for(int i = 0; i < 3; i++)
+								for(int i = 0; i < 3; ++i)
 									px_sum[i] += _in[((y) * _w + x) * 4 + i] * w;
 								px_sum[3] += 1.0 * w;
 							}
@@ -1250,7 +1250,7 @@ cerr << "w_sum == " << w_sum << "; w_sum_alpha == " << w_sum_alpha << endl;
 					else
 						rez[k] = px_sum[k] / w_sum;
 				} else {
-					for(int i = 0; i < 3; i++)
+					for(int i = 0; i < 3; ++i)
 						rez[i] = px_sum[i] / w_sum;
 					rez[3] = px_sum[3] / w_sum_alpha;
 				}
@@ -1272,10 +1272,10 @@ cerr << "w_sum == " << w_sum << "; w_sum_alpha == " << w_sum_alpha << endl;
 			if((it_y == my && it_x < mx - mark_near && it_x > mx - mark_far) || (it_y > my - mark_far && it_y < my - mark_near && it_x == mx))
 				flag_mark_rb = true;
 			if(flag_mark_lt)
-				for(int i = 0; i < 4; i++)
+				for(int i = 0; i < 4; ++i)
 					rez[i] = mark_lt_pixel[i];
 			if(flag_mark_rb)
-				for(int i = 0; i < 4; i++)
+				for(int i = 0; i < 4; ++i)
 					rez[i] = mark_rb_pixel[i];
 #endif
 //			rez[3] = 1.0;
