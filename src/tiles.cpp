@@ -7,6 +7,12 @@
  *
  */
 
+/*
+	TODO:
+	- add real-time tiles size determination,
+		especially for OpenCL and offline processing
+*/
+
 #include "config.h"
 #include "tiles.h"
 #include "metadata.h"
@@ -18,6 +24,10 @@ using namespace std;
 
 // 4.00 MB each - 4(float) * 4(RGBA) * 512 * 512 == 4,194,304
 #define TILE_LENGTH 512
+#define TILE_WIDTH 512
+#define TILE_HEIGHT 512
+#define TILE_OFFLINE_WIDTH 1024
+#define TILE_OFFLINE_HEIGHT 1024
 // 1.98 MB each - 4(float) * 4(RGBA) * 360 * 360 == 2,073,600
 //#define TILE_LENGTH 360
 // 1.00 MB each - 4(float) * 4(RGBA) * 256 * 256 == 1,048,576
@@ -61,23 +71,18 @@ void TilesDescriptor_t::reset(void) {
 }
 
 //------------------------------------------------------------------------------
-void TilesReceiver::_init(void) {
+TilesReceiver::TilesReceiver(void) {
 	tiles_descriptor.is_empty = true;
-	request_ID = 0;
-	area_thumb = nullptr;
-	area_image = nullptr;
 	tiling_enabled = true;
 	Config::instance()->get(CONFIG_SECTION_DEBUG, "tiling", tiling_enabled);
 //	tiling_enabled = false;
-}
-
-TilesReceiver::TilesReceiver(void) {
-	_init();
+	default_tile_length = TILE_LENGTH;
+	default_tile_width = TILE_WIDTH;
+	default_tile_height = TILE_HEIGHT;
 	do_scale = false;
 }
 
-TilesReceiver::TilesReceiver(bool _scale_to_fit, int _scaled_width, int _scaled_height) {
-	_init();
+TilesReceiver::TilesReceiver(bool _scale_to_fit, int _scaled_width, int _scaled_height) : TilesReceiver() {
 	do_scale = true;
 	scale_to_fit = _scale_to_fit;
 	scaled_width = _scaled_width;
@@ -112,8 +117,9 @@ int TilesReceiver::add_request_ID(int ID) {
 	return old_ID;
 }
 
-int TilesReceiver::split_line(int l, int **m) {
-	const int tile_length = TILE_LENGTH;
+int TilesReceiver::split_line(int l, int **m, int tile_length) {
+	if(tile_length == 0)
+		tile_length = default_tile_length;
 	int c = tiling_enabled ? (l / tile_length + 1) : 1;
 	int *a = new int[c];
 	*m = a;
@@ -136,11 +142,13 @@ void TilesReceiver::process_done(bool is_thumb) {
 void TilesReceiver::long_wait(bool set) {
 }
 
-void TilesReceiver::do_split(bool flag) {
-	flag_do_split = flag;
+void TilesReceiver::use_tiling(bool flag, Area::format_t _tiles_format) {
+	flag_use_tiling = flag;
+	tiles_format = _tiles_format;
 }
 
 void TilesReceiver::receive_tile(Tile_t *tile, bool is_thumb) {
+	if(tile->area == nullptr) return;
 	bool keep_tile = false;
 	request_ID_lock.lock();
 	keep_tile |= (tile->request_ID == request_ID);
@@ -155,8 +163,7 @@ void TilesReceiver::receive_tile(Tile_t *tile, bool is_thumb) {
 	if(!keep_tile) {
 //	if(tile->request_ID != ID) {
 //		cerr << "TilesReceiver::receive_tile(): request_ID == " << request_ID << ", tile's request_ID == " << tile->request_ID << endl;
-		if(tile->area != nullptr)
-			delete tile->area;
+		delete tile->area;
 		tile->area = nullptr;
 		return;
 	}
@@ -165,9 +172,23 @@ void TilesReceiver::receive_tile(Tile_t *tile, bool is_thumb) {
 			delete area_thumb;
 		area_thumb = tile->area;
 	} else {
-		if(area_image != nullptr)
-			delete area_image;
-		area_image = tile->area;
+		if(!flag_use_tiling) {
+			// tile is a whole image
+			if(area_image != nullptr)
+				delete area_image;
+			area_image = tile->area;
+		} else {
+			// insert tile
+/*
+cerr << "add a tile, tile size == " << tile->area->dimensions()->width() << "x" << tile->area->dimensions()->height() << endl;
+cerr << "         tile edges X == " << tile->area->dimensions()->edges.x1 << " - " << tile->area->dimensions()->edges.x2 << endl;
+cerr << "         tile edges X == " << tile->area->dimensions()->edges.y1 << " - " << tile->area->dimensions()->edges.y2 << endl;
+cerr << "tile type: " << Area::type_to_name(tile->area->type()) << ", type sizeof == " << Area::type_to_sizeof(tile->area->type()) << endl;
+*/
+			AreaHelper::insert(area_image, tile->area, tile->dimensions_post.edges.x1, tile->dimensions_post.edges.y1);
+			delete tile->area;
+			tile->area = nullptr;
+		}
 	}
 }
 
@@ -181,10 +202,6 @@ TilesDescriptor_t *TilesReceiver::get_tiles(void) {
 }
 
 TilesDescriptor_t *TilesReceiver::get_tiles(Area::t_dimensions *d, int cw_rotation, bool is_thumb) {
-	// TODO: create a real tiles if necessary
-/*
-- determine tiles 
-*/
 	tiles_descriptor.reset();
 	TilesDescriptor_t *t = &tiles_descriptor;
 	t->receiver = this;
@@ -217,7 +234,7 @@ TilesDescriptor_t *TilesReceiver::get_tiles(Area::t_dimensions *d, int cw_rotati
 		t->scale_factor_x = d->position.px_size_x;
 		t->scale_factor_y = d->position.px_size_y;
 	}
-//	if(!flag_do_split || is_thumb) {
+	if(!flag_use_tiling || is_thumb) {
 		t->index_list = std::list<int>();
 		t->index_list.push_back(0);
 		t->tiles = std::vector<Tile_t>(1);
@@ -225,44 +242,51 @@ TilesDescriptor_t *TilesReceiver::get_tiles(Area::t_dimensions *d, int cw_rotati
 		tile.index = 0;
 		tile.priority = 0;
 		tile.dimensions_post = dimensions_post;
-//	} else {
-#if 0
+	} else {
 		// so now we have result description - split it
 		// how much tiles...
 		int *lx;
 		int *ly;
-		const int cx = split_line(dimensions_post.size.w, &lx);
-		const int cy = split_line(dimensions_post.size.h, &ly);
+		const int cx = split_line(dimensions_post.size.w, &lx, TILE_OFFLINE_WIDTH);
+		const int cy = split_line(dimensions_post.size.h, &ly, TILE_OFFLINE_HEIGHT);
 		const int tiles_count = cx * cy;
 		// ...we should create with indexes mapping...
 		t->index_list = std::list<int>();
-		fot(int i = 0; i < tiles_count; ++i)
+		for(int i = 0; i < tiles_count; ++i)
 			t->index_list.push_back(i);
 		t->tiles = std::vector<Tile_t>(tiles_count);
 		// 
-cerr << "split X to: " << cx << " chunks" << endl;
-cerr << "split Y to: " << cy << " chunks" << endl;
+//cerr << "split X to: " << cx << " chunks" << endl;
+//cerr << "split Y to: " << cy << " chunks" << endl;
 		cerr << endl; for(int i = 0; i < cx; ++i) cerr << "cx[" << i << "] == " << lx[i] << endl;
 		cerr << endl; for(int i = 0; i < cy; ++i)	cerr << "cy[" << i << "] == " << ly[i] << endl;
 		// ...and then describe them, with correct edges offsets, position and size.
 		int tile_index = 0;
-		const float scale_factor_x = dimensions_post.position.px_size_x;
-		const float scale_factor_y = dimensions_post.position.px_size_y;
-		float pos_y = dimensions_post.position.y;
+		int width = dimensions_post.width();
+		int height = dimensions_post.height();
+		int offset_y = 0;
 		for(int y = 0; y < cy; ++y) {
-			const int len_y = ly[y];
-			float pos_x = dimensions_post.position.x;
+			const int tile_height = ly[y];
+			int offset_x = 0;
 			for(int x = 0; x < cx; ++x) {
-				const int len_x = lx[x];
-				Tile_t &t = t->tiles[tile_index];
-				t.index = tile_index++;
+				const int tile_width = lx[x];
+				Tile_t &tile = t->tiles[tile_index];
+				tile.index = tile_index++;
+				Area::t_dimensions &d = tile.dimensions_post;
+				d = dimensions_post;
+				d.edges_offset_x1(offset_x);
+				d.edges_offset_x2(width - offset_x - tile_width); 
+				d.edges_offset_y1(offset_y);
+				d.edges_offset_y2(height - offset_y - tile_height);
 				//
-				pos_x += scale_factor_x * len_x;
+				offset_x += tile_width;
 			}
-			pos_y += scale_factor_y * len_y;
+			offset_y += tile_height;
 		}
+		// create an area to accumulate processed tiles
+		area_image = new Area(width, height, Area::type_for_format(tiles_format));
 #endif
-//	}
+	}
 	return t;
 }
 

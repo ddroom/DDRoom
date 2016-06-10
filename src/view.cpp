@@ -1790,7 +1790,7 @@ cerr << "position.px_size_y == " << image->dimensions_scaled.position.px_size_y 
 	int *tiles_length[2] = {nullptr, nullptr};
 	int *tiles_weight[2] = {nullptr, nullptr};
 
-	int w[3] = {0, 0, 0};	// outer, inner[...], outer
+	int w[3] = {0, 0, 0};	// outside of view, inside[...], outside
 	int wc[3] = {0, 0, 0};	// and so on
 	int *wm[3] = {nullptr, nullptr, nullptr};
 	int h[3] = {0, 0, 0};
@@ -1837,7 +1837,7 @@ cerr << "height == " << height << endl;
 	int **dma[2] = {wm, hm};
 	int weight_max = 0;
 	for(int i = 0; i < 2; ++i) {
-		// determine viewed window
+		// determine window in the view
 		int d1 = 0;
 		int d2 = in_size[i];
 //		if(tiling_enabled && viewport[i] < in_size[i]) {

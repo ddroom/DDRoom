@@ -179,6 +179,67 @@ Area *Area::real_copy(Area *other) {
 	return copy;
 }
 
+int16_t Area::type_to_sizeof(Area::type_t t) {
+	if(t == type_t::type_float_p4)
+		return sizeof(float) * 4;
+	else if(t == type_t::type_float_p3)
+		return sizeof(float) * 3;
+	else if(t == type_t::type_float_p2)
+		return sizeof(float) * 2;
+	else if(t == type_t::type_float_p1)
+		return sizeof(float);
+	else if(t == type_t::type_float_p6)
+		return sizeof(float) * 6;
+	else if(t == type_t::type_int16_p4)
+		return sizeof(int16_t) * 4;
+	else if(t == type_t::type_int16_p3)
+		return sizeof(int16_t) * 3;
+	else if(t == type_t::type_uint16_p4)
+		return sizeof(uint16_t) * 4;
+	else if(t == type_t::type_uint8_p4)
+		return sizeof(uint8_t) * 4;
+	else if(t == type_t::type_uint8_p3)
+		return sizeof(uint8_t) * 3;
+	return 0;
+}
+
+std::string Area::type_to_name(Area::type_t t) {
+	if(t == type_t::type_float_p4)
+		return "type_float_p4";
+	else if(t == type_t::type_float_p3)
+		return "type_float_p3";
+	else if(t == type_t::type_float_p2)
+		return "type_float_p2";
+	else if(t == type_t::type_float_p6)
+		return "type_float_p6";
+	else if(t == type_t::type_int16_p4)
+		return "type_int16_p4";
+	else if(t == type_t::type_int16_p3)
+		return "type_int16_p3";
+	else if(t == type_t::type_uint16_p4)
+		return "type_uint16_p4";
+	else if(t == type_t::type_uint8_p4)
+		return "type_uint8_p4";
+	else if(t == type_t::type_uint8_p3)
+		return "type_uint8_p3";
+	if(t == type_t::type_float_p1)
+		return "type_float_p1";
+	return "unknown";
+}
+
+Area::type_t Area::type_for_format(Area::format_t format) {
+	if(format == format_t::format_rgba_32)
+		return type_t::type_float_p4;
+	else if(format == format_t::format_rgba_16)
+		return type_t::type_int16_p4;
+	else if(format == format_t::format_rgb_16)
+		return type_t::type_int16_p3;
+	else if(format == format_t::format_rgba_8 || format == format_t::format_bgra_8)
+		return type_t::type_uint8_p4;
+	else if(format == format_t::format_rgb_8)
+		return type_t::type_uint8_p3;
+	return type_t::type_float_p4;
+}
 //==============================================================================
 QImage Area::to_qimage(void) {
 	int w = dimensions()->width();

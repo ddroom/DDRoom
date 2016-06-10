@@ -20,6 +20,9 @@ public:
 
 	static Area *crop(Area *in, Area::t_dimensions crop);
 	static Area *rotate(Area *in, int rotation);
+	// Insert area 'tile' into 'insert_into' from position (pos_x,pos_y) of the actual data (i.e. w/o edges);
+	// returns 'true' if there was cropping issues. Areas should be 'RGBA float'.
+	static bool insert(Area *insert_into, Area *tile, int pos_x, int pos_y);
 
 protected:
 	class mt_task_t;

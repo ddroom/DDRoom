@@ -81,7 +81,6 @@ public:
 		bool edges_are_OK(void);
 	};
 
-	
 	enum class type_t {
 		type_float_p4,	// float RGBA
 		type_float_p3,	// float RGB
@@ -93,13 +92,14 @@ public:
 		type_uint8_p4,	// U8	BGRA (QT format)
 		type_uint8_p3,	// U8	RGB (JPEG export)
 		type_float_p1,	// float V
-	};	// _p4,_p1 - mean count of planes
+	};
 	enum class format_t {
+		format_rgba_32,	// 'original' RGBA 'float'
 		format_rgba_16,	// RGBA 16bit
+		format_rgb_16,	// RGB 16bit
 		format_rgba_8,	// RGBA 8bit
 		format_bgra_8,	// BGRA 8bit (QT format)
-		format_rgb_16,	// RGB 16bit
-		format_rgb_8	// for JPEG export etc...
+		format_rgb_8,	// for JPEG export etc...
 	};
 	Area(void);
 	virtual ~Area();
@@ -114,33 +114,11 @@ public:
 	inline int32_t mem_width(void) { return _dimensions.size.w; }
 	inline int32_t mem_height(void) { return _dimensions.size.h; }
 
-	type_t type(void) { return _type;}
-	int16_t type_to_sizeof(void) {
-		return type_to_sizeof(this->_type);
-	}
-	static int16_t type_to_sizeof(type_t t) {
-		if(t == type_t::type_float_p4)
-			return sizeof(float) * 4;
-		else if(t == type_t::type_float_p3)
-			return sizeof(float) * 3;
-		else if(t == type_t::type_float_p2)
-			return sizeof(float) * 2;
-		else if(t == type_t::type_float_p6)
-			return sizeof(float) * 6;
-		else if(t == type_t::type_int16_p4)
-			return sizeof(int16_t) * 4;
-		else if(t == type_t::type_int16_p3)
-			return sizeof(int16_t) * 3;
-		else if(t == type_t::type_uint16_p4)
-			return sizeof(uint16_t) * 4;
-		else if(t == type_t::type_uint8_p4)
-			return sizeof(uint8_t) * 4;
-		else if(t == type_t::type_uint8_p3)
-			return sizeof(uint8_t) * 3;
-		if(t == type_t::type_float_p1)
-			return sizeof(float);
-		return 0;
-	}
+	type_t type(void) const { return _type;}
+	int16_t type_to_sizeof(void) { return type_to_sizeof(this->_type);}
+	static int16_t type_to_sizeof(type_t t);
+	static std::string type_to_name(type_t t);
+	static type_t type_for_format(format_t format);
 
 //	const t_dimensions *dimensions(void) {return &_dimensions;}
 	t_dimensions *dimensions(void) {return &_dimensions;}

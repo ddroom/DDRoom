@@ -492,7 +492,7 @@ void Process::process_export(Photo_ID photo_id, string fname_export, export_para
 	} else {
 		task.tiles_receiver = new TilesReceiver();
 	}
-	task.tiles_receiver->do_split(true);
+	task.tiles_receiver->use_tiling(true, task.out_format);
 	task.tiles_receiver->set_request_ID(task.request_ID);
 
 Profiler prof(string("Batch for ") + photo_id.get_export_file_name());
@@ -569,12 +569,8 @@ prof.mark("filters");
 
 prof.mark("export");
 	// TODO: check Area geometry
-	if(!task.OOM) {
+	if(!task.OOM)
 		Export::export_photo(fname_export, task.tiles_receiver->area_image, task.tiles_receiver->area_thumb, ep, photo->cw_rotation, photo->metadata);
-	} else {
-		if(task.tiles_receiver->area_image) delete task.tiles_receiver->area_image;
-		if(task.tiles_receiver->area_thumb) delete task.tiles_receiver->area_thumb;
-	}
 
 prof.mark("");
 	ID_remove(task.request_ID);

@@ -45,7 +45,8 @@ public:
 	class Area *area = nullptr;	// set by Process, delete by TilesReceiver; result area after processing;
 	int index = -1;			// index at array of image_t in View
 	int priority = -1;
-	Area::t_dimensions dimensions_post;	// asked by TilesReceiver
+	// dimensions asked by TilesReceiver; the whole area described with edges for desired tile will be good enough
+	Area::t_dimensions dimensions_post;
 	Area::t_dimensions dimensions_pre;	// should be used at start of workflow
 	struct t_position {
 		double x;
@@ -56,11 +57,11 @@ public:
 		float px_size_y;
 	};
 //	std::map<void *, t_position> fp_position;
-	std::map<std::string, t_position> fp_position;
 	// use name-based mapping instead of probably faster pointer-based because of GP wrappers
-		// position of top left corner of desired result; was used in 'd_after' with calls of ::size_backward(...) for 2D filters,
-		// and will be used as reference with call of ::process(...) for 2D filters,
-		// because for some filters like F_CA restoration of the target position from the source one can be just impossible at process time;
+	std::map<std::string, t_position> fp_position;
+	// position of top left corner of desired result; was used in 'd_after' with calls of ::size_backward(...) for 2D filters,
+	// and will be used as reference with call of ::process(...) for 2D filters,
+	// because for some filters like F_CA restoration of the target position from the source one can be just impossible at process time;
 //	Area::format_t out_format;	// desired format for area - RGBA(8|16) (export), BGRA8 (QT4 view)
 };
 
@@ -96,7 +97,7 @@ public:
 	// return previous request ID, and add this new ID into the IDs list, so already processed tiles would not be wasted
 	virtual int add_request_ID(int request_ID);
 
-	virtual void do_split(bool);
+	virtual void use_tiling(bool do_use_tiling, Area::format_t tiles_format);
 	// argument is result of chain of calls all filter's Filter::size_forward(),
 	// i.e. is size of photo after processing at 1:1 scale;
 	// TilesReceiver should remember that size, scale and crop it if necessary, and then
@@ -114,24 +115,27 @@ public:
 	// notice tiles receiver that processing will took long
 	virtual void long_wait(bool set);
 
-	Area *area_image;
-	Area *area_thumb;
+	Area *area_image = nullptr;
+	Area *area_thumb = nullptr;
 
 protected:
-	void _init(void);
-	bool flag_do_split = false;
+	bool flag_use_tiling = false;
+	Area::format_t tiles_format;
 	bool do_scale;
 	bool scale_to_fit;
 	int scaled_width;
 	int scaled_height;
+	int default_tile_length;
+	int default_tile_width;
+	int default_tile_height;
 
 	// last, or only, request ID
-	int request_ID;
+	int request_ID = 0;
 	// IDs for View, on panning event
 	std::list<int> request_IDs;
 	std::mutex request_ID_lock;
 
-	int split_line(int l, int **m);
+	int split_line(int l, int **m, int tile_length = 0);
 	TilesDescriptor_t tiles_descriptor;
 	bool tiling_enabled;
 };

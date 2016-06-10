@@ -28,15 +28,7 @@ Area *AreaHelper::convert(Area *area_in, Area::format_t out_format, int rotation
 		d_out.size.h = area_in->dimensions()->width();
 	}
 
-	if(out_format == Area::format_t::format_rgba_16) {
-		area_out = new Area(&d_out, Area::type_t::type_int16_p4);
-	} else if(out_format == Area::format_t::format_rgb_16) {
-		area_out = new Area(&d_out, Area::type_t::type_int16_p3);
-	} else if(out_format == Area::format_t::format_rgba_8 || out_format == Area::format_t::format_bgra_8) {
-		area_out = new Area(&d_out, Area::type_t::type_uint8_p4);
-	} else if(out_format == Area::format_t::format_rgb_8) {
-		area_out = new Area(&d_out, Area::type_t::type_uint8_p3);
-	}
+	area_out = new Area(&d_out, Area::type_for_format(out_format));
 	if(!area_out->valid())
 		return area_out;
 	D_AREA_PTR(area_out)
@@ -166,19 +158,7 @@ Area *AreaHelper::convert_mt(SubFlow *subflow, Area *area_in, Area::format_t out
 			d_out.size.h = area_in->dimensions()->width();
 		}
 		//--
-		if(out_format == Area::format_t::format_rgba_16) {
-			area_out = new Area(&d_out, Area::type_t::type_int16_p4);
-//cerr << "out_format: rgba_16 - int16_p4" << endl;
-		} else if(out_format == Area::format_t::format_rgb_16) {
-			area_out = new Area(&d_out, Area::type_t::type_int16_p3);
-//cerr << "out_format:  rgb_16 - int16_p3" << endl;
-		} else if(out_format == Area::format_t::format_rgba_8 || out_format == Area::format_t::format_bgra_8) {
-			area_out = new Area(&d_out, Area::type_t::type_uint8_p4);
-//cerr << "out_format: rgba_8 - uint8_p4" << endl;
-		} else if(out_format == Area::format_t::format_rgb_8) {
-			area_out = new Area(&d_out, Area::type_t::type_uint8_p3);
-//cerr << "out_format: rgb_8 - int8_p3" << endl;
-		}
+		area_out = new Area(&d_out, Area::type_for_format(out_format));
 		D_AREA_PTR(area_out)
 /*
 cerr << "convert_mt():" << endl;
@@ -510,4 +490,46 @@ Area *AreaHelper::rotate(Area *area_in, int rotation) {
 	return area_out;
 }
 
+//------------------------------------------------------------------------------
+bool AreaHelper::insert(Area *whole, Area *tile, int pos_x, int pos_y) {
+//	if(whole->type() != Area::type_t::type_float_p4 || tile->type() != Area::type_t::type_float_p4)
+//		return true;
+cerr << "start insert..." << endl;
+	const Area::t_dimensions &d_in = *tile->dimensions();
+	const Area::t_dimensions &d_out = *whole->dimensions();
+	// get and normalize measures
+	bool normalized = false;
+	int in_w = d_in.width();
+	int in_h = d_in.height();
+	const int out_w = d_out.width();
+	const int out_h = d_out.height();
+	if(in_w + pos_x > out_w) {
+		in_w = out_w - pos_x;
+		normalized = true;
+	}
+	if(in_h + pos_y > out_h) {
+		in_h = out_h - pos_y;
+		normalized = true;
+	}
+	if(in_w <= 0 || in_h <= 0) return true;
+cerr << "insert tile: " << in_w << "x" << in_h << endl;
+	int bytes_per_pixel = Area::type_to_sizeof(tile->type());
+	// apply copying
+	// do a pointers shift to skip repeated offsets in loops
+	char *in = (char *)tile->ptr() + (d_in.edges.y1 * d_in.size.w + d_in.edges.x1) * bytes_per_pixel;
+	char *out = (char *)whole->ptr() + ((d_out.edges.y1 + pos_y) * d_out.size.w + d_out.edges.x1 + pos_x) * bytes_per_pixel;
+	const int in_strip = d_in.size.w * bytes_per_pixel;
+	const int out_strip = d_out.size.w * bytes_per_pixel;
+	for(int y = 0; y < in_h; ++y) {
+		int offset_in = y * in_strip;
+		int offset_out = y * out_strip;
+		for(int x = 0; x < in_w; ++x) {
+			for(int k = 0; k < bytes_per_pixel; ++k)
+				out[offset_out + k] = in[offset_in + k];
+			offset_in += bytes_per_pixel;
+			offset_out += bytes_per_pixel;
+		}
+	}
+	return normalized;
+}
 //------------------------------------------------------------------------------
