@@ -952,6 +952,7 @@ cerr << "     d_out.edges == " << d_out.edges.x1 << " - " << d_out.edges.x2 << e
 cerr << "  d_out.position == " << d_out.position.x << " x " << d_out.position.y << endl;
 cerr << "      d_out.size == " << d_out.width() << " x " << d_out.height() << endl;
 cerr << "       d_out.w&h == " << d_out.size.w << " x " << d_out.size.h << endl;
+cerr << endl;
 */
 }
 

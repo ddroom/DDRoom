@@ -21,7 +21,8 @@
 #include "misc.h"
 
 //------------------------------------------------------------------------------
-#define TABLE_FUNCTION_TABLE_SIZE 16384
+#define TABLE_FUNCTION_DEFAULT_SIZE 16384
+
 class TableFunction {
 public:
 	virtual ~TableFunction();
@@ -29,14 +30,14 @@ public:
 
 protected:
 	TableFunction(void);
-	void _init(float _x_min, float _x_max, int table_size);
 	float x_min;
 	float x_max;
 	float scale;
 	float *table;
 	int table_size;
 
-	virtual float function(float x);
+	void _init(float _x_min, float _x_max, int table_size);
+	virtual float function(float x) = 0;
 };
 
 //------------------------------------------------------------------------------

@@ -82,7 +82,7 @@ protected:
 FP_Projection_Gnomonic_TF::FP_Projection_Gnomonic_TF(float _radians_per_pixel, float _focal_length_px, float _min, float _max) {
 	radians_per_pixel = _radians_per_pixel;
 	focal_length_px = _focal_length_px;
-	_init(_min, _max, TABLE_FUNCTION_TABLE_SIZE);
+	_init(_min, _max, TABLE_FUNCTION_DEFAULT_SIZE);
 }
 
 float FP_Projection_Gnomonic_TF::function(float x) {
@@ -150,7 +150,7 @@ inline float f_backward(const float &y, const float &focal_length_px, const floa
 	const float r_real = focal_length_px / 2.0f;
 	const float Beta_radians = fabsf(y) * radians_per_pixel;
 	const float cos_Beta = cosf(Beta_radians);
-#if 1
+#if 0
 	const float sin_Beta = sinf(Beta_radians);
 	const float AB = (2.0f * sin_Beta) / (1.0f + cos_Beta);
 #else
@@ -176,7 +176,7 @@ protected:
 FP_Projection_Stereographic_TF::FP_Projection_Stereographic_TF(float _radians_per_pixel, float _focal_length_px, float _min, float _max) {
 	radians_per_pixel = _radians_per_pixel;
 	focal_length_px = _focal_length_px;
-	_init(_min, _max, TABLE_FUNCTION_TABLE_SIZE);
+	_init(_min, _max, TABLE_FUNCTION_DEFAULT_SIZE);
 }
 
 float FP_Projection_Stereographic_TF::function(float x) {
@@ -218,8 +218,8 @@ float FP_Projection_Stereographic::backward(const float &y) {
 }
 
 float FP_Projection_Stereographic::backward_tf(const float &y) {
-//	return FP_Projection_Stereographic_ns::f_backward(y, focal_length_px, radians_per_pixel);
-	return (*backward_tf_obj)(y);
+	return FP_Projection_Stereographic_ns::f_backward(y, focal_length_px, radians_per_pixel);
+//	return (*backward_tf_obj)(y);
 }
 
 //------------------------------------------------------------------------------
@@ -322,17 +322,13 @@ cerr << "              max == " <<  len << endl;
 }
 
 void FP_GP_Projection::process_forward(const float &in_x, const float &in_y, float &out_x, float &out_y) {
-//	out_x = fp_projection->forward(in_x);
-//	out_y = fp_projection->forward(in_y);
 	out_x = fp_projection->forward(in_x) / diagonal_scale;
 	out_y = fp_projection->forward(in_y) / diagonal_scale;
 }
 
 void FP_GP_Projection::process_backward(float &in_x, float &in_y, const float &out_x, const float &out_y) {
-//	in_x = fp_projection->backward_tf(out_x);
-//	in_y = fp_projection->backward_tf(out_y);
-	in_x = fp_projection->backward_tf(out_x) * diagonal_scale;
-	in_y = fp_projection->backward_tf(out_y) * diagonal_scale;
+	in_x = fp_projection->backward_tf(out_x * diagonal_scale);
+	in_y = fp_projection->backward_tf(out_y * diagonal_scale);
 }
 
 FP_Projection::FP_Projection(void) : FilterProcess_GP() {

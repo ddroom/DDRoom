@@ -214,9 +214,11 @@ cerr << endl;
 */
 	init_gp(fp_size->metadata);
 	// transform coordinates
-//cerr << "::size_forward()  -  GP_Wrapper" << endl;
-//cerr << "_ d_before->position == " << d_before->position.x << "," << d_before->position.y << endl;
-//cerr << "_ d_before->size     == " << d_before->width() << "x" << d_before->height() << endl;
+/*
+cerr << "::size_forward()  -  GP_Wrapper" << endl;
+cerr << "_ d_before->position == " << d_before->position.x << "," << d_before->position.y << endl;
+cerr << "_ d_before->size     == " << d_before->width() << "x" << d_before->height() << endl;
+*/
 #if 0
 	float px = d_before->position.x;
 	float py = d_before->position.y;

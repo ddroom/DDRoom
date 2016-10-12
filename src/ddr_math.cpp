@@ -20,6 +20,9 @@ using namespace std;
 //#undef _USE_ISNAN
 
 //------------------------------------------------------------------------------
+#define TF_SIZE_MIN	256
+#define TF_SIZE_MAX	65536
+
 TableFunction::TableFunction() {
 	table = nullptr;
 	x_min = 0.0;
@@ -31,12 +34,12 @@ TableFunction::~TableFunction() {
 		delete[] table;
 }
 
-void TableFunction::_init(float _x_min, float _x_max, int _table_size ) {
+void TableFunction::_init(float _x_min, float _x_max, int _table_size) {
 	x_min = _x_min;
 	x_max = _x_max;
 	table_size = _table_size;
-	if(table_size > 65536)	table_size = 65536;
-	if(table_size < 256)	table_size = 256;
+	if(table_size > TF_SIZE_MAX)	table_size = TF_SIZE_MAX;
+	if(table_size < TF_SIZE_MIN)	table_size = TF_SIZE_MIN;
 	table = new float[table_size];
 	scale = x_max - x_min;
 	float base = table_size - 1;
@@ -65,15 +68,16 @@ float TableFunction::operator()(float x) {
 	if(index >= table_size - 1)
 		return table[table_size - 1];
 	part -= index;
+	// linear interpolation
 	float v1 = table[index];
 	float v2 = table[index + 1];
 	return (v1 + (v2 - v1) * part);
 }
-
+/*
 float TableFunction::function(float x) {
 	return x;
 }
-
+*/
 //------------------------------------------------------------------------------
 // used cubic polynomial spline
 Spline_Calc::~Spline_Calc() {

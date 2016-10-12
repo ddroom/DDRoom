@@ -1,0 +1,6 @@
+.qmake.stash
+Makefile*
+ddroom
+debug
+release
+build
