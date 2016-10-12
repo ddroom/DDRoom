@@ -16,9 +16,7 @@ using namespace std;
 #define _FORCE_SILENT
 
 //------------------------------------------------------------------------------
-// (heap) memory storage (that can be used with SSE2), incapsulate this:
-// - reference counter
-// - forced memory alignment cause bugs in the different versions of GCC compiler
+// (heap) Memory storage, with reference counter.
 
 long long Mem::mem_total = 0;
 std::mutex Mem::state_mutex;
@@ -61,7 +59,7 @@ Mem::Mem(int size) {
 //	ptr_aligned = nullptr;
 //	mem_c = nullptr;
 	if(size != 0) {
-		// aligned memory for SSE2 compatibility
+		// aligned memory
 		try {
 			ptr_allocated = new char[size + 32];
 		} catch(...) {

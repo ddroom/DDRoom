@@ -189,6 +189,7 @@ void F_CM_Rainbow::saveFS(FS_Base *fs_base) {
 }
 
 void F_CM_Rainbow::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t args) {
+	D_GUI_THREAD_CHECK
 	// PS
 	if(new_ps != nullptr) {
 		ps = (PS_CM_Rainbow *)new_ps;

@@ -47,6 +47,13 @@ public slots:
 	void slot_slider_desaturation_strength(double value);
 
 protected:
+signals:
+	void signal_ui_set_compress_saturation_factor(double factor);
+
+protected slots:
+	void slot_ui_set_compress_saturation_factor(double factor);
+
+protected:
 	class PS_cRGB_to_CM *ps;
 	class PS_cRGB_to_CM *_ps;
 	static class FP_cRGB_to_CM *fp;

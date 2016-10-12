@@ -116,6 +116,7 @@ PS_Base *F_Soften::newPS(void) {
 }
 
 void F_Soften::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t args) {
+	D_GUI_THREAD_CHECK
 	// PS
 	if(new_ps != nullptr) {
 		ps = (PS_Soften *)new_ps;

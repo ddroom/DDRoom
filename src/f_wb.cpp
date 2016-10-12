@@ -274,6 +274,7 @@ void F_WB::saveFS(FS_Base *fs_base) {
 }
 
 void F_WB::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t args) {
+	D_GUI_THREAD_CHECK
 	// PS
 	if(new_ps != nullptr) {
 		ps = (PS_WB *)new_ps;
@@ -567,6 +568,7 @@ void F_WB::load_temp_ui(const Metadata *metadata) {
 }
 
 void F_WB::slot_load_temp_ui(QVector<double> scale) {
+	D_GUI_THREAD_CHECK
 	double s[3];
 	for(int i = 0; i < 3; ++i)
 		s[i] = scale[i];
@@ -574,6 +576,7 @@ void F_WB::slot_load_temp_ui(QVector<double> scale) {
 }
 
 void F_WB::update_CCT_to_PS(double *s_current) {
+	D_GUI_THREAD_CHECK
 	if(s_current == nullptr) s_current = ps->scale_current;
 	double s[3];
 	for(int i = 0; i < 3; ++i)
@@ -596,6 +599,7 @@ void F_WB::slot_load_temp_ui(QVector<double> scale) {
 */
 
 void F_WB::wb_ui_set_temp(double t_kelvin, double t_tint) {
+	D_GUI_THREAD_CHECK
 //cerr << "wb_ui_set_temp" << endl;
 	gui_ct_connect(false);
 	gui_ct->set_temp(t_kelvin, t_tint);
@@ -603,6 +607,7 @@ void F_WB::wb_ui_set_temp(double t_kelvin, double t_tint) {
 }
 
 QList <QAction *> F_WB::get_actions_list(void) {
+	D_GUI_THREAD_CHECK
 	if(q_action == nullptr) {
 		q_action = new QAction(QIcon(":/resources/wb_picker.svg"), tr("Click white balance"), this);
 //		q_action->setShortcut(tr("Ctrl+C"));
@@ -629,6 +634,7 @@ struct _wb_tb_t {
 };
 
 QWidget *F_WB::controls(QWidget *parent) {
+	D_GUI_THREAD_CHECK
 	if(widget != nullptr)
 		return widget;
 
@@ -721,6 +727,7 @@ QWidget *F_WB::controls(QWidget *parent) {
 }
 
 void F_WB::radio_wb_connect(bool flag) {
+	D_GUI_THREAD_CHECK
 	if(flag)
 		connect(radio_wb, SIGNAL(buttonClicked(int)), this, SLOT(slot_radio_wb(int)));
 	else
@@ -728,6 +735,7 @@ void F_WB::radio_wb_connect(bool flag) {
 }
 
 void F_WB::gui_ct_connect(bool flag) {
+	D_GUI_THREAD_CHECK
 	if(flag) {
 		connect(gui_ct, SIGNAL(signal_ct_changed(double, double)), this, SLOT(changed_ct(double, double)));
 	} else {
@@ -736,6 +744,7 @@ void F_WB::gui_ct_connect(bool flag) {
 }
 
 void F_WB::checkbox_auto_connect(bool flag) {
+	D_GUI_THREAD_CHECK
 	if(flag) {
 		connect(slider_exposure, SIGNAL(signal_changed(double)), this, SLOT(changed_exposure(double)));
 		connect(checkbox_auto_alignment, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_auto_alignment(int)));
@@ -756,6 +765,7 @@ void F_WB::checkbox_auto_connect(bool flag) {
 }
 
 void F_WB::changed_exposure(double value) {
+	D_GUI_THREAD_CHECK
 	if(ps->exposure_level != value) {
 		ps->defined = true;
 		ps->exposure_level = value;
@@ -764,6 +774,7 @@ void F_WB::changed_exposure(double value) {
 }
 
 void F_WB::changed_auto_white_edge(double value) {
+	D_GUI_THREAD_CHECK
 	if(ps->auto_white_edge != value) {
 		ps->defined = true;
 		ps->auto_white = true;
@@ -775,6 +786,7 @@ void F_WB::changed_auto_white_edge(double value) {
 }
 
 void F_WB::changed_auto_black_edge(double value) {
+	D_GUI_THREAD_CHECK
 	if(ps->auto_black_edge != value) {
 		ps->defined = true;
 		ps->auto_black = true;
@@ -786,6 +798,7 @@ void F_WB::changed_auto_black_edge(double value) {
 }
 
 void F_WB::changed_ct(double v_cct, double v_duv) {
+	D_GUI_THREAD_CHECK
 	if(temp_kelvin != v_cct || temp_tint != v_duv) {
 		temp_kelvin = v_cct;
 		temp_tint = v_duv;
@@ -794,6 +807,7 @@ void F_WB::changed_ct(double v_cct, double v_duv) {
 }
 
 void F_WB::update_custom_temp(void) {
+	D_GUI_THREAD_CHECK
 	if(scale_ref[0] == 0 || scale_ref[1] == 0 || scale_ref[2] == 0)
 		return;
 	radio_wb_connect(false);
@@ -821,6 +835,7 @@ void F_WB::set_scale_from_temp(void) {
 }
 
 void F_WB::slot_checkbox_hl_clip(int state) {
+	D_GUI_THREAD_CHECK
 	ps->defined = true;
 	bool value = (state == Qt::Checked);
 	bool update = (ps->hl_clip != value);
@@ -831,18 +846,22 @@ void F_WB::slot_checkbox_hl_clip(int state) {
 }
 
 void F_WB::slot_checkbox_auto_alignment(int state) {
+	D_GUI_THREAD_CHECK
 	slot_checkbox_auto_f(state, ps->auto_alignment);
 }
 
 void F_WB::slot_checkbox_auto_white(int state) {
+	D_GUI_THREAD_CHECK
 	slot_checkbox_auto_f(state, ps->auto_white);
 }
 
 void F_WB::slot_checkbox_auto_black(int state) {
+	D_GUI_THREAD_CHECK
 	slot_checkbox_auto_f(state, ps->auto_black);
 }
 
 void F_WB::slot_checkbox_auto_f(int state, bool &ps_value) {
+	D_GUI_THREAD_CHECK
 	ps->defined = true;
 	bool value = false;
 	if(state == Qt::Checked)
@@ -855,6 +874,7 @@ void F_WB::slot_checkbox_auto_f(int state, bool &ps_value) {
 }
 
 void F_WB::slot_radio_wb(int index) {
+	D_GUI_THREAD_CHECK
 	if(!temp_initialized) {
 cerr << "return..." << endl;
 		return;
@@ -912,7 +932,6 @@ Filter::type_t F_WB::type(void) {
 }
 
 // actually, before and after area can be different - so transfer double of 'square'
-
 void F_WB::set_histograms(WB_Histogram_data *data, const QVector<long> &hist_before, const QVector<long> &hist_after) {
 	gui_histogram->set_histograms(data, hist_before, hist_after);
 }

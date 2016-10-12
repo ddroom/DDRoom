@@ -55,9 +55,16 @@ public slots:
 	void slot_le_scale(void);
 	void slot_scale_radio(int index);
 
+//	void slot_le_aspect_changed(const QString &);
+//	void slot_le_scale_changed(const QString &);
 signals:
 	void signal_view_refresh(void *);
 	void signal_filter_edit(FilterEdit *, bool, int);
+
+protected:
+signals:
+	void signal_set_text_le_scale(const QString &);
+	void signal_set_text_le_aspect(const QString &);
 
 protected:
 	class PS_Crop *ps;
@@ -97,9 +104,8 @@ public:
 
 	void edit_mode_exit(void);
 	void edit_mode_forced_exit(void);
-	bool is_edit_mode_enabled(void) {
-		return edit_mode_enabled;
-	}
+	void set_cw_rotation(int cw_rotation);
+	bool is_edit_mode_enabled(void) { return edit_mode_enabled;}
 
 protected:
 	bool edit_mode_enabled;

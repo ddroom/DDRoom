@@ -189,6 +189,7 @@ PS_Base *F_Demosaic::newPS(void) {
 }
 
 void F_Demosaic::set_PS_and_FS(PS_Base *new_ps, FS_Base *new_fs, PS_and_FS_args_t args) {
+	D_GUI_THREAD_CHECK
 	// PS
 	if(new_ps != nullptr) {
 		ps = (PS_Demosaic *)new_ps;

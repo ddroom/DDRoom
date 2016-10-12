@@ -76,16 +76,16 @@ public:
 		double y2 = 0.0;	// bottom edges
 	};
 	struct t_rect crop;
-/*
-	double crop_x1;	// left
-	double crop_x2;	// right
-	double crop_y1;	// top
-	double crop_y2;	// bottom
-*/
 
 	bool fixed_aspect;
 	string crop_aspect_str;
 
+	// scale
+	bool enabled_scale;
+	string scale_str;
+	bool scale_to_fit;
+
+	int cw_rotation; // used to remap values 'crop_aspect_str' and 'scale_str' in UI, if any
 	// for edit purpose only
 	double im_x1;	// saved size of unscaled image before crop filter
 	double im_x2;
@@ -93,17 +93,23 @@ public:
 	double im_y2;
 	double photo_aspect;	// original aspect of photo
 
-	// scale
-	bool enabled_scale;
-	string scale_str;
-	bool scale_to_fit;
-
 	//
 	static std::string scale_string_normalize(std::string str);
 	static void scale_string_to_size(int &width, int &height, std::string str);
 	static int _split_scale_string(char &separator, std::string str);
 
 };
+
+/* TODO:
+- add FilterEdit::set_cw_rotation;
+- add PS_Crop::map_to_UI_scale_str, PS_Crop::map_from_UI_scale_str;
+- add PS_Crop::map_to_UI_crop_aspect_str, PS_Crop::map_from_UI_scale_str;
+*/
+
+void F_Crop::set_cw_rotation(int cw_rotation) {
+	ps->cw_rotation = cw_rotation;
+//	std::string 
+}
 
 //------------------------------------------------------------------------------
 class FP_Crop : public FilterProcess_2D {
@@ -151,19 +157,21 @@ void PS_Crop::reset(void) {
 	crop.x2 = 0.0;
 	crop.y1 = 0.0;
 	crop.y2 = 0.0;
-///*
+
 	im_x1 = 0.0;
 	im_x2 = 0.0;
 	im_y1 = 0.0;
 	im_y2 = 0.0;
-//*/
+
 	fixed_aspect = false;
 	crop_aspect_str = "0-0";
-	photo_aspect = 0.0;
+	photo_aspect = 1.0;
 
 	enabled_scale = false;
 	scale_str = "0x0";
 	scale_to_fit = true;
+
+	cw_rotation = 0;
 }
 
 bool PS_Crop::load(DataSet *dataset) {
@@ -282,8 +290,8 @@ void F_Crop::saveFS(FS_Base *fs_base) {
 	}
 }
 
-// TODO
 void F_Crop::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t args) {
+	D_GUI_THREAD_CHECK
 	// PS
 	if(new_ps != nullptr) {
 		ps = (PS_Crop *)new_ps;
@@ -315,8 +323,10 @@ void F_Crop::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t a
 		//
 		checkbox_scale->setCheckState(ps->enabled_scale ? Qt::Checked : Qt::Unchecked);
 		if(ps->scale_str != "0x0")
+//			emit signal_set_text_le_scale(ps->scale_str.c_str());
 			le_scale->setText(ps->scale_str.c_str());
 		else
+//			emit signal_set_text_le_scale("");
 			le_scale->setText("");
 		reconnect_scale_radio(false);
 		int pressed_index = ps->scale_to_fit ? 0 : 1;
@@ -331,6 +341,7 @@ void F_Crop::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t a
 }
 
 QWidget *F_Crop::controls(QWidget *parent) {
+	D_GUI_THREAD_CHECK
 	if(widget != nullptr)
 		return widget;
 	QGroupBox *crop_q = new QGroupBox(_name, parent);
@@ -369,7 +380,7 @@ QWidget *F_Crop::controls(QWidget *parent) {
 	b_revert->setToolTip(tr("Revert aspect"));
 	b_revert->setToolButtonStyle(Qt::ToolButtonIconOnly);
 	crop_l1->addWidget(b_revert, 0, Qt::AlignRight);
-	gl->addLayout(crop_l1, ++row, 1);
+	gl->addLayout(crop_l1, row++, 1);
 
 	// row 2
 /*
@@ -383,8 +394,9 @@ QWidget *F_Crop::controls(QWidget *parent) {
 //	crop_l2->addWidget(checkbox_aspect);
 
 	le_aspect = new QLineEdit("");
+//	connect(le_aspect, SIGNAL(textChanged(const QString &)), this, SLOT(slot_le_aspect_changed(const QString &)));
 	le_aspect->setValidator(new QRegExpValidator(QRegExp("[0-9]{1,5}[.|,|x|X|/|\\-| ]{,1}[0-9]{,5}"), le_aspect));
-	gl->addWidget(le_aspect, ++row, 1);
+	gl->addWidget(le_aspect, row++, 1);
 //	crop_l2->addWidget(le_aspect);
 
 	// scale
@@ -393,17 +405,18 @@ QWidget *F_Crop::controls(QWidget *parent) {
 	gl->addWidget(scale_label_name, row, 0);
 
 	scale_label = new QLabel(tr("NNNN x NNNN"));
-	gl->addWidget(scale_label, ++row, 1);
+	gl->addWidget(scale_label, row++, 1);
 */
 	//--
 	checkbox_scale = new QCheckBox(tr("Scale to size"));
 	gl->addWidget(checkbox_scale, row, 0);
 
 	le_scale = new QLineEdit("");
+//	connect(le_scale, SIGNAL(textChanged(const QString &)), this, SLOT(slot_le_scale_changed(const QString &)));
 	le_scale->setValidator(new QRegExpValidator(QRegExp("|[0-9]{1,5}[x|X|/|\\-| ]{1,1}[0-9]{1,5}"), le_scale));
 //	le_scale->setValidator(new QRegExpValidator(QRegExp("[0-9]{1,5}[x|X|/|\\-| ]{1,1}[0-9]{1,5}"), le_scale));
 //	le_scale->setValidator(new QRegExpValidator(QRegExp("[0-9]{1,5}[.|,|x|X|/|\\-| ]{,1}[0-9]{,5}"), le_scale));
-	gl->addWidget(le_scale, ++row, 1);
+	gl->addWidget(le_scale, row++, 1);
 	//--
 	scale_radio = new QButtonGroup(gl);
 	QToolButton *b_size_fit = new QToolButton(parent);
@@ -429,7 +442,7 @@ QWidget *F_Crop::controls(QWidget *parent) {
 	l_fit->addWidget(b_size_fit, 0, Qt::AlignLeft);
 	l_fit->addWidget(l_size_fit, 0, Qt::AlignLeft);
 	l_fit->addStretch(1);
-	gl->addLayout(l_fit, ++row, 0, 1, 0);
+	gl->addLayout(l_fit, row++, 0, 1, 0);
 
 	QHBoxLayout *l_fill = new QHBoxLayout();
 	l_fill->setSpacing(8);
@@ -437,7 +450,7 @@ QWidget *F_Crop::controls(QWidget *parent) {
 	l_fill->addWidget(b_size_fill, 0, Qt::AlignLeft);
 	l_fill->addWidget(l_size_fill, 0, Qt::AlignLeft);
 	l_fill->addStretch(1);
-	gl->addLayout(l_fill, ++row, 0, 1, 0);
+	gl->addLayout(l_fill, row++, 0, 1, 0);
 #else
 	QHBoxLayout *l_fit_fill = new QHBoxLayout();
 	l_fit_fill->setSpacing(8);
@@ -449,7 +462,7 @@ QWidget *F_Crop::controls(QWidget *parent) {
 	l_fit_fill->addWidget(l_size_fill, 0, Qt::AlignLeft);
 	l_fit_fill->addStretch(1);
 
-	gl->addLayout(l_fit_fill, ++row, 0, 1, 0);
+	gl->addLayout(l_fit_fill, row++, 0, 1, 0);
 #endif
 	reset();
 	connect(b_original, SIGNAL(clicked(bool)), this, SLOT(slot_btn_original(bool)));
@@ -460,15 +473,29 @@ QWidget *F_Crop::controls(QWidget *parent) {
 	widget = crop_q;
 	return widget;
 }
+/*
+void F_Crop::slot_le_aspect_changed(const QString &text) {
+cerr << "slot_le_aspect_changed, length == " << text.length() << endl;
+cerr << "    text == \"" << text.toLocal8Bit().data() << "\"" << endl;
+}
 
+void F_Crop::slot_le_scale_changed(const QString &text) {
+cerr << "slot_le_scale_changed, length == " << text.length() << endl;
+}
+*/
 void F_Crop::reconnect(bool to_connect) {
+	D_GUI_THREAD_CHECK
 	if(to_connect) {
+		connect(this, SIGNAL(signal_set_text_le_scale(QString)), le_scale, SLOT(setText(QString)));
+		connect(this, SIGNAL(signal_set_text_le_aspect(QString)), le_aspect, SLOT(setText(QString)));
 		connect(checkbox_crop, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_crop(int)));
 		connect(checkbox_aspect, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_aspect(int)));
 		connect(le_aspect, SIGNAL(editingFinished(void)), this, SLOT(slot_le_aspect(void)));
 		connect(checkbox_scale, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_scale(int)));
 		connect(le_scale, SIGNAL(editingFinished(void)), this, SLOT(slot_le_scale(void)));
 	} else {
+		disconnect(this, SIGNAL(signal_set_text_le_scale(QString)), le_scale, SLOT(setText(QString)));
+		disconnect(this, SIGNAL(signal_set_text_le_aspect(QString)), le_aspect, SLOT(setText(QString)));
 		disconnect(checkbox_crop, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_crop(int)));
 		disconnect(checkbox_aspect, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_aspect(int)));
 		disconnect(le_aspect, SIGNAL(editingFinished(void)), this, SLOT(slot_le_aspect(void)));
@@ -478,6 +505,7 @@ void F_Crop::reconnect(bool to_connect) {
 }
 
 void F_Crop::reconnect_scale_radio(bool to_connect) {
+	D_GUI_THREAD_CHECK
 	if(to_connect)
 		connect(scale_radio, SIGNAL(buttonClicked(int)), this, SLOT(slot_scale_radio(int)));
 	else
@@ -485,6 +513,7 @@ void F_Crop::reconnect_scale_radio(bool to_connect) {
 }
 
 QList<QAction *> F_Crop::get_actions_list(void) {
+	D_GUI_THREAD_CHECK
 	if(q_action_edit == nullptr) {
 		q_action_edit = new QAction(QIcon(":/resources/crop_icon.svg"), tr("&Crop"), this);
 //		q_action_edit->setShortcut(tr("Ctrl+C"));
@@ -540,7 +569,7 @@ void FP_Crop::size_forward(FP_size_t *fp_size, const Area::t_dimensions *d_befor
 	PS_Crop *ps = (PS_Crop *)fp_size->ps_base;
 	*d_after = *d_before;
 //cerr << "FP_Crop::size_before()... 1" << endl;
-//d_after->dump();
+//d_before->dump();
 	bool edit_mode = false;
 	if(fp_size->filter != nullptr)
 		edit_mode = ((F_Crop *)fp_size->filter)->is_edit_mode_enabled();
@@ -561,7 +590,6 @@ void FP_Crop::size_forward(FP_size_t *fp_size, const Area::t_dimensions *d_befor
 			((F_Crop *)fp_size->filter)->init_le_aspect_from_photo_aspect();
 			// TODO: update le_aspect && le_crop_to_size according to the photo rotation
 			// fp_size->cw_rotation
-cerr << "F_Crop::size_forward, cw_rotation == " << fp_size->cw_rotation << endl;
 			if(_ps->crop.x1 == 0.0 && _ps->crop.x2 == 0.0 && _ps->crop.y1 == 0.0 && _ps->crop.y2 == 0.0) {
 				// set default crop with each edge at 10%
 				double w = im_x2 - im_x1;
@@ -571,29 +599,13 @@ cerr << "F_Crop::size_forward, cw_rotation == " << fp_size->cw_rotation << endl;
 				_ps->crop.y1 = im_y1 + h * 0.1;
 				_ps->crop.y2 = im_y2 - h * 0.1;
 			}
+			// set defaults if there was forced edit switch from 'F_Crop' to, say, 'F_Shift'
+			if(ps != _ps) {
+				ps->crop = _ps->crop;
+//				ps->photo_aspect = _ps->photo_aspect;
+			}
 		}
 		if(edit_mode == false) {
-/*
-cerr << endl;
-cerr << "FP_Crop::size_forward()" << endl;
-//cerr << "              im_x1 == " << im_x1 << endl;
-//cerr << "              im_x2 == " << im_x2 << endl;
-//cerr << "              im_y1 == " << im_y1 << endl;
-//cerr << "              im_y2 == " << im_y2 << endl;
-cerr << "        ps->crop.x1 == " << crop.x1 << endl;
-cerr << "        ps->crop.x2 == " << crop.x2 << endl;
-cerr << "        ps->crop.y1 == " << crop.y1 << endl;
-cerr << "        ps->crop.y2 == " << crop.y2 << endl;
-cerr << "....    size:   " << ps->crop.x2 - ps->crop.x1 << "x" << ps->crop.y2 - ps->crop.y1 << endl;
-cerr << "....    offset: " << (ps->crop.x2 + ps->crop.x1) / 2.0 << "x" << (ps->crop.y2 + ps->crop.y1) / 2.0 << endl;
-*/
-/*
-cerr << endl;
-cerr << "  size: " << d_after->width() << "x" << d_after->height() << endl;
-cerr << "  px_size: " << d_after->position.px_size << endl;
-cerr << "size_forward(): d_after->size.w == " << d_after->size.w << "; d_after->size.h == " << d_after->size.h << endl;
-cerr << "  position: " << d_after->position.x << " - " << d_after->position.y << endl;
-*/
 			const float px_size_x = d_after->position.px_size_x;
 			const float px_size_y = d_after->position.px_size_y;
 			PS_Crop::t_rect image;
@@ -605,20 +617,9 @@ cerr << "  position: " << d_after->position.x << " - " << d_after->position.y <<
 			// correct
 			d_after->position.x = crop.x1 + px_size_x * 0.5;
 			d_after->position.y = crop.y1 + px_size_y * 0.5;
-//cerr << "x1 == " << x1 << ", pos_x == " << d_after->position.x << endl;
-//cerr << "y1 == " << y1 << ", pos_y == " << d_after->position.y << endl;
 			d_after->size.w = (crop.x2 - crop.x1) / px_size_x;
 			d_after->size.h = (crop.y2 - crop.y1) / px_size_y;
-/*
-cerr << "size_forward(): d_after->size.w == " << d_after->size.w << "; d_after->size.h == " << d_after->size.h << endl;
-cerr << "  offsets: " << x1 << " - " << x2 << "; " << y1 << " - " << y2 << "; size: " << d_after->width() << "x" << d_after->height() << endl;
-cerr << "  position: " << d_after->position.x << " - " << d_after->position.y << endl;
-cerr << endl;
-*/
-/*
-cerr << "FP_Crop::size_before()... 2" << endl;
-d_after->dump();
-*/
+//d_after->dump();
 		}
 	}
 	bool enabled_scale = (ps->enabled_scale && ps->scale_str != "0x0");
@@ -697,6 +698,7 @@ std::string PS_Crop::scale_string_normalize(std::string str) {
 }
 
 void F_Crop::slot_checkbox_scale(int state) {
+	D_GUI_THREAD_CHECK
 	bool value = (state == Qt::Checked) ? true : false;
 	if(value == ps->enabled_scale)
 		return;
@@ -705,6 +707,7 @@ void F_Crop::slot_checkbox_scale(int state) {
 }
 
 void F_Crop::slot_le_scale(void) {
+	D_GUI_THREAD_CHECK
 	string value = le_scale->text().toStdString();
 	if(value == ps->scale_str)
 		return;
@@ -737,6 +740,7 @@ void F_Crop::slot_le_scale(void) {
 }
 
 void F_Crop::slot_scale_radio(int index) {
+	D_GUI_THREAD_CHECK
 	bool value = (index == 0);
 	if(ps->scale_to_fit == value)
 		return;
@@ -747,6 +751,7 @@ void F_Crop::slot_scale_radio(int index) {
 
 //------------------------------------------------------------------------------
 void F_Crop::slot_checkbox_crop(int state) {
+	D_GUI_THREAD_CHECK
 	bool value = (state == Qt::Checked);
 	if(value == ps->enabled_crop)
 		return;
@@ -792,15 +797,15 @@ double F_Crop::crop_aspect(string s) {
 
 void F_Crop::init_le_aspect_from_photo_aspect(void) {
 	if(le_aspect->text() == "" && !(ps->photo_aspect == 0.0)) {
-		QString s;
-		s.setNum(ps->photo_aspect);
-		ps->crop_aspect_str = s.toStdString();
-cerr << "set aspect: " << ps->crop_aspect_str << endl;
-		le_aspect->setText(ps->crop_aspect_str.c_str());
+		QString aspect_string;
+		aspect_string.setNum(ps->photo_aspect);
+		ps->crop_aspect_str = aspect_string.toStdString();
+		emit signal_set_text_le_aspect(aspect_string);
 	}
 }
 
 void F_Crop::slot_checkbox_aspect(int state) {
+	D_GUI_THREAD_CHECK
 	bool value = false;
 	if(state == Qt::Checked)
 		value = true;
@@ -824,6 +829,7 @@ void F_Crop::slot_checkbox_aspect(int state) {
 }
 
 void F_Crop::slot_le_aspect(void) {
+	D_GUI_THREAD_CHECK
 	string aspect_str = le_aspect->text().toStdString();
 	if(aspect_str == "")
 		return;
@@ -850,6 +856,7 @@ void F_Crop::slot_le_aspect(void) {
 }
 
 void F_Crop::slot_btn_original(bool checked) {
+	D_GUI_THREAD_CHECK
 	if(crop_aspect() != ps->photo_aspect) {
 		QString s;
 		s.setNum(ps->photo_aspect);
@@ -909,6 +916,7 @@ void F_Crop::crop_aspect_revert(bool crop_was_revert) {
 }
 
 void F_Crop::slot_btn_revert(bool checked) {
+	D_GUI_THREAD_CHECK
 	crop_aspect_revert(false);
 	le_aspect->setText(ps->crop_aspect_str.c_str());
 	aspect_normalize();
@@ -946,16 +954,21 @@ bool F_Crop::aspect_normalize(void) {
 }
 
 void F_Crop::edit_mode_exit(void) {
+	D_GUI_THREAD_CHECK
+cerr << "F_Crop::edit_mode_exit()" << endl;
 	edit_mode_enabled = false;
 	q_action_edit->setChecked(false);
 }
 
 void F_Crop::edit_mode_forced_exit(void) {
+	D_GUI_THREAD_CHECK
+	edit_mode_enabled = false;
 //	checkbox_crop->setCheckState(Qt::Unchecked);
 	slot_edit_action(false);
 }
 
 void F_Crop::slot_edit_action(bool checked) {
+	D_GUI_THREAD_CHECK
 	if(checked == edit_mode_enabled)
 		return;
 	edit_mode_enabled = checked;
@@ -1093,6 +1106,7 @@ QRect F_Crop::view_crop_rect(const QRect &image, image_and_viewport_t transform)
 }
 
 void F_Crop::draw(QPainter *painter, FilterEdit_event_t *et) {
+	D_GUI_THREAD_CHECK
 	if(!edit_mode_enabled)
 		return;
 	QSize viewport = et->viewport;
@@ -1427,6 +1441,7 @@ bool F_Crop::mousePressEvent(FilterEdit_event_t *mt, Cursor::cursor &cursor) {
 }
 
 bool F_Crop::mouseReleaseEvent(FilterEdit_event_t *mt, Cursor::cursor &cursor) {
+	D_GUI_THREAD_CHECK
 	QMouseEvent *event = (QMouseEvent *)mt->event;
 	mouse_is_pressed = false;
 	if(!edit_mode_enabled)

@@ -74,7 +74,6 @@ public:
 
 	void edit_mode_exit(void);
 	void edit_mode_forced_exit(void);
-
 	void set_cw_rotation(int cw_rotation);
 
 protected:

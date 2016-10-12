@@ -30,7 +30,7 @@
 using namespace std;
 
 //------------------------------------------------------------------------------
-void Area::t_dimensions::dump(void) {
+void Area::t_dimensions::dump(void) const {
 	cerr << "Area::t_dimensions::dump()" << endl;
 	cerr << "     size()   == " << width() << "x" << height() << endl;
 	cerr << "     size     == " << size.w << "x" << size.h << endl;

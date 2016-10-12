@@ -146,6 +146,7 @@ void F_CM_Sepia::saveFS(FS_Base *fs_base) {
 }
 
 void F_CM_Sepia::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t args) {
+	D_GUI_THREAD_CHECK
 	// PS
 	if(new_ps != nullptr) {
 		ps = (PS_CM_Sepia *)new_ps;

@@ -217,17 +217,10 @@ bool PS_Shift::load(DataSet *dataset) {
 	for(int i = 0; i < 4; ++i)	guide[i] = 0.0;
 	dataset->get("guide_first", guide);
 	for(int i = 0; i < 4; ++i)	guide_first[i] = guide[i];
-	
 	for(int i = 0; i < 4; ++i)	guide[i] = 0.0;
 	dataset->get("guide_second", guide);
 	for(int i = 0; i < 4; ++i)	guide_second[i] = guide[i];
 	//--
-/*
-	for(int i = 0; i < 4; ++i)	{
-cerr << guide_first[i] << endl;
-cerr << guide_second[i] << endl;
-	}
-*/
 	return true;
 }
 
@@ -319,6 +312,7 @@ PS_Base *F_Shift::newPS(void) {
 }
 
 void F_Shift::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t args) {
+	D_GUI_THREAD_CHECK
 /*
 if(args.metadata != nullptr)
 cerr << "F_Shift::set_PS_and_FS(); metadata->rotation == " << args.metadata->rotation << endl;
@@ -354,6 +348,7 @@ cerr << "F_Shift::set_PS_and_FS(); args.cw_rotation == " << args.cw_rotation << 
 }
 
 QWidget *F_Shift::controls(QWidget *parent) {
+	D_GUI_THREAD_CHECK
 	if(widget != nullptr)
 		return widget;
 	QGroupBox *q = new QGroupBox(_name);
@@ -394,6 +389,7 @@ QWidget *F_Shift::controls(QWidget *parent) {
 }
  
 void F_Shift::reconnect(bool to_connect) {
+	D_GUI_THREAD_CHECK
 	if(to_connect) {
 		connect(checkbox_enable, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_enable(int)));
 		connect(slider_angle_v, SIGNAL(signal_changed(double)), this, SLOT(slot_changed_angle_v(double)));
@@ -408,6 +404,7 @@ void F_Shift::reconnect(bool to_connect) {
 }
 
 QList<QAction *> F_Shift::get_actions_list(void) {
+	D_GUI_THREAD_CHECK
 	QList<QAction *> l;
 	if(q_action_edit_shift == nullptr) {
 		q_action_edit_shift = new QAction(QIcon(":/resources/shift_v.svg"), tr("Shift"), this);
@@ -425,6 +422,7 @@ QList<QAction *> F_Shift::get_actions_list(void) {
 }
 
 void F_Shift::edit_mode_exit(void) {
+	D_GUI_THREAD_CHECK
 	edit_mode_enabled = false;
 	q_action_edit_shift->setChecked(false);
 //	q_action_edit_...->setChecked(false);
@@ -435,12 +433,14 @@ void F_Shift::edit_mode_exit(void) {
 }
 
 void F_Shift::edit_mode_forced_exit(void) {
+	D_GUI_THREAD_CHECK
 	slot_action_edit_shift(false);
 //	slot_action_edit_...(false);
 }
 
 // update horizontal and vertical angles so result of operation would be unchanged
 void F_Shift::set_cw_rotation(int cw_rotation) {
+	D_GUI_THREAD_CHECK
 //	cerr << "F_Shift::set_cw_rotation( " << cw_rotation << " );" << endl;
 	ps->cw_rotation = cw_rotation;
 	double angle_ui_v;
@@ -453,6 +453,7 @@ void F_Shift::set_cw_rotation(int cw_rotation) {
 }
 
 void F_Shift::slot_action_edit_shift(bool checked) {
+	D_GUI_THREAD_CHECK
 	if(checked == edit_mode_enabled)
 		return;
 //	edit_mode_shift = checked;
@@ -461,6 +462,7 @@ void F_Shift::slot_action_edit_shift(bool checked) {
 }
 
 void F_Shift::fn_action_edit(bool checked) {
+	D_GUI_THREAD_CHECK
 	edit_draw_OSD = false;
 	edit_mode_enabled = checked;
 	if(edit_mode_enabled && !ps->enabled) {
@@ -479,6 +481,7 @@ void F_Shift::fn_action_edit(bool checked) {
 }
 
 void F_Shift::slot_checkbox_enable(int state) {
+	D_GUI_THREAD_CHECK
 	// TODO: update cursor - change it to "cross" and back
 	bool value = (state == Qt::Checked);
 	bool update = (ps->enabled != value);
@@ -495,6 +498,7 @@ void F_Shift::slot_checkbox_enable(int state) {
 }
 
 void F_Shift::slot_changed_angle_v(double value) {
+	D_GUI_THREAD_CHECK
 	double angle_ui_v = value;
 	double angle_ui_h = slider_angle_h->value();
 	double angle_v, angle_h;
@@ -513,6 +517,7 @@ void F_Shift::slot_changed_angle_v(double value) {
 }
 
 void F_Shift::slot_changed_angle_h(double value) {
+	D_GUI_THREAD_CHECK
 	double angle_ui_v = slider_angle_v->value();
 	double angle_ui_h = value;
 	double angle_v, angle_h;
@@ -531,6 +536,7 @@ void F_Shift::slot_changed_angle_h(double value) {
 }
 
 void F_Shift::slot_changed_angle_r(double value) {
+	D_GUI_THREAD_CHECK
 	bool update = (ps->angle_r != value);
 	if(!ps->enabled) {
 		ps->enabled = true;
@@ -544,6 +550,7 @@ void F_Shift::slot_changed_angle_r(double value) {
 }
 
 void F_Shift::draw(QPainter *painter, FilterEdit_event_t *et) {
+	D_GUI_THREAD_CHECK
 //	if(!edit_mode_enabled || !edit_active)
 	if(!edit_mode_enabled)
 		return;

@@ -40,7 +40,8 @@ protected:
 //------------------------------------------------------------------------------
 class Tile_t {
 public:
-	Tile_t(void) = default;
+//	Tile_t(void) = default;
+	Tile_t(void) {area = nullptr;}
 	int request_ID = 0;
 	class Area *area = nullptr;	// set by Process, delete by TilesReceiver; result area after processing;
 	int index = -1;			// index at array of image_t in View

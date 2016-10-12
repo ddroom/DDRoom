@@ -60,7 +60,7 @@ public:
 	struct t_dimensions {
 		t_dimensions(void)  = default;
 		t_dimensions(int width, int height) : size(width, height) {}
-		void dump(void);
+		void dump(void) const;
 		// size of actual data in memory
 		int32_t width(void) const {return size.w - edges.x1 - edges.x2;}
 		int32_t height(void) const {return size.h - edges.y1 - edges.y2;}

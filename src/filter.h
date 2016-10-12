@@ -22,6 +22,14 @@
 #include "tiles.h"
 #include "widgets.h"
 
+// All GUI direct calls should be done only from the main GUI thread.
+#if 0
+#define D_GUI_THREAD_CHECK if(QThread::currentThread() != this->thread()) std::cerr << std::endl << "-- GUI direct calls from the wrong thread !!! File: " << __FILE__ << "; line: " << __LINE__ << std::endl;
+#else
+#undef D_GUI_THREAD_CHECK
+#define D_GUI_THREAD_CHECK ;
+#endif
+
 //------------------------------------------------------------------------------
 // used at filters GUI
 class image_and_viewport_t {

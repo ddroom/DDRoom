@@ -175,6 +175,7 @@ void F_cRGB_to_CM::saveFS(FS_Base *fs_base) {
 }
 
 void F_cRGB_to_CM::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t args) {
+	D_GUI_THREAD_CHECK
 	// PS
 	if(new_ps != nullptr) {
 		ps = (PS_cRGB_to_CM *)new_ps;
@@ -298,6 +299,10 @@ QWidget *F_cRGB_to_CM::controls(QWidget *parent) {
 }
 
 void F_cRGB_to_CM::ui_set_compress_saturation_factor(double factor) {
+	emit signal_ui_set_compress_saturation_factor(factor);
+}
+
+void F_cRGB_to_CM::slot_ui_set_compress_saturation_factor(double factor) {
 	label_compress_saturation_auto_value = factor;
 	if(factor == 0.0)
 		label_compress_saturation_auto->setText("");
@@ -307,6 +312,7 @@ void F_cRGB_to_CM::ui_set_compress_saturation_factor(double factor) {
 
 void F_cRGB_to_CM::reconnect(bool to_connect) {
 	if(to_connect) {
+		connect(this, SIGNAL(signal_ui_set_compress_saturation_factor(double)), this, SLOT(slot_ui_set_compress_saturation_factor(double)));
 		connect(combo_output_color_space, SIGNAL(currentIndexChanged(int)), this, SLOT(slot_combo_output_color_space(int)));
 #ifndef DISABLE_CM
 		connect(combo_color_model, SIGNAL(currentIndexChanged(int)), this, SLOT(slot_combo_color_model(int)));
@@ -318,6 +324,7 @@ void F_cRGB_to_CM::reconnect(bool to_connect) {
 		connect(slider_compress_strength, SIGNAL(signal_changed(double)), this, SLOT(slot_slider_compress_strength(double)));
 		connect(slider_desaturation_strength, SIGNAL(signal_changed(double)), this, SLOT(slot_slider_desaturation_strength(double)));
 	} else {
+		disconnect(this, SIGNAL(signal_ui_set_compress_saturation_factor(double)), this, SLOT(slot_ui_set_compress_saturation_factor(double)));
 		disconnect(combo_output_color_space, SIGNAL(currentIndexChanged(int)), this, SLOT(slot_combo_output_color_space(int)));
 #ifndef DISABLE_CM
 		disconnect(combo_color_model, SIGNAL(currentIndexChanged(int)), this, SLOT(slot_combo_color_model(int)));

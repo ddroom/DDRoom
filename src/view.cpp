@@ -1929,11 +1929,11 @@ cerr << endl;
 	for(int i = 0; i < tiles_count[1]; ++i)
 		image->tiles_len_y[i] = tiles_length[1][i];
 	//--
-	int tiles_size = tiles_count[0] * tiles_count[1];
-	image->tiles_areas = std::vector<Area *>(tiles_size);
-	image->tiles_pixmaps = std::vector<QPixmap *>(tiles_size);
-	image->tiles_d_index_map = std::vector<int>(tiles_size);
-	for(int i = 0; i < tiles_size; ++i) {
+	int tiles_total = tiles_count[0] * tiles_count[1];
+	image->tiles_areas = std::vector<Area *>(tiles_total);
+	image->tiles_pixmaps = std::vector<QPixmap *>(tiles_total);
+	image->tiles_d_index_map = std::vector<int>(tiles_total);
+	for(int i = 0; i < tiles_total; ++i) {
 		image->tiles_areas[i] = nullptr;
 		image->tiles_pixmaps[i] = nullptr;
 		image->tiles_d_index_map[i] = i;
@@ -1969,7 +1969,7 @@ cerr << "       tiles_count_x == " << image->tiles_len_x.size() << endl;
 cerr << "image->tiles_len_x[0] == " << image->tiles_len_x[0] << endl;
 cerr << "       tiles_count_y == " << image->tiles_len_y.size() << endl;
 cerr << "image->tiles_len_y[0] == " << image->tiles_len_y[0] << endl;
-cerr << "tiles_size == " << tiles_size << endl;
+cerr << "tiles_total == " << tiles_total << endl;
 cerr << "count == " << count << endl;
 cerr << "t->tiles.size() == " << t->tiles.size() << endl;
 cerr << "t->tiles[0].index == " << t->tiles[0].index << endl;
