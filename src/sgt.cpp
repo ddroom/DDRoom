@@ -31,7 +31,7 @@
 
 #include <iostream>
 
-#define GAMUT_SATURATION_TABLE_VERSION	"0.1"
+#define GAMUT_SATURATION_TABLE_VERSION	"0.2"
 #define GAMUT_SATURATION_TABLE_FS_EXT ".sgt"
 
 #if 0
