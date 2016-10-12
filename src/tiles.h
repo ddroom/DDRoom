@@ -97,7 +97,8 @@ public:
 	// return previous request ID, and add this new ID into the IDs list, so already processed tiles would not be wasted
 	virtual int add_request_ID(int request_ID);
 
-	virtual void use_tiling(bool do_use_tiling, Area::format_t tiles_format);
+	virtual void use_tiling(bool do_use_tiling, int rotation, Area::format_t tiles_format);
+	virtual Area *get_area_to_insert_tile_into(int &pos_x, int &pos_y, class Tile_t *tile);
 	// argument is result of chain of calls all filter's Filter::size_forward(),
 	// i.e. is size of photo after processing at 1:1 scale;
 	// TilesReceiver should remember that size, scale and crop it if necessary, and then
@@ -120,6 +121,7 @@ public:
 
 protected:
 	bool flag_use_tiling = false;
+	int cw_rotation = 0; // should be used together with tiling in that implementation
 	Area::format_t tiles_format;
 	bool do_scale;
 	bool scale_to_fit;

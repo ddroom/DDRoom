@@ -1049,15 +1049,7 @@ cerr << "~~~~~~~~~        View::draw(): image->rotation == " << image->rotation 
 						if(image->tiles_pixmaps[index] != nullptr) {
 							if(pass == 1) {
 								// draw tile
-//								painter->drawPixmap(x_off, y_off, *image->tiles_pixmaps[c]);
 //cerr << "draw: index for " << c << " is " << index << endl;
-/*
-								// fill background for debug purposes
-								QBrush brush;
-								brush.setColor(QColor(0x0F, 0xFF, 0x0F, 0x7F));
-								brush.setStyle(Qt::SolidPattern);
-								painter->fillRect(x_off, y_off, image->tiles_pixmaps[index]->width(), image->tiles_pixmaps[index]->height(), brush);
-*/
 //cerr << "draw tile with size: " << image->tiles_pixmaps[index]->width() << "x" << image->tiles_pixmaps[index]->height() << endl;
 								painter->drawPixmap(x_off, y_off, *image->tiles_pixmaps[index]);
 							}
@@ -1086,21 +1078,17 @@ cerr << "~~~~~~~~~        View::draw(): image->rotation == " << image->rotation 
 //				QImage qi = image->thumb_pixmap->toImage();
 //				qi.save("thumb.png", "PNG");
 #if 1
-				bool update_thumb_scaled = false;
-				if(!image->thumb_scaled.isNull()) {
-					if(image->thumb_scaled.width() != image->size_scaled.width())
-						update_thumb_scaled = true;
-					if(image->thumb_scaled.height() != image->size_scaled.height())
-						update_thumb_scaled = true;
-				} else {
-					update_thumb_scaled = true;
+				bool update_thumb_scaled = image->thumb_scaled.isNull();
+				if(!update_thumb_scaled) {
+					update_thumb_scaled |= (image->thumb_scaled.width() != image->size_scaled.width());
+					update_thumb_scaled |= (image->thumb_scaled.height() != image->size_scaled.height());
 				}
+				// just NOTE: that drawing could be with some glitches due to deferred inner transformations
 				if(update_thumb_scaled) {
 					smooth = true;
-					if(smooth)
-						image->thumb_scaled = image->thumb_pixmap->scaled(image->size_scaled.width(), image->size_scaled.height(), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
-					else
-						image->thumb_scaled = image->thumb_pixmap->scaled(image->size_scaled.width(), image->size_scaled.height(), Qt::IgnoreAspectRatio, Qt::FastTransformation);
+					image->thumb_scaled = image->thumb_pixmap->scaled(
+						image->size_scaled.width(), image->size_scaled.height(),
+						Qt::IgnoreAspectRatio, smooth ? Qt::SmoothTransformation : Qt::FastTransformation);
 				}
 				painter->drawPixmap(0, 0, image->thumb_scaled);
 #else
@@ -1628,19 +1616,10 @@ void View::receive_tile(Tile_t *tile, bool is_thumb) {
 			was_in_request = true;
 			break;
 		}
-/*
-	for(int i = 0; i < request_IDs.size(); ++i) 
-		if(tile->request_ID == request_IDs.at(i)) {
-			was_in_request = true;
-			break;
-		}
-*/
 	int ID = request_ID;
 	request_ID_lock.unlock();
 	// keep thumb to provide feedback on fast settings change via UI
 	image->lock.lock();
-//	bool image_is_empty = image->is_empty;
-//	image->lock.unlock();
 	bool discard = !was_in_request;
 	if(is_thumb) {
 		// discard deprecated processed thumb with old request when reopen a new photo in View,
@@ -1650,14 +1629,14 @@ void View::receive_tile(Tile_t *tile, bool is_thumb) {
 	if(discard) {
 		image->lock.unlock();
 cerr << "reject tile with ID: " << tile->request_ID << " with current request ID: " << ID << endl;
-		if(tile->area != nullptr)
+		if(tile->area != nullptr) {
 			delete tile->area;
-		tile->area = nullptr;
+			tile->area = nullptr;
+		}
 		return;
 	}
 	// use tile
 	if(is_thumb) {
-//		image->lock.lock();
 		image->is_empty = false;
 //cerr << "receive thumb: was_requested == " << was_in_request << endl;
 		if(image->thumb_area != nullptr) {
@@ -1669,18 +1648,22 @@ cerr << "ERROR: receive_tile(): image->thumb_area stil not empty" << endl;
 		image->reset_tiles_deferred();
 		image->lock.unlock();
 		QImage thumbnail = (tile->area->to_qimage().copy());
+		tile->area = nullptr;
 		// reset tiles
 		emit update_image();
 		// update thumbnail in browser
 		edit->update_thumbnail((void *)this, thumbnail);
 	} else {
-//		image->lock.lock();
 		bool update = (tile->index >= 0 && tile->index < image->tiles_areas.size());
-		if(update)
+		if(update) {
 			image->tiles_areas[tile->index] = tile->area;
+			tile->area = nullptr;
+		}
 		else // apparently request with this tile as result was discarded
-			if(tile->area != nullptr)
+			if(tile->area != nullptr) {
 				delete tile->area;
+				tile->area = nullptr;
+			}
 		image->lock.unlock();
 		if(update)
 			emit update_image();

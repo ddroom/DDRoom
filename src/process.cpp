@@ -486,15 +486,6 @@ void Process::process_export(Photo_ID photo_id, string fname_export, export_para
 	else
 		task.out_format = ((ep_bits == 16) ? Area::format_t::format_rgb_16 : Area::format_t::format_rgb_8);
 
-	if(ep->scaling_force) {
-		task.tiles_receiver = new TilesReceiver(!ep->scaling_to_fill, ep->scaling_width, ep->scaling_height);
-		task.scale_override = true;
-	} else {
-		task.tiles_receiver = new TilesReceiver();
-	}
-	task.tiles_receiver->use_tiling(true, task.out_format);
-	task.tiles_receiver->set_request_ID(task.request_ID);
-
 Profiler prof(string("Batch for ") + photo_id.get_export_file_name());
 prof.mark("load RAW");
 
@@ -526,6 +517,16 @@ prof.mark("load RAW");
 		photo->cw_rotation = ps_loader->get_cw_rotation();
 	else
 		ps_loader->set_cw_rotation(photo->cw_rotation);
+
+
+	if(ep->scaling_force) {
+		task.tiles_receiver = new TilesReceiver(!ep->scaling_to_fill, ep->scaling_width, ep->scaling_height);
+		task.scale_override = true;
+	} else {
+		task.tiles_receiver = new TilesReceiver();
+	}
+	task.tiles_receiver->use_tiling(true, photo->cw_rotation, task.out_format);
+	task.tiles_receiver->set_request_ID(task.request_ID);
 
 //cerr << "offline ps_loader->serialize() == " << ps_loader->serialize() << endl;
 	DataSet controls;
@@ -1078,6 +1079,7 @@ void Process::process_filters(SubFlow *subflow, Process::task_run_t *task, std::
 		Tile_t *tile = &tiles_request->tiles[index];
 		Area *area_in = nullptr;
 		if(subflow->sync_point_pre()) {
+			tile->request_ID = task->request_ID;
 //			area_in = AreaHelper::crop(area_original, tile->dimensions_pre);
 //cerr << "area mem size == " << area_original->mem_width() << " x " << area_original->mem_height() << endl;
 //cerr << "area     size == " << area_original->dimensions()->width() << " x " << area_original->dimensions()->height() << endl;
@@ -1157,12 +1159,23 @@ void Process::process_filters(SubFlow *subflow, Process::task_run_t *task, std::
 		if(is_master)
 			prof->mark("convert tiles");
 		Area *area_out = nullptr;
-		if(!task->OOM)
-			area_out = AreaHelper::convert_mt(subflow, area_in, task->out_format, task->photo->cw_rotation);
+		if(!task->OOM) {
+			Area *tiled_area = nullptr;
+			int insert_pos_x = 0;
+			int insert_pos_y = 0;
+			if(!is_thumb && is_master)
+				tiled_area = task->tiles_request->receiver->get_area_to_insert_tile_into(insert_pos_x, insert_pos_y, tile);
+//			area_out = AreaHelper::convert_mt(subflow, area_in, task->out_format, task->photo->cw_rotation);
+			if(tiled_area != nullptr)
+				area_out = AreaHelper::convert_mt(subflow, area_in, task->out_format, task->photo->cw_rotation, tiled_area, insert_pos_x, insert_pos_y);
+			else
+				area_out = AreaHelper::convert_mt(subflow, area_in, task->out_format, task->photo->cw_rotation);
+			// here 'area_out' will be the 'area_to_insert' if the last one wasn't 'nullptr'
+		}
 		if(subflow->sync_point_pre()) {
 			if(area_out != nullptr)
 				task->OOM |= !area_out->valid();
-			// delete P4_FLOAT area
+			// delete 'type_float_p4' area
 			delete area_in;
 			if(!task->OOM) {
 				// update thumbnail for PS_Loader
@@ -1173,8 +1186,10 @@ void Process::process_filters(SubFlow *subflow, Process::task_run_t *task, std::
 					D_AREA_PTR(task->photo->thumbnail);
 				}
 				// send result
+				if(tile->area != nullptr)
+					delete tile->area;
 				tile->area = area_out;
-				tile->request_ID = task->request_ID;
+//				tile->request_ID = task->request_ID;
 				quit_lock.lock();
 				// there is no reason to clean up on quit
 				if(!to_quit)

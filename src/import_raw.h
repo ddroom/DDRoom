@@ -9,8 +9,7 @@
  *
  */
 
-
-#include <mutex>
+//#include <mutex>
 #include <string>
 
 #include "import.h"
@@ -27,7 +26,7 @@ public:
 	static class Area *demosaic_xtrans(const uint16_t *_image, int _width, int _height, const class Metadata *metadata, int passes, class Area *area_out = nullptr);
 
 protected:
-	static std::mutex dcraw_lock;
+//	static std::mutex dcraw_lock;
 	class Area *dcraw_to_area(class DCRaw *dcraw, class Metadata *metadata, const uint16_t *dcraw_raw);
 	class Area *load_foveon(class DCRaw *dcraw, class Metadata *metadata, const uint16_t *dcraw_raw);
 	class Area *load_xtrans(class DCRaw *dcraw, class Metadata *metadata, const uint16_t *dcraw_raw);

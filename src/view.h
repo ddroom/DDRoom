@@ -153,6 +153,7 @@ public:
 //	void register_forward_dimensions(class Area::t_dimensions *d, int rotation);
 	void register_forward_dimensions(class Area::t_dimensions *d);
 	class TilesDescriptor_t *get_tiles(class Area::t_dimensions *, int cw_rotation, bool is_thumb);
+	Area *get_area_to_insert_tile_into(int &pos_x, int &pos_y, class Tile_t *tile) {return nullptr;}
 	void receive_tile(Tile_t *tile, bool is_thumb);
 	void process_done(bool is_thumb);
 	void long_wait(bool set);

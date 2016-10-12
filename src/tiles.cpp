@@ -16,6 +16,7 @@
 #include "config.h"
 #include "tiles.h"
 #include "metadata.h"
+#include "misc.h"
 #include "area_helper.h"
 
 #include <iostream>
@@ -80,6 +81,7 @@ TilesReceiver::TilesReceiver(void) {
 	default_tile_width = TILE_WIDTH;
 	default_tile_height = TILE_HEIGHT;
 	do_scale = false;
+	cw_rotation = 0;
 }
 
 TilesReceiver::TilesReceiver(bool _scale_to_fit, int _scaled_width, int _scaled_height) : TilesReceiver() {
@@ -142,13 +144,29 @@ void TilesReceiver::process_done(bool is_thumb) {
 void TilesReceiver::long_wait(bool set) {
 }
 
-void TilesReceiver::use_tiling(bool flag, Area::format_t _tiles_format) {
+void TilesReceiver::use_tiling(bool flag, int rotation, Area::format_t _tiles_format) {
 	flag_use_tiling = flag;
+	cw_rotation = rotation;
 	tiles_format = _tiles_format;
+}
+
+Area *TilesReceiver::get_area_to_insert_tile_into(int &pos_x, int &pos_y, class Tile_t *tile) {
+	// pos_x, pos_y - coordinates of the point on the area from where to start insertion
+	if(flag_use_tiling && area_image != nullptr) {
+		pos_x = tile->dimensions_post.edges.x1;
+		pos_y = tile->dimensions_post.edges.y1;
+//cerr << "original pos_x,pos_y == " << pos_x << "," << pos_y;
+		if(cw_rotation == 90 || cw_rotation == 270)
+			ddr::swap(pos_x, pos_y);
+//cerr << "; a new pos_x,pos_y == " << pos_x << "," << pos_y << endl;
+		return area_image;
+	}
+	return nullptr;
 }
 
 void TilesReceiver::receive_tile(Tile_t *tile, bool is_thumb) {
 	if(tile->area == nullptr) return;
+	if(flag_use_tiling && tile->area == nullptr)	return;
 	bool keep_tile = false;
 	request_ID_lock.lock();
 	keep_tile |= (tile->request_ID == request_ID);
@@ -178,15 +196,15 @@ void TilesReceiver::receive_tile(Tile_t *tile, bool is_thumb) {
 				delete area_image;
 			area_image = tile->area;
 		} else {
-			// insert tile
 /*
 cerr << "add a tile, tile size == " << tile->area->dimensions()->width() << "x" << tile->area->dimensions()->height() << endl;
 cerr << "         tile edges X == " << tile->area->dimensions()->edges.x1 << " - " << tile->area->dimensions()->edges.x2 << endl;
 cerr << "         tile edges X == " << tile->area->dimensions()->edges.y1 << " - " << tile->area->dimensions()->edges.y2 << endl;
 cerr << "tile type: " << Area::type_to_name(tile->area->type()) << ", type sizeof == " << Area::type_to_sizeof(tile->area->type()) << endl;
 */
-			AreaHelper::insert(area_image, tile->area, tile->dimensions_post.edges.x1, tile->dimensions_post.edges.y1);
-			delete tile->area;
+//			// insert tile
+//			AreaHelper::insert(area_image, tile->area, tile->dimensions_post.edges.x1, tile->dimensions_post.edges.y1);
+//			delete tile->area;
 			tile->area = nullptr;
 		}
 	}
@@ -207,10 +225,8 @@ TilesDescriptor_t *TilesReceiver::get_tiles(Area::t_dimensions *d, int cw_rotati
 	t->receiver = this;
 	int r_scaled_width = scaled_width;
 	int r_scaled_height = scaled_height;
-	if(cw_rotation == 90 || cw_rotation == 270) {
-		r_scaled_width = scaled_height;
-		r_scaled_height = scaled_width;
-	}
+	if(cw_rotation == 90 || cw_rotation == 270)
+		ddr::swap(r_scaled_width, r_scaled_height);
 	t->post_width = d->width();
 	t->post_height = d->height();
 	// calculate resulting size
@@ -258,9 +274,10 @@ TilesDescriptor_t *TilesReceiver::get_tiles(Area::t_dimensions *d, int cw_rotati
 		// 
 //cerr << "split X to: " << cx << " chunks" << endl;
 //cerr << "split Y to: " << cy << " chunks" << endl;
-		cerr << endl; for(int i = 0; i < cx; ++i) cerr << "cx[" << i << "] == " << lx[i] << endl;
-		cerr << endl; for(int i = 0; i < cy; ++i)	cerr << "cy[" << i << "] == " << ly[i] << endl;
+//		cerr << endl; for(int i = 0; i < cx; ++i) cerr << "cx[" << i << "] == " << lx[i] << endl;
+//		cerr << endl; for(int i = 0; i < cy; ++i)	cerr << "cy[" << i << "] == " << ly[i] << endl;
 		// ...and then describe them, with correct edges offsets, position and size.
+		// use all positions here w/o rotation information
 		int tile_index = 0;
 		int width = dimensions_post.width();
 		int height = dimensions_post.height();
@@ -283,9 +300,12 @@ TilesDescriptor_t *TilesReceiver::get_tiles(Area::t_dimensions *d, int cw_rotati
 			}
 			offset_y += tile_height;
 		}
-		// create an area to accumulate processed tiles
-		area_image = new Area(width, height, Area::type_for_format(tiles_format));
-#endif
+		// create an area to accumulate processed tiles, already rotated so convert_mt would insert tiles correctly
+		int w = width;
+		int h = height;
+		if(cw_rotation == 90 || cw_rotation == 270)
+			ddr::swap(w, h);
+		area_image = new Area(w, h, Area::type_for_format(tiles_format));
 	}
 	return t;
 }

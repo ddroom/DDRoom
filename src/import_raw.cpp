@@ -8,7 +8,7 @@
  */
 
 /*
- import from 'RAW' files with DCRaw
+ 'RAW' files import with embedded DCRaw
 
  TODO:
 	- UTF support (i.e. full switch to QString);
@@ -66,24 +66,24 @@ Import_Raw::Import_Raw(string fname) {
 	file_name = fname;
 }
 
-std::mutex Import_Raw::dcraw_lock;
+//std::mutex Import_Raw::dcraw_lock;
 
 void Import_Raw::load_metadata(Metadata *metadata) {
 	metadata->is_raw = true;
-	dcraw_lock.lock();
+//	dcraw_lock.lock();
 	DCRaw *dcraw = new DCRaw();
 	dcraw->_load_metadata(file_name);
 	// like to damage stack in threads... :-/
 	get_metadata(dcraw, metadata);
 	delete dcraw;
-	dcraw_lock.unlock();
+//	dcraw_lock.unlock();
 }
 
 uint8_t *Import_Raw::thumb(Metadata *metadata, long &length) {
 	metadata->is_raw = true;
 	void *thumb = nullptr;
 	length = 0;
-	dcraw_lock.lock();
+//	dcraw_lock.lock();
 	DCRaw *dcraw = new DCRaw();
 	try {
 		get_metadata(dcraw, metadata);
@@ -92,16 +92,15 @@ uint8_t *Import_Raw::thumb(Metadata *metadata, long &length) {
 		length = 0;
 	}
 	delete dcraw;
-
 //cerr << "... " << file_name << " ...done" << endl;
-	dcraw_lock.unlock();
+//	dcraw_lock.unlock();
 	return (uint8_t *)thumb;
 }
 
 //uint16_t *Import_Raw::raw(Metadata *metadata) {
 Area *Import_Raw::image(Metadata *metadata) {
 	metadata->is_raw = true;
-	dcraw_lock.lock();
+//	dcraw_lock.lock();
 	Area *area_out = nullptr;
 	string prof_name = "Import_Raw::image() \"";
 	prof_name += file_name;
@@ -133,7 +132,7 @@ Area *Import_Raw::image(Metadata *metadata) {
 	DCRaw::free_raw(dcraw_raw);
 	delete dcraw;
 	prof.mark("");
-	dcraw_lock.unlock();
+//	dcraw_lock.unlock();
 	return area_out;
 }
 

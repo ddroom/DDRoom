@@ -9,20 +9,19 @@
  *
  */
 
-
 #include "area.h"
 
 //------------------------------------------------------------------------------
 class AreaHelper {
 public:
-	static Area *convert(Area *in, Area::format_t out_format, int rotation);
-	static Area *convert_mt(class SubFlow *subflow, Area *in, Area::format_t out_format, int rotation);
+	static class Area *convert(class Area *in, Area::format_t out_format, int rotation);
+	static class Area *convert_mt(class SubFlow *subflow, class Area *in, Area::format_t out_format, int rotation, class Area *tiled_area = nullptr, int pos_x = 0, int pos_y = 0);
 
-	static Area *crop(Area *in, Area::t_dimensions crop);
-	static Area *rotate(Area *in, int rotation);
+	static class Area *crop(class Area *in, class Area::t_dimensions crop);
+	static class Area *rotate(class Area *in, int rotation);
 	// Insert area 'tile' into 'insert_into' from position (pos_x,pos_y) of the actual data (i.e. w/o edges);
 	// returns 'true' if there was cropping issues. Areas should be 'RGBA float'.
-	static bool insert(Area *insert_into, Area *tile, int pos_x, int pos_y);
+	static bool insert(class Area *insert_into, class Area *tile, int pos_x, int pos_y);
 
 protected:
 	class mt_task_t;
@@ -31,4 +30,4 @@ protected:
 };
 
 //------------------------------------------------------------------------------
-#endif //__H_VIEW_HELPER__
+#endif //__H_AREA_HELPER__

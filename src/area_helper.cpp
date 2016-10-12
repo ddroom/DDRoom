@@ -54,7 +54,6 @@ cerr << "area_out->dimensions()->edges.y2 == " << area_out->dimensions()->edges.
 cerr << "area_out->dimensions()->width()  == " << area_out->dimensions()->width() << endl;
 cerr << "area_out->dimensions()->height() == " << area_out->dimensions()->height() << endl;
 */
-
 	uint8_t *out_8 = (uint8_t *)area_out->ptr();
 	uint16_t *out_16 = (uint16_t *)area_out->ptr();
 
@@ -127,6 +126,8 @@ public:
 	int32_t i_scale;
 	float f_scale;
 	int rotation;
+	int pos_x;
+	int pos_y;
 
 	std::atomic_int *y_flow;
 
@@ -134,7 +135,8 @@ public:
 };
 
 // rotation already is normalized to [0|90|180|270]
-Area *AreaHelper::convert_mt(SubFlow *subflow, Area *area_in, Area::format_t out_format, int rotation) {
+// 'pos_x, pos_y' are offsets for insertion into 'tiled_area' if any
+Area *AreaHelper::convert_mt(SubFlow *subflow, Area *area_in, Area::format_t out_format, int rotation, Area *tiled_area, int pos_x, int pos_y) {
 	AreaHelper::mt_task_t **tasks = nullptr;
 	Area *area_out = nullptr;
 	std::atomic_int *y_flow = nullptr;
@@ -158,7 +160,10 @@ Area *AreaHelper::convert_mt(SubFlow *subflow, Area *area_in, Area::format_t out
 			d_out.size.h = area_in->dimensions()->width();
 		}
 		//--
-		area_out = new Area(&d_out, Area::type_for_format(out_format));
+		if(tiled_area == nullptr)
+			area_out = new Area(&d_out, Area::type_for_format(out_format));
+		else
+			area_out = tiled_area;
 		D_AREA_PTR(area_out)
 /*
 cerr << "convert_mt():" << endl;
@@ -174,6 +179,9 @@ cerr << "area_out->dimensions()->edges.y1 == " << area_out->dimensions()->edges.
 cerr << "area_out->dimensions()->edges.y2 == " << area_out->dimensions()->edges.y2 << endl;
 cerr << "area_out->dimensions()->width()  == " << area_out->dimensions()->width() << endl;
 cerr << "area_out->dimensions()->height() == " << area_out->dimensions()->height() << endl;
+cerr << "area_out->mem_width()  == " << area_out->mem_width() << endl;
+cerr << "area_out->mem_height() == " << area_out->mem_height() << endl;
+cerr << "convert, pos_x == " << pos_x << ", pos_y == " << pos_y << endl;
 */
 		y_flow = new std::atomic_int(0);
 		for(int i = 0; i < cores; ++i) {
@@ -186,6 +194,8 @@ cerr << "area_out->dimensions()->height() == " << area_out->dimensions()->height
 			tasks[i]->rotation = rotation;
 			tasks[i]->out_format = out_format;
 			tasks[i]->y_flow = y_flow;
+			tasks[i]->pos_x = pos_x;
+			tasks[i]->pos_y = pos_y;
 		}
 		subflow->set_private((void **)tasks);
 	}
@@ -221,9 +231,13 @@ void AreaHelper::f_convert_mt(class SubFlow *subflow) {
 	int x_max = task->area_in->dimensions()->width();
 	int y_off = task->area_in->dimensions()->edges.y1;
 	int y_max = task->area_in->dimensions()->height();
+	const int pos_x = task->pos_x;
+	const int pos_y = task->pos_y;
 
 	uint8_t *out_8 = (uint8_t *)task->area_out->ptr();
 	uint16_t *out_16 = (uint16_t *)task->area_out->ptr();
+	const int out_width = task->area_out->mem_width();
+	const int out_height = task->area_out->mem_height();
 
 	// by default, RGBA_8 format
 	int _i_r = 0;
@@ -231,29 +245,23 @@ void AreaHelper::f_convert_mt(class SubFlow *subflow) {
 	int _i_b = 2;
 	int _i_a = 3;
 	if(out_format == Area::format_t::format_bgra_8) {
-		// weird channel order for QT
 		_i_r = 2;
-		_i_g = 1;
 		_i_b = 0;
-		_i_a = 3;
 	}
 	const int i_r = _i_r;
 	const int i_g = _i_g;
 	const int i_b = _i_b;
 	const int i_a = _i_a;
 	bool out_is_16 = false;
-//	bool out_is_3 = false;
 	int _out_step = 4;
 	if(out_format == Area::format_t::format_rgba_16) {
 		out_is_16 = true;
 	}
 	if(out_format == Area::format_t::format_rgb_16) {
 		out_is_16 = true;
-//		out_is_3 = true;
 		_out_step = 3;
 	}
 	if(out_format == Area::format_t::format_rgb_8) {
-//		out_is_3 = true;
 		_out_step = 3;
 	}
 	const int out_step = _out_step;
@@ -267,23 +275,22 @@ void AreaHelper::f_convert_mt(class SubFlow *subflow) {
 	int index_table[4] = {i_r, i_g, i_b, i_a};
 	while((y = task->y_flow->fetch_add(1)) < y_max) {
 		for(int x = 0; x < x_max; ++x) {
-			int l = ((y + y_off) * in_width + (x + x_off)) * 4;
-			int k = (y * x_max + x) * out_step;
-			if(rotation == 90)
-				k = (x * y_max + (y_max - y - 1)) * out_step;
-			if(rotation == 180)
-				k = ((y_max - y - 1) * x_max + (x_max - x - 1)) * out_step;
-			if(rotation == 270)
-				k = ((x_max - x - 1) * y_max + y) * out_step;
-/*
-			if(in[l + 3] < 1.0) {
-				in[l + 0] = 1.0;
-				in[l + 1] = 1.0;
-				in[l + 2] = 1.0;
-				in[l + 3] = 1.0;
-			}
-*/
-//			for(int c = 0; c < 4; ++c) {
+			const int l = ((y + y_off) * in_width + (x + x_off)) * 4;
+			int k = 0;
+			switch(rotation) {
+			case 0:
+				k = ((y + pos_y) * out_width + (x + pos_x)) * out_step;
+				break;
+			case 90:
+				k = ((x + pos_y) * out_width + (out_width - (y + pos_x) - 1)) * out_step;
+				break;
+			case 180:
+				k = ((out_height - (y + pos_y) - 1) * out_width + (out_width - (x + pos_x) - 1)) * out_step;
+				break;
+			case 270:
+				k = ((out_height - (x + pos_y) - 1) * out_width + (y + pos_x)) * out_step;
+				break;
+			};
 			for(int c = 0; c < out_step; ++c) {
 				v = int32_t(in[l + c] * f_scale);
 				if(v > i_scale)	v = i_scale;
@@ -494,7 +501,7 @@ Area *AreaHelper::rotate(Area *area_in, int rotation) {
 bool AreaHelper::insert(Area *whole, Area *tile, int pos_x, int pos_y) {
 //	if(whole->type() != Area::type_t::type_float_p4 || tile->type() != Area::type_t::type_float_p4)
 //		return true;
-cerr << "start insert..." << endl;
+//cerr << "start insert..." << endl;
 	const Area::t_dimensions &d_in = *tile->dimensions();
 	const Area::t_dimensions &d_out = *whole->dimensions();
 	// get and normalize measures
@@ -512,7 +519,7 @@ cerr << "start insert..." << endl;
 		normalized = true;
 	}
 	if(in_w <= 0 || in_h <= 0) return true;
-cerr << "insert tile: " << in_w << "x" << in_h << endl;
+//cerr << "insert tile: " << in_w << "x" << in_h << endl;
 	int bytes_per_pixel = Area::type_to_sizeof(tile->type());
 	// apply copying
 	// do a pointers shift to skip repeated offsets in loops
