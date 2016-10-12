@@ -1,7 +1,7 @@
 /*
  * sgt_locus.cpp
  *
- * This source code is a part of 'DDRoom' project.
+ * This source code is a part of the 'DDRoom' project.
  * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
@@ -10,13 +10,14 @@
 
 #include "sgt_locus.h"
 
-// indexes for CIECAM02 black list:
-static int indexes_CAM02[] = {
+// Blacklisted (for CIECAM02) indexes that should be not used for consistency purpose.
+static int blacklist_CAM02[] = {
 	0, 1, 2, 3, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, \
 	54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 
 };
 
-// spectral (monochromatic) locus, per nm in XYZ
+// Spectral (monochromatic) locus, per nm in XYZ
+// Used as limits for automatically generated SGT.
 static float XYZ_locus[] = {
 // 380       .0
 	0.0014, 0.0000, 0.0065,
@@ -121,8 +122,8 @@ float *get_XYZ_locus(int &size) {
 }
 
 int *get_XYZ_locus_blacklist(int &size) {
-	size = sizeof(indexes_CAM02) / sizeof(int);
-	return indexes_CAM02;
+	size = sizeof(blacklist_CAM02) / sizeof(int);
+	return blacklist_CAM02;
 }
 
 //------------------------------------------------------------------------------

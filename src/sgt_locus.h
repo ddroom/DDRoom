@@ -3,7 +3,7 @@
 /*
  * sgt_locus.h
  *
- * This source code is a part of 'DDRoom' project.
+ * This source code is a part of the 'DDRoom' project.
  * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
