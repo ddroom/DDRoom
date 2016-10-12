@@ -15,8 +15,8 @@
 	- CM related data (like options for CIECAM02 La, yb etc.)
 	- target CS name: get them from cms_matrix module
 	- CS related data
-	- count of J records (300 for [0.0 - 1.0] with step 0.05)
-	- count of h records (1000 for [0.0 - 360.0] with step 0.5)
+	- count of J records (512 for [0.0 - 1.0] with step 0.05)
+	- count of h records (1024 for [0.0 - 360.0] with step 0.5)
 	- data as 'float' table[size_J * size_h] in format: s(J,h) = table[size_h * J + h]
 */
 
@@ -33,21 +33,18 @@
 
 #define GAMUT_SATURATION_TABLE_VERSION	"0.1"
 #define GAMUT_SATURATION_TABLE_FS_EXT ".sgt"
-//#define SGT_FOLDER_PREFIX	"/.ddroom/cache/"
 
-#if 1
+#if 0
 #define GAMUT_RESOLUTION_J	200	// real indexing
 #define GAMUT_RESOLUTION_S	200	// not a real but normalized interpolation indexing
 #define GAMUT_RESOLUTION_H	720	// real indexing
 #else
-#define GAMUT_RESOLUTION_J  300	// real indexing, [0.0 - 1.0]
-#define GAMUT_RESOLUTION_S  300	// not a real but normalized interpolation indexing
-#define GAMUT_RESOLUTION_H 1000	// real indexing, [0.0 - 1.0]
+#define GAMUT_RESOLUTION_J  512	// real indexing, [0.0 - 1.0]
+#define GAMUT_RESOLUTION_S  512	// not a real but normalized interpolation indexing
+#define GAMUT_RESOLUTION_H 1024	// real indexing, [0.0 - 1.0]
 #endif
 
 using namespace std;
-
-//#include "sgt_locus.cpp"
 
 //------------------------------------------------------------------------------
 class Saturation_Gamut::gamut_table_t {
@@ -78,41 +75,6 @@ Saturation_Gamut::gamut_table_t::~gamut_table_t(void) {
 //------------------------------------------------------------------------------
 std::mutex Saturation_Gamut::cache_lock;
 std::map<std::string, class Saturation_Gamut::gamut_table_t *> Saturation_Gamut::map_cache;
-
-#if 0
-void Saturation_Gamut::generate_sgt(void) {
-//	QString sgt_folder = QString::fromLocal8Bit(System::env_home().c_str());
-//	sgt_folder += SGT_FOLDER_PREFIX;
-	QString sgt_folder = Config::get_cache_location();
-	QDir sgt_dir(sgt_folder);
-//	if(sgt_dir.exists() == false)
-//		
-	if(sgt_dir.exists() == false) {
-		cerr << (QObject::tr("Error: Couldn't find directory \"%1\" to store SGT files.").arg(sgt_folder)).toLocal8Bit().constData() << endl;
-		return;
-	}
-/*
-	std::list<CM::cm_type_en> cm_list;
-	cm_list.push_back(CM::cm_type_CIELab);
-*/
-	std::list<CM::cm_type_en> cm_list = CM::get_types_list();
-	CMS_Matrix *cms_matrix = CMS_Matrix::instance();
-	std::list<std::string> cs_list = cms_matrix->get_cs_names();
-	for(std::list<CM::cm_type_en>::iterator cm_it = cm_list.begin(); cm_it != cm_list.end(); ++cm_it) {
-		for(std::list<std::string>::iterator cs_it = cs_list.begin(); cs_it != cs_list.end(); ++cs_it) {
-			cerr << "build SGT for CM == \"" << CM::get_type_name(*cm_it) << "\" and CS == \"" << *cs_it << "\"" << endl;
-			std::string cs_id = cms_matrix->get_cs_name_from_string_name(*cs_it);
-			Saturation_Gamut *sg = new Saturation_Gamut(*cm_it, cs_id);
-QTime time;
-time.start();
-			sg->generate();
-			delete sg;
-cerr << "time passed: " << time.elapsed() << endl;
-			cerr << "done" << endl;
-		}
-	}
-}
-#endif
 
 Saturation_Gamut::Saturation_Gamut(CM::cm_type_en _cm_type, std::string _cs_name) {
 	cm_type = _cm_type;
@@ -632,9 +594,6 @@ float Saturation_Gamut::search_j(float _s, float _h, float _j_start, float _j_st
 void Saturation_Gamut::_sgt_save(void) {
 //return;
 	QString cm_name = CM::get_type_name(cm_type).c_str();
-	// TODO: implement correct file search
-//	QString sgt_folder = QString::fromLocal8Bit(System::env_home().c_str());
-//	sgt_folder += SGT_FOLDER_PREFIX;
 	QString sgt_folder = Config::get_cache_location();
 	// skip save to avoid conflicts with "sgt_viewer"
 	if(sgt_folder == "")
@@ -702,10 +661,6 @@ bool Saturation_Gamut::_sgt_load(CM::cm_type_en _cm_type, std::string _cs_name) 
 	gamut_table = nullptr;// don't delete object from cache
 
 	QString cm_name = CM::get_type_name(_cm_type).c_str();
-//	QString sgt_folder = "./";	// folder _with_ separator
-	// TODO: implement correct file search
-//	string sgt_folder_prefix = System::env_home();
-//	sgt_folder_prefix += SGT_FOLDER_PREFIX;
 	QString sgt_folder = Config::get_cache_location();
 
 	QString ifile_name = sgt_folder + cm_name + "-" + _cs_name.c_str() + GAMUT_SATURATION_TABLE_FS_EXT;
@@ -841,23 +796,4 @@ bool Saturation_Gamut::_sgt_load(CM::cm_type_en _cm_type, std::string _cs_name) 
 	return true;
 }
 
-//------------------------------------------------------------------------------
-#if 0
-class convert_XYZ {
-public:
-	convert_XYZ(void);
-	float mXYZ_rotate[9];
-};
-
-convert_XYZ::convert_XYZ(void) {
-	// rotate along OY to 45 degree
-	float cos_45 = cosf(M_PI * 0.25)
-	float sin_45 = sinf(M_PI * 0.25);
-	float mOY[9] = {
-		 cos_45, 0.0, sin_45,
-		    0.0, 1.0,    0.0,
-		-sin_45, 0.0, cos_45
-	};
-}
-#endif
 //------------------------------------------------------------------------------

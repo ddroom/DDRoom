@@ -16,8 +16,9 @@ static int indexes_CAM02[] = {
 	54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 
 };
 
+// spectral (monochromatic) locus, per nm in XYZ
 static float XYZ_locus[] = {
-// .0
+// 380       .0
 	0.0014, 0.0000, 0.0065,
 // 385 - 405 .1 - 5
 	0.0022, 0.0001, 0.0105,

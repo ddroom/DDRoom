@@ -1,5 +1,6 @@
 #ifndef __H_SGT__
 #define __H_SGT__
+
 /*
  * sgt.h
  *
@@ -8,7 +9,6 @@
  * License: GPL version 3.
  *
  */
-
 
 #include <string>
 #include <map>
@@ -29,9 +29,6 @@ public:
 	void lightness_edge_Js(float &J, float &s, float h);
 	bool is_empty(void);
 
-	// deprecated
-//	static void generate_sgt(void);
-
 protected:
 	class CM_to_CS *cm_to_cs;
 	class CS_to_CM *cs_to_cm;
@@ -46,7 +43,7 @@ protected:
 	float search_s_dark(float s_limit, float _j, float _h, float _s_start, float _s_step);
 	float search_j(float _s, float _h, float _j_start, float _j_step);
 
-//cache for saturation table
+	//cache for saturation table
 	static std::mutex cache_lock;
 	class gamut_table_t;
 	static std::map<std::string, class gamut_table_t *> map_cache;
