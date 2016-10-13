@@ -1045,29 +1045,34 @@ Area *FP_WB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj)
 			if(ps->auto_alignment) {
 				float alignment = 1.0;
 				float max = 0.0;
-				float max_unclipped = 0.0;
+//				float max_unclipped = 0.0;
 				float min = 0.0;
 				bool clipped = false;
+				bool clipped_raw = false;
 				for(int i = 0; i < 3; ++i) {
-					bool is_clipped = (metadata->c_max[i] >= 1.0);
+//					bool is_clipped = (metadata->c_max[i] >= 0.995);
+					clipped_raw |= (metadata->c_max[i] >= 0.995);
 					float v = scale[i] * (metadata->c_max[i] * metadata->c_scale_ref[i]);
 					clipped |= (v > 1.0);
 					max = (v > max) ? v : max;
-					max_unclipped = (v > max_unclipped && !is_clipped) ? v : max_unclipped;
+//					max_unclipped = (v > max_unclipped && !is_clipped) ? v : max_unclipped;
 					min = (v < min || min == 0.0) ? v : min;
 				}
 				if(clipped) {
 					// align by maximum unclipped value, or minimum clipped
-					alignment = 1.0 / min;
+					if(!clipped_raw)
+						// seems like a good compromise
+						alignment = 1.0;
+//						alignment /= max;
+					else
+						alignment /= min;
 				} else {
-					if(max < 1.0) {
-						alignment = 1.0 / max;
-					}
+					if(max < 1.0)
+						alignment /= max;
 				}
 				if(alignment != 1.0)
 					for(int i = 0; i < 3; ++i)
 						scale[i] *= alignment;
-//cerr << "alignment == " << alignment << endl;
 			}
 			//----
 			// auto white upscale if possible (i.e. unclipped signals only)
