@@ -802,7 +802,7 @@ void View::update_image_to_zoom(double pos_x, double pos_y, bool pos_at_viewport
 		int limit_w = vp_w_max;
 		int limit_h = vp_h_max;
 		if(image->rotation == 90 || image->rotation == 270)
-			ddr::swap(limit_w, limit_h);
+			std::swap(limit_w, limit_h);
 		image->dimensions_scaled = Area::t_dimensions();
 		image->dimensions_scaled.position = image->dimensions_unscaled.position;
 		image->dimensions_scaled.size.w = image->dimensions_unscaled.width();
@@ -1417,7 +1417,7 @@ void View::mouseMoveEvent(QMouseEvent *event) {
 	int max_x = image->size_scaled.width();
 	int max_y = image->size_scaled.height();
 	if(image->rotation == 90 || image->rotation == 270)
-		ddr::swap(max_x, max_y);
+		std::swap(max_x, max_y);
 	image->viewport_to_image(im_x, im_y, cursor_pos.x(), cursor_pos.y());
 	if(im_x < 0) im_x = 0;
 	if(im_x >= max_x) im_x = max_x - 1;
@@ -1489,7 +1489,7 @@ void View::wheelEvent(QWheelEvent *event) {
 	int im_w = image->dimensions_unscaled.width();
 	int im_h = image->dimensions_unscaled.height();
 	if(image->rotation == 90 || image->rotation == 270)
-		ddr::swap(im_w, im_h);
+		std::swap(im_w, im_h);
 	int s_w = image->size_scaled.width();
 	int s_h = image->size_scaled.height();
 	image->lock.unlock();
@@ -1725,7 +1725,7 @@ cerr << "  px_size_y == " << d->position.px_size_y << endl;
 	int w = d->width();
 	int h = d->height();
 	if(rotation == 90 || rotation == 270)
-		ddr::swap(w, h);
+		std::swap(w, h);
 	image->size_unscaled = QSize(w, h);
 //cerr << "register_forward_dimensions --- " << endl;
 	update_image_to_zoom();

@@ -71,12 +71,8 @@ protected:
 	class PS_Crop *_ps;
 	static class FP_Crop *fp;
 
-	double crop_aspect(std::string s = std::string(""));
-	void crop_aspect_revert(bool crop_was_revert = true);
-
 	int crop_move;
 	bool aspect_normalize(void);
-	bool update_aspect(bool crop_was_revert = true);
 
 	QPoint mouse_last_pos;			// transpoised and clipped inside image
 	QPoint mouse_last_pos_trans;	// transposed but not clipped

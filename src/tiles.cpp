@@ -157,7 +157,7 @@ Area *TilesReceiver::get_area_to_insert_tile_into(int &pos_x, int &pos_y, class 
 		pos_y = tile->dimensions_post.edges.y1;
 //cerr << "original pos_x,pos_y == " << pos_x << "," << pos_y;
 		if(cw_rotation == 90 || cw_rotation == 270)
-			ddr::swap(pos_x, pos_y);
+			std::swap(pos_x, pos_y);
 //cerr << "; a new pos_x,pos_y == " << pos_x << "," << pos_y << endl;
 		return area_image;
 	}
@@ -226,7 +226,7 @@ TilesDescriptor_t *TilesReceiver::get_tiles(Area::t_dimensions *d, int cw_rotati
 	int r_scaled_width = scaled_width;
 	int r_scaled_height = scaled_height;
 	if(cw_rotation == 90 || cw_rotation == 270)
-		ddr::swap(r_scaled_width, r_scaled_height);
+		std::swap(r_scaled_width, r_scaled_height);
 	t->post_width = d->width();
 	t->post_height = d->height();
 	// calculate resulting size
@@ -304,7 +304,7 @@ TilesDescriptor_t *TilesReceiver::get_tiles(Area::t_dimensions *d, int cw_rotati
 		int w = width;
 		int h = height;
 		if(cw_rotation == 90 || cw_rotation == 270)
-			ddr::swap(w, h);
+			std::swap(w, h);
 		area_image = new Area(w, h, Area::type_for_format(tiles_format));
 	}
 	return t;

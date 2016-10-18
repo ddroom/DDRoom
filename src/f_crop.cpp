@@ -19,6 +19,7 @@ NOTE:
 #include <iostream>
 #include <sstream>
 #include <math.h>
+#include <utility>
 
 #include "f_crop.h"
 #include "filter_gp.h"
@@ -51,6 +52,127 @@ NOTE:
 using namespace std;
 
 //------------------------------------------------------------------------------
+class AspectRatio {
+public:
+	AspectRatio(std::string s = "", bool swapped = false);
+	void set(std::string s, bool swapped);
+	void set(double v, bool swapped);
+	std::string get(bool swapped);
+	double get_double(bool swapped);
+	void get(double &value, bool swapped);
+	void get(int &val1, int &val2, bool swapped);
+	void swap(void);
+
+protected:
+	bool allow_number;
+	std::string part_1;
+	std::string delimiter;
+	std::string part_2;
+};
+
+AspectRatio::AspectRatio(std::string s, bool swapped) {
+	if(!s.empty())
+		set(s, swapped);
+}
+
+static size_t __find_real_number(const char *c) {
+	bool f_period = false;
+	size_t i = 0;
+	for(; c[i]; ++i) {
+		if(!f_period && (c[i] == ',' || c[i] == '.')) {
+			f_period = true;
+			continue;
+		}
+		if(!std::isdigit(c[i]))
+			return i;
+	}
+	return i;
+}
+
+void AspectRatio::set(std::string s, bool swapped) {
+	if(s == "0x0" || s == "0-0")
+		s = "";
+	const char *c = s.c_str();
+	size_t i = 0;
+	// trim
+	for(; c[i] && c[i] == ' '; ++i);
+	// part_1
+	const char *p1_c = &c[i];
+	size_t p1_len = __find_real_number(&c[i]);
+	i += p1_len;
+	// delimiter
+	const char *d_c = &c[i];
+	size_t i_prev = i;
+	for(; c[i] && (!std::isdigit(c[i]) && c[i] != '.' && c[i] != ','); ++i);
+	size_t d_len = i - i_prev;
+	// part_2
+	const char *p2_c = &c[i];
+	size_t p2_len = __find_real_number(&c[i]);
+	// fill result
+	part_1.clear();
+	delimiter.clear();
+	part_2.clear();
+	part_1.append(p1_c, p1_len);
+	delimiter.append(d_c, d_len);
+	part_2.append(p2_c, p2_len);
+	if(swapped) {
+		if(part_2.empty() || part_2 == "0")
+			part_1 = QString().setNum(1.0 / QString(part_1.c_str()).toDouble()).toStdString();
+		else
+			std::swap(part_1, part_2);
+	}
+}
+
+void AspectRatio::set(double v, bool swapped) {
+	if(v != 0.0)
+		if(swapped)	v = 1.0 / v;
+	part_1 = QString().setNum(v).toStdString();
+	delimiter = "";
+	part_2 = "";
+}
+
+std::string AspectRatio::get(bool swapped) {
+	if(swapped) {
+		if(part_2.empty() && !part_1.empty()) {
+			double v;
+			get(v, swapped);
+			return QString().setNum(v).toStdString();
+		}
+		return (part_2 + delimiter + part_1);
+	}
+	return (part_1 + delimiter + part_2);
+}
+
+void AspectRatio::get(double &value, bool swapped) {
+	const double v1 = QString(part_1.c_str()).toDouble();
+	const double v2 = part_2.empty() ? 1.0 : QString(part_2.c_str()).toDouble();
+	if(v2 != 0.0 && v1 != 0.0)
+		value = swapped ? (v2 / v1) : (v1 / v2);
+	else
+		value = 1.0;
+}
+
+double AspectRatio::get_double(bool swapped) {
+	double v;
+	get(v, swapped);
+	return v;
+}
+
+void AspectRatio::get(int &val1, int &val2, bool swapped) {
+	val1 = QString(part_1.c_str()).toInt();
+	val2 = QString(part_2.c_str()).toInt();
+	if(swapped)
+		std::swap(val1, val2);
+}
+
+void AspectRatio::swap(void) {
+	if(!part_2.empty())
+		std::swap(part_1, part_2);
+	else
+		part_1 = QString().setNum(1.0 / QString(part_1.c_str()).toDouble()).toStdString();
+}
+
+//------------------------------------------------------------------------------
 class PS_Crop : public PS_Base {
 
 public:
@@ -78,14 +200,16 @@ public:
 	struct t_rect crop;
 
 	bool fixed_aspect;
-	string crop_aspect_str;
+	// keep and store it all the time as for unrotated state
+	AspectRatio crop_aspect;
 
 	// scale
 	bool enabled_scale;
-	string scale_str;
+	AspectRatio scale_size;
 	bool scale_to_fit;
 
-	int cw_rotation; // used to remap values 'crop_aspect_str' and 'scale_str' in UI, if any
+	int cw_rotation; // used to remap values 'crop_aspect' and 'scale_str' in UI, if any
+	bool cw_swapped;
 	// for edit purpose only
 	double im_x1;	// saved size of unscaled image before crop filter
 	double im_x2;
@@ -93,22 +217,16 @@ public:
 	double im_y2;
 	double photo_aspect;	// original aspect of photo
 
-	//
-	static std::string scale_string_normalize(std::string str);
-	static void scale_string_to_size(int &width, int &height, std::string str);
-	static int _split_scale_string(char &separator, std::string str);
-
 };
-
-/* TODO:
-- add FilterEdit::set_cw_rotation;
-- add PS_Crop::map_to_UI_scale_str, PS_Crop::map_from_UI_scale_str;
-- add PS_Crop::map_to_UI_crop_aspect_str, PS_Crop::map_from_UI_scale_str;
-*/
 
 void F_Crop::set_cw_rotation(int cw_rotation) {
 	ps->cw_rotation = cw_rotation;
-//	std::string 
+	ps->cw_swapped = (cw_rotation == 90 || cw_rotation == 270);
+//	cerr << "F_Crop::set_cw_rotation(" << cw_rotation << ")" << endl;
+	// update UI
+	D_GUI_THREAD_CHECK
+	le_aspect->setText(ps->crop_aspect.get(ps->cw_swapped).c_str());
+	le_scale->setText(ps->scale_size.get(ps->cw_swapped).c_str());
 }
 
 //------------------------------------------------------------------------------
@@ -164,17 +282,19 @@ void PS_Crop::reset(void) {
 	im_y2 = 0.0;
 
 	fixed_aspect = false;
-	crop_aspect_str = "0-0";
+	crop_aspect.set("", false);
 	photo_aspect = 1.0;
 
 	enabled_scale = false;
-	scale_str = "0x0";
+	scale_size.set("", false);
 	scale_to_fit = true;
 
 	cw_rotation = 0;
+	cw_swapped = false;
 }
 
 bool PS_Crop::load(DataSet *dataset) {
+	std::string s;
 	reset();
 	dataset->get("defined", defined);
 	dataset->get("enabled", enabled_crop);
@@ -183,16 +303,18 @@ bool PS_Crop::load(DataSet *dataset) {
 	dataset->get("crop_y1", crop.y1);
 	dataset->get("crop_y2", crop.y2);
 	dataset->get("fixed_aspect", fixed_aspect);
-	dataset->get("crop_aspect", crop_aspect_str);
+	dataset->get("crop_aspect", s);
+	crop_aspect.set(s, false);
 	dataset->get("enabled_scale", enabled_scale);
-	dataset->get("scale_str", scale_str);
+	dataset->get("scale_str", s);
+	scale_size.set(s, false);
 	dataset->get("scale_to_fit", scale_to_fit);
 	// verify
 	if(defined) {
 		if(crop.x1 > crop.x2)
-			ddr::swap(crop.x2, crop.x1);
+			std::swap(crop.x2, crop.x1);
 		if(crop.y1 > crop.y2)
-			ddr::swap(crop.y2, crop.y1);
+			std::swap(crop.y2, crop.y1);
 		const double min_size = _MIN_SIZE_PX;
 		if(crop.x2 - crop.x1 < min_size) {
 			double cx = (crop.x2 + crop.x1) / 2.0;
@@ -225,10 +347,10 @@ cerr << "crop_y2 == " << crop.y2 << endl;
 		dataset->set("crop_y1", crop.y1);
 		dataset->set("crop_y2", crop.y2);
 		dataset->set("fixed_aspect", fixed_aspect);
-		dataset->set("crop_aspect", crop_aspect_str);
+		dataset->set("crop_aspect", crop_aspect.get(false));
 	}
 	dataset->set("enabled_scale", enabled_scale);
-	dataset->set("scale_str", scale_str);
+	dataset->set("scale_str", scale_size.get(false));
 	dataset->set("scale_to_fit", scale_to_fit);
 	return true;
 }
@@ -291,6 +413,12 @@ void F_Crop::saveFS(FS_Base *fs_base) {
 }
 
 void F_Crop::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t args) {
+/*
+cerr << "F_Crop::set_PS_and_FS()";
+cerr << ", new_ps == 0x" << std::hex << std::setw(8) << std::setfill('0') << (unsigned long)new_ps;
+cerr << ", new_fs == 0x" << std::hex << std::setw(8) << std::setfill('0') << (unsigned long)fs_base;
+cerr << ", cw_rotation == " << std::dec << args.cw_rotation << endl;
+*/
 	D_GUI_THREAD_CHECK
 	// PS
 	if(new_ps != nullptr) {
@@ -311,23 +439,17 @@ void F_Crop::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t a
 		s_width = fs->s_width;
 		s_height = fs->s_height;
 	}
+	ps->cw_rotation = args.cw_rotation;
+	ps->cw_swapped = (ps->cw_rotation == 90 || ps->cw_rotation == 270);
 	// apply settings to UI
 	if(widget != nullptr) {
 		reconnect(false);
 		checkbox_crop->setCheckState(ps->enabled_crop ? Qt::Checked : Qt::Unchecked);
 		checkbox_aspect->setCheckState(ps->fixed_aspect ? Qt::Checked : Qt::Unchecked);
-		if(ps->crop_aspect_str != "0-0")
-			le_aspect->setText(ps->crop_aspect_str.c_str());
-		else
-			le_aspect->setText("");
+		le_aspect->setText(ps->crop_aspect.get(ps->cw_swapped).c_str());
 		//
 		checkbox_scale->setCheckState(ps->enabled_scale ? Qt::Checked : Qt::Unchecked);
-		if(ps->scale_str != "0x0")
-//			emit signal_set_text_le_scale(ps->scale_str.c_str());
-			le_scale->setText(ps->scale_str.c_str());
-		else
-//			emit signal_set_text_le_scale("");
-			le_scale->setText("");
+		le_scale->setText(ps->scale_size.get(ps->cw_swapped).c_str());
 		reconnect_scale_radio(false);
 		int pressed_index = ps->scale_to_fit ? 0 : 1;
 		scale_radio->button(pressed_index)->setChecked(true);
@@ -395,7 +517,7 @@ QWidget *F_Crop::controls(QWidget *parent) {
 
 	le_aspect = new QLineEdit("");
 //	connect(le_aspect, SIGNAL(textChanged(const QString &)), this, SLOT(slot_le_aspect_changed(const QString &)));
-	le_aspect->setValidator(new QRegExpValidator(QRegExp("[0-9]{1,5}[.|,|x|X|/|\\-| ]{,1}[0-9]{,5}"), le_aspect));
+	le_aspect->setValidator(new QRegExpValidator(QRegExp("[0-9]{1,1}[0-9|.|,]{,1}[0-9]{,5}[x|X|/|\\-| |*]{,1}[0-9]{,5}"), le_aspect));
 	gl->addWidget(le_aspect, row++, 1);
 //	crop_l2->addWidget(le_aspect);
 
@@ -413,7 +535,7 @@ QWidget *F_Crop::controls(QWidget *parent) {
 
 	le_scale = new QLineEdit("");
 //	connect(le_scale, SIGNAL(textChanged(const QString &)), this, SLOT(slot_le_scale_changed(const QString &)));
-	le_scale->setValidator(new QRegExpValidator(QRegExp("|[0-9]{1,5}[x|X|/|\\-| ]{1,1}[0-9]{1,5}"), le_scale));
+	le_scale->setValidator(new QRegExpValidator(QRegExp("|[0-9]{1,5}[x|X|/|\\-| |*]{1,1}[0-9]{1,5}"), le_scale));
 //	le_scale->setValidator(new QRegExpValidator(QRegExp("[0-9]{1,5}[x|X|/|\\-| ]{1,1}[0-9]{1,5}"), le_scale));
 //	le_scale->setValidator(new QRegExpValidator(QRegExp("[0-9]{1,5}[.|,|x|X|/|\\-| ]{,1}[0-9]{,5}"), le_scale));
 	gl->addWidget(le_scale, row++, 1);
@@ -473,16 +595,7 @@ QWidget *F_Crop::controls(QWidget *parent) {
 	widget = crop_q;
 	return widget;
 }
-/*
-void F_Crop::slot_le_aspect_changed(const QString &text) {
-cerr << "slot_le_aspect_changed, length == " << text.length() << endl;
-cerr << "    text == \"" << text.toLocal8Bit().data() << "\"" << endl;
-}
 
-void F_Crop::slot_le_scale_changed(const QString &text) {
-cerr << "slot_le_scale_changed, length == " << text.length() << endl;
-}
-*/
 void F_Crop::reconnect(bool to_connect) {
 	D_GUI_THREAD_CHECK
 	if(to_connect) {
@@ -538,7 +651,6 @@ Filter::flags_t F_Crop::flags(void) {
 bool F_Crop::get_ps_field_desc(std::string field_name, class ps_field_desc_t *desc) {
 	desc->is_hidden = false;
 	desc->field_name = field_name;
-	// TODO: !!! ???
 //	desc->name = field_name;
 /*
 	if(field_name == "enabled")
@@ -558,9 +670,7 @@ bool FP_Crop::is_enabled(const PS_Base *ps_base) {
 	PS_Crop *ps = (PS_Crop *)ps_base;
 	if(ps->crop.x1 == 0.0 && ps->crop.x2 == 0.0 && ps->crop.y1 == 0.0 && ps->crop.y2 == 0.0)	// enable call of size_forward() to init edit mode
 		return true;
-//	bool is_enabled = ps->enabled;
-//	return is_enabled;
-	return (ps->enabled_crop || (ps->enabled_scale && ps->scale_str != "0x0"));
+	return (ps->enabled_crop || (ps->enabled_scale && !ps->scale_size.get(false).empty()));
 }
 
 void FP_Crop::size_forward(FP_size_t *fp_size, const Area::t_dimensions *d_before, Area::t_dimensions *d_after) {
@@ -588,7 +698,6 @@ void FP_Crop::size_forward(FP_size_t *fp_size, const Area::t_dimensions *d_befor
 			_ps->im_y2 = im_y2;
 			_ps->photo_aspect = d_before->position._x_max / d_before->position._y_max;
 			((F_Crop *)fp_size->filter)->init_le_aspect_from_photo_aspect();
-			// TODO: update le_aspect && le_crop_to_size according to the photo rotation
 			// fp_size->cw_rotation
 			if(_ps->crop.x1 == 0.0 && _ps->crop.x2 == 0.0 && _ps->crop.y1 == 0.0 && _ps->crop.y2 == 0.0) {
 				// set default crop with each edge at 10%
@@ -600,10 +709,8 @@ void FP_Crop::size_forward(FP_size_t *fp_size, const Area::t_dimensions *d_befor
 				_ps->crop.y2 = im_y2 - h * 0.1;
 			}
 			// set defaults if there was forced edit switch from 'F_Crop' to, say, 'F_Shift'
-			if(ps != _ps) {
+			if(ps != _ps)
 				ps->crop = _ps->crop;
-//				ps->photo_aspect = _ps->photo_aspect;
-			}
 		}
 		if(edit_mode == false) {
 			const float px_size_x = d_after->position.px_size_x;
@@ -614,7 +721,7 @@ void FP_Crop::size_forward(FP_size_t *fp_size, const Area::t_dimensions *d_befor
 			image.x2 = image.x1 + px_size_x * (d_after->size.w + 1.0);
 			image.y2 = image.y1 + px_size_y * (d_after->size.h + 1.0);
 			PS_Crop::t_rect crop = ps->apply_to_image(image);
-			// correct
+
 			d_after->position.x = crop.x1 + px_size_x * 0.5;
 			d_after->position.y = crop.y1 + px_size_y * 0.5;
 			d_after->size.w = (crop.x2 - crop.x1) / px_size_x;
@@ -622,11 +729,11 @@ void FP_Crop::size_forward(FP_size_t *fp_size, const Area::t_dimensions *d_befor
 //d_after->dump();
 		}
 	}
-	bool enabled_scale = (ps->enabled_scale && ps->scale_str != "0x0");
+	bool enabled_scale = (ps->enabled_scale && !ps->scale_size.get(false).empty());
 	if(enabled_scale && !edit_mode) {
 		int width = 0;
 		int height = 0;
-		PS_Crop::scale_string_to_size(width, height, ps->scale_str);
+		ps->scale_size.get(width, height, false);
 		if(ps->scale_to_fit)
 			Area::scale_dimensions_to_size_fit(d_after, width, height);
 		else
@@ -647,56 +754,6 @@ Area *FP_Crop::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_ob
 }
 
 //------------------------------------------------------------------------------
-int PS_Crop::_split_scale_string(char &separator, std::string str) {
-	char ch[5] = {'x', 'X', '/', '-', ' '};
-	const char *p = str.c_str();
-	int index;
-	int s;
-	for(index = 0; index < 5; ++index) {
-		for(s = 0; p[s] && p[s] != ch[index]; ++s);
-		if(p[s])
-			break;
-	}
-	if(!p[s]) {
-		separator = '\0';
-		return s;
-	}
-	separator = ch[index];
-	return s;
-}
-
-void PS_Crop::scale_string_to_size(int &width, int &height, std::string str) {
-	width = 0;
-	height = 0;
-	char separator = '\0';
-	int pos = _split_scale_string(separator, str);
-	if(separator == '\0')
-		return;
-	const char *p = str.c_str();
-	char *buffer = new char[str.size()];
-	for(int i = 0; (buffer[i] = p[i]); ++i);
-	buffer[pos++] = ' ';
-	std::istringstream iss(buffer);
-	iss >> width;
-	iss >> height;
-	width = (width < 32) ? 32 : width;
-	height = (height < 32) ? 32 : height;
-	delete[] buffer;
-}
-
-std::string PS_Crop::scale_string_normalize(std::string str) {
-	char separator = '\0';
-	_split_scale_string(separator, str);
-	if(separator == '\0')
-		return "0x0";
-	int width = 0;
-	int height = 0;
-	scale_string_to_size(width, height, str);
-	std::ostringstream oss;
-	oss << width << separator << height;
-	return oss.str();
-}
-
 void F_Crop::slot_checkbox_scale(int state) {
 	D_GUI_THREAD_CHECK
 	bool value = (state == Qt::Checked) ? true : false;
@@ -709,14 +766,18 @@ void F_Crop::slot_checkbox_scale(int state) {
 void F_Crop::slot_le_scale(void) {
 	D_GUI_THREAD_CHECK
 	string value = le_scale->text().toStdString();
-	if(value == ps->scale_str)
+	if(value == ps->scale_size.get(ps->cw_swapped))
 		return;
-	string scale_str = PS_Crop::scale_string_normalize(value);
+	auto value_normalized = ps->scale_size;
+	value_normalized.set(value, ps->cw_swapped);
+	string scale_normalized = value_normalized.get(ps->cw_swapped);
 	bool update_enabled = false;
 	bool update_enabled_value = true;
-	if(ps->scale_str == "0x0" && scale_str != "0x0")
+	const bool e_prev = ps->scale_size.get(false).empty();
+	const bool e_new = value_normalized.get(false).empty();
+	if(e_prev && !e_new)
 		update_enabled = true;
-	if(ps->scale_str != "0x0" && scale_str == "0x0") {
+	if(!e_prev && e_new) {
 		update_enabled = true;
 		update_enabled_value = false;
 	}
@@ -726,15 +787,12 @@ void F_Crop::slot_le_scale(void) {
 		checkbox_scale->setCheckState(ps->enabled_scale ? Qt::Checked : Qt::Unchecked);
 		reconnect(true);
 	}
-	if(scale_str != value) {
+	if(scale_normalized != value) {
 		reconnect(false);
-		if(scale_str == "0x0")
-			le_scale->setText("");
-		else
-			le_scale->setText(QString::fromStdString(scale_str));
+		le_scale->setText(QString::fromStdString(scale_normalized));
 		reconnect(true);
 	}
-	ps->scale_str = scale_str;
+	ps->scale_size = value_normalized;
 	if(ps->enabled_scale || update_enabled)
 		emit_signal_update();
 }
@@ -766,41 +824,11 @@ void F_Crop::slot_checkbox_crop(int state) {
 		emit_signal_update();
 }
 
-double F_Crop::crop_aspect(string s) {
-	bool ok = false;
-	double aspect = -1.0;
-	if(s == "")
-		s = ps->crop_aspect_str;
-	QString text = s.c_str();
-	// parse text
-	char delimiter = ' ';
-	if(text.contains("-"))	delimiter = '-';
-	if(text.contains("/"))	delimiter = '/';
-	if(text.contains("x"))	delimiter = 'x';
-	if(text.contains("X"))	delimiter = 'X';
-	if(delimiter != ' ') {
-		QStringList list = text.split(delimiter);
-		if(list.count() == 2) {
-			bool ok2;
-			double v1 = list[0].toDouble(&ok);
-			double v2 = list[1].toDouble(&ok2);
-			if(ok && ok2)
-				aspect = double(v1) / v2;
-		}
-	} else {
-		double v1 = text.toDouble(&ok);
-		if(ok)
-			aspect = v1;
-	}
-	return aspect;
-}
-
 void F_Crop::init_le_aspect_from_photo_aspect(void) {
-	if(le_aspect->text() == "" && !(ps->photo_aspect == 0.0)) {
-		QString aspect_string;
-		aspect_string.setNum(ps->photo_aspect);
-		ps->crop_aspect_str = aspect_string.toStdString();
-		emit signal_set_text_le_aspect(aspect_string);
+	if(le_aspect->text() == "" && ps->photo_aspect != 0.0) {
+//cerr << "init_le_aspect_from_photo_aspect()" << endl;
+		ps->crop_aspect.set(ps->photo_aspect, false);
+		emit signal_set_text_le_aspect(QString(ps->crop_aspect.get(ps->cw_swapped).c_str()));
 	}
 }
 
@@ -833,11 +861,12 @@ void F_Crop::slot_le_aspect(void) {
 	string aspect_str = le_aspect->text().toStdString();
 	if(aspect_str == "")
 		return;
-	if(aspect_str == ps->crop_aspect_str)
+	if(aspect_str == ps->crop_aspect.get(ps->cw_swapped))
 		return;
-	double aspect = crop_aspect(aspect_str);
+	auto crop_aspect_prev = ps->crop_aspect;
+	ps->crop_aspect.set(aspect_str, ps->cw_swapped);
+	double aspect = ps->crop_aspect.get_double(ps->cw_swapped);
 	if(aspect <= _ASPECT_MAX && aspect >= _ASPECT_MIN) {
-		ps->crop_aspect_str = aspect_str;
 		aspect_normalize();
 		if(!ps->fixed_aspect) {
 			ps->fixed_aspect = true;
@@ -852,18 +881,16 @@ void F_Crop::slot_le_aspect(void) {
 			else
 				emit_signal_update();
 		}
+	} else {
+		ps->crop_aspect = crop_aspect_prev;
 	}
 }
 
 void F_Crop::slot_btn_original(bool checked) {
 	D_GUI_THREAD_CHECK
-	if(crop_aspect() != ps->photo_aspect) {
-		QString s;
-		s.setNum(ps->photo_aspect);
-		ps->crop_aspect_str = s.toStdString();
-//		QString s;
-//		le_aspect->setText(s.setNum(crop_aspect));
-		le_aspect->setText(ps->crop_aspect_str.c_str());
+	if(ps->crop_aspect.get_double(false) != ps->photo_aspect) {
+		ps->crop_aspect.set(ps->photo_aspect, false);
+		le_aspect->setText(ps->crop_aspect.get(ps->cw_swapped).c_str());
 		aspect_normalize();
 		if(ps->enabled_crop) {
 			if(edit_mode_enabled)
@@ -874,51 +901,10 @@ void F_Crop::slot_btn_original(bool checked) {
 	}
 }
 
-bool F_Crop::update_aspect(bool crop_was_revert) {
-	if(!ps->fixed_aspect) {
-		double aspect = (ps->crop.x2 - ps->crop.x1) / (ps->crop.y2 - ps->crop.y1);
-		if(!crop_was_revert)
-			aspect = 1.0 / aspect;
-		QString text;
-		text.setNum(aspect);
-		ps->crop_aspect_str = text.toStdString();
-		return true;
-	}
-	return false;
-}
-
-void F_Crop::crop_aspect_revert(bool crop_was_revert) {
-	if(!update_aspect(crop_was_revert)) {
-		QString text = ps->crop_aspect_str.c_str();
-		// parse text
-		char delimiter = ' ';
-		if(text.contains("-"))	delimiter = '-';
-		if(text.contains("/"))	delimiter = '/';
-		if(text.contains("x"))	delimiter = 'x';
-		if(text.contains("X"))	delimiter = 'X';
-		if(delimiter != ' ') {
-			QStringList list = text.split(delimiter);
-			if(list.count() == 2) {
-				text = list[1];
-				text += delimiter;
-				text += list[0];
-			}
-		} else {
-			bool ok;
-			double aspect = text.toFloat(&ok);
-			if(ok) {
-				aspect = 1.0 / aspect;
-				text.setNum(aspect);
-			}
-		}
-		ps->crop_aspect_str = text.toStdString();
-	}
-}
-
 void F_Crop::slot_btn_revert(bool checked) {
 	D_GUI_THREAD_CHECK
-	crop_aspect_revert(false);
-	le_aspect->setText(ps->crop_aspect_str.c_str());
+	ps->crop_aspect.swap();
+	le_aspect->setText(ps->crop_aspect.get(ps->cw_swapped).c_str());
 	aspect_normalize();
 	if(ps->enabled_crop) {
 		if(edit_mode_enabled)
@@ -930,19 +916,14 @@ void F_Crop::slot_btn_revert(bool checked) {
 
 // check photo and crop aspect !!!
 bool F_Crop::aspect_normalize(void) {
-//	if(!ps->fixed_aspect)
-//		return false;
-	if(ps->crop_aspect_str == "0-0" || ps->crop_aspect_str == "") {
-		QString s;
-		s.setNum(ps->photo_aspect);
-		ps->crop_aspect_str = s.toStdString();
-	}
+	if(ps->crop_aspect.get(ps->cw_swapped).empty())
+		ps->crop_aspect.set(ps->photo_aspect, ps->cw_swapped);
 	double w2 = (ps->crop.x2 - ps->crop.x1) / 2.0;
 	double h2 = (ps->crop.y2 - ps->crop.y1) / 2.0;
 	double cx = ps->crop.x1 + w2;
 	double cy = ps->crop.y1 + h2;
 	double scale = sqrt(w2 * w2 + h2 * h2);
-	double aspect = crop_aspect(); // crop_aspect == w / h
+	double aspect = ps->crop_aspect.get_double(false);
 	double angle = atan(1.0 / aspect);
 	w2 = scale * cos(angle);
 	h2 = scale * sin(angle);
@@ -955,7 +936,7 @@ bool F_Crop::aspect_normalize(void) {
 
 void F_Crop::edit_mode_exit(void) {
 	D_GUI_THREAD_CHECK
-cerr << "F_Crop::edit_mode_exit()" << endl;
+//cerr << "F_Crop::edit_mode_exit()" << endl;
 	edit_mode_enabled = false;
 	q_action_edit->setChecked(false);
 }
@@ -1086,8 +1067,8 @@ QRect F_Crop::view_crop_rect(const QRect &image, image_and_viewport_t transform)
 	int x1, x2, y1, y2;
 	transform.image_to_viewport(x1, y1, im_x1, im_y1, true);
 	transform.image_to_viewport(x2, y2, im_x2, im_y2, true);
-	if(x1 > x2) ddr::swap(x1, x2);
-	if(y1 > y2) ddr::swap(y1, y2);
+	if(x1 > x2) std::swap(x1, x2);
+	if(y1 > y2) std::swap(y1, y2);
 	QRect rez(x1, y1, x2 - x1, y2 - y1);
 	return rez;
 #if 0
@@ -1098,8 +1079,8 @@ QRect F_Crop::view_crop_rect(const QRect &image, image_and_viewport_t transform)
 	int x1, x2, y1, y2;
 	transform.image_to_viewport(x1, y1, im_x1, im_y1, false);
 	transform.image_to_viewport(x2, y2, im_x2, im_y2, false);
-	if(x1 > x2) ddr::swap(x1, x2);
-	if(y1 > y2) ddr::swap(y1, y2);
+	if(x1 > x2) std::swap(x1, x2);
+	if(y1 > y2) std::swap(y1, y2);
 	QRect rez(x1, y1, x2 - x1, y2 - y1);
 	return rez;
 #endif
@@ -1130,6 +1111,8 @@ void F_Crop::draw(QPainter *painter, FilterEdit_event_t *et) {
 //cerr << "draw, crop == " << crop_x << " - " << crop_y << endl;
 	long crop_w = crop_rect.width();
 	long crop_h = crop_rect.height();
+
+	int cw_rotation = et->transform.get_cw_rotation();
 
 	QBrush crop_brush(QColor(0, 0, 0, 127 + 32));
 	// top
@@ -1246,22 +1229,10 @@ void F_Crop::draw(QPainter *painter, FilterEdit_event_t *et) {
 		painter->drawRoundedRect(bg_rect, 5.0, 5.0);
 		painter->setPen(text_color);
 
-/*
-		double mx1 = ps->crop.x1;
-		double mx2 = double(1.0) - ps->crop.x2;
-		double my1 = ps->crop.y1;
-		double my2 = double(1.0) - ps->crop.y2;
-		int n_width = s_width;
-		int n_height = s_height;
-		double off_x1 = mx1 * n_width;
-		double off_x2 = mx2 * n_width;
-		double off_y1 = my1 * n_height;
-		double off_y2 = my2 * n_height;
-		n_width = double(n_width) - off_x1 - off_x2;
-		n_height = double(n_height) - off_y1 - off_y2;
-*/
 		int n_width = ps->crop.x2 - ps->crop.x1;
 		int n_height = ps->crop.y2 - ps->crop.y1;
+		if(cw_rotation == 90 || cw_rotation == 270)
+			std::swap(n_width, n_height);
 
 		str.sprintf(": %dx%d", n_width, n_height);
 		str = tr_size + str;
@@ -1272,6 +1243,20 @@ void F_Crop::draw(QPainter *painter, FilterEdit_event_t *et) {
 
 		double off_x = (ps->crop.x1 + ps->crop.x2) / 2.0;
 		double off_y = (ps->crop.y1 + ps->crop.y2) / 2.0;
+		if(cw_rotation == 0) {
+			off_y = -off_y;
+		}
+		if(cw_rotation == 90) {
+			std::swap(off_x, off_y);
+			off_x = -off_x;
+			off_y = -off_y;
+		}
+		if(cw_rotation == 180) {
+			off_x = -off_x;
+		}
+		if(cw_rotation == 270) {
+			std::swap(off_x, off_y);
+		}
 		str.sprintf(": %dx%d", int(off_x), int(off_y));
 		str = tr_offset + str;
 		painter->setPen(QColor(0x00, 0x00, 0x00));
@@ -1308,7 +1293,7 @@ void F_Crop::edit_mouse_scratch(FilterEdit_event_t *mt, bool press, bool release
 	int rotation = mt->transform.get_cw_rotation();
 	rotated_crop_t rc(ps, mt->transform.get_cw_rotation());
 //	if(rotation == 90 || rotation == 270)
-//		ddr::swap(image_w, image_h);
+//		std::swap(image_w, image_h);
 /*
 	const QRect &image = mt->image;
 	int image_w = image.width();
@@ -1351,9 +1336,9 @@ void F_Crop::edit_mouse_scratch(FilterEdit_event_t *mt, bool press, bool release
 		// p1 +---+    - fixed
 		double p2w = ddr::abs(rc.crop_x1 - rc.crop_x2);
 		double p2h = ddr::abs(rc.crop_y1 - rc.crop_y2);
-		double aspect = crop_aspect();
-		if(rotation == 90 || rotation == 270)
-			aspect = 1.0 / aspect;
+		double aspect = ps->crop_aspect.get_double((rotation == 90 || rotation == 270));
+//		if(rotation == 90 || rotation == 270)
+//			aspect = 1.0 / aspect;
 		// transpose edges limits
 		double max_w = rc.crop_x1 - rc.im_x1;
 		if(rc.crop_x2 > rc.crop_x1)
@@ -1389,8 +1374,8 @@ void F_Crop::edit_mouse_scratch(FilterEdit_event_t *mt, bool press, bool release
 			rc.crop_y2 = rc.crop_y1 - new_h;
 	}
 	// normalize crop
-	if(rc.crop_x1 > rc.crop_x2) ddr::swap(rc.crop_x1, rc.crop_x2);
-	if(rc.crop_y1 > rc.crop_y2) ddr::swap(rc.crop_y1, rc.crop_y2);
+	if(rc.crop_x1 > rc.crop_x2) std::swap(rc.crop_x1, rc.crop_x2);
+	if(rc.crop_y1 > rc.crop_y2) std::swap(rc.crop_y1, rc.crop_y2);
 	ddr::clip_min(rc.crop_x1, rc.im_x1);
 	ddr::clip_max(rc.crop_x2, rc.im_x2);
 	ddr::clip_min(rc.crop_y1, rc.im_y1);
@@ -1461,8 +1446,10 @@ bool F_Crop::mouseReleaseEvent(FilterEdit_event_t *mt, Cursor::cursor &cursor) {
 		}
 		// update aspect_le if aspect is not fixed
 		if(!ps->fixed_aspect) {
-			update_aspect();
-			le_aspect->setText(ps->crop_aspect_str.c_str());
+			double aspect = (ps->crop.x2 - ps->crop.x1) / (ps->crop.y2 - ps->crop.y1);
+//			cerr << "mouseReleaseEvent, set aspect == " << aspect << " with swapped == " << ps->cw_swapped << endl;
+			ps->crop_aspect.set(aspect, false);
+			le_aspect->setText(ps->crop_aspect.get(ps->cw_swapped).c_str());
 		}
 		if(crop_move == _CROP_MOVE_UNDEFINED) {
 			// refresh cursor and edit mode
@@ -1498,7 +1485,7 @@ bool F_Crop::mouseMoveEvent(FilterEdit_event_t *mt, bool &accepted, Cursor::curs
 	long image_drawn_h = image_h;
 	int rotation = mt->transform.get_cw_rotation();
 	if(rotation == 90 || rotation == 270)
-		ddr::swap(image_drawn_w, image_drawn_h);
+		std::swap(image_drawn_w, image_drawn_h);
 	double scale_x = (ps->im_x2 - ps->im_x1) / image_drawn_w;
 	double scale_y = (ps->im_y2 - ps->im_y1) / image_drawn_h;
 */
@@ -1610,9 +1597,7 @@ bool F_Crop::mouseMoveEvent(FilterEdit_event_t *mt, bool &accepted, Cursor::curs
 				double crop_cy = (rc.crop_y1 + rc.crop_y2) / 2.0;
 				double crop_w = rc.crop_x2 - rc.crop_x1;
 				double crop_h = rc.crop_y2 - rc.crop_y1;
-				double aspect = crop_aspect();
-				if(rotation == 90 || rotation == 270)
-					aspect = 1.0 / aspect;
+				double aspect = ps->crop_aspect.get_double((rotation == 90 || rotation == 270));
 				//--==-- edges
 				if(move_type == _CROP_MOVE_LEFT || move_type == _CROP_MOVE_RIGHT) {
 					if(move_type == _CROP_MOVE_LEFT)

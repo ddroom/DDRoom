@@ -208,9 +208,9 @@ template<class T> void m3_gaussian_elimination(T *v_rez, const T *m_in, const T 
 	int mi[3] = {0, 1, 2};
 	T scale;
 	// sort (around zero) by first column
-	if(ddr::abs(m[mi[0] * 3 + 0]) < ddr::abs(m[mi[1] * 3 + 0])) ddr::swap(mi[0], mi[1]);
-	if(ddr::abs(m[mi[0] * 3 + 0]) < ddr::abs(m[mi[2] * 3 + 0])) ddr::swap(mi[0], mi[2]);
-	if(ddr::abs(m[mi[1] * 3 + 0]) < ddr::abs(m[mi[2] * 3 + 0])) ddr::swap(mi[1], mi[2]);
+	if(ddr::abs(m[mi[0] * 3 + 0]) < ddr::abs(m[mi[1] * 3 + 0])) std::swap(mi[0], mi[1]);
+	if(ddr::abs(m[mi[0] * 3 + 0]) < ddr::abs(m[mi[2] * 3 + 0])) std::swap(mi[0], mi[2]);
+	if(ddr::abs(m[mi[1] * 3 + 0]) < ddr::abs(m[mi[2] * 3 + 0])) std::swap(mi[1], mi[2]);
 	// eliminate 'x'
 	for(int i = 1; i < 3; i++) {
 		if(m[mi[0] * 3 + 0] != 0.0)
@@ -223,7 +223,7 @@ template<class T> void m3_gaussian_elimination(T *v_rez, const T *m_in, const T 
 		v[mi[i]] -= v[mi[0]] * scale;
 	}
 	// sort (around zero) by second column
-	if(ddr::abs(m[mi[1] * 3 + 1]) < ddr::abs(m[mi[2] * 3 + 1])) ddr::swap(mi[1], mi[2]);
+	if(ddr::abs(m[mi[1] * 3 + 1]) < ddr::abs(m[mi[2] * 3 + 1])) std::swap(mi[1], mi[2]);
 	// eliminate 'y'
 	if(m[mi[1] * 3 + 1] != 0.0)
 		scale = m[mi[2] * 3 + 1] / m[mi[1] * 3 + 1];
