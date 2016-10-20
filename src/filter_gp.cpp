@@ -1283,8 +1283,12 @@ cerr << "w_sum == " << w_sum << "; w_sum_alpha == " << w_sum_alpha << endl;
 //			rez[3] = 1.0;
 			if(rez[3] > 0.99)
 				rez[3] = 1.0;
-			if(rez[3] < 0.01)
+			if(rez[3] < 0.01) { // avoid 'isnan' for unprocessed transparent pixels
+				rez[0] = 0.0;
+				rez[1] = 0.0;
+				rez[2] = 0.0;
 				rez[3] = 0.0;
+			}
 		}
 	}
 }
