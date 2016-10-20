@@ -9,5 +9,6 @@ rm -f ddroom
 rm -f object_script.ddroom
 rm -f object_script.ddroom.*
 rm -f ddroom_resource.rc
+rm -f core
 
 

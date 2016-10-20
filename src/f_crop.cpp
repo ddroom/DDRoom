@@ -46,7 +46,7 @@ NOTE:
 */
 #define _ASPECT_MAX 50.0
 #define _ASPECT_MIN 0.02
-#define _MIN_SIZE_PX 2
+#define _MIN_SIZE_PX 16
 //#define _MIN_SIZE_PX 32
 
 using namespace std;
@@ -305,6 +305,9 @@ bool PS_Crop::load(DataSet *dataset) {
 	dataset->get("fixed_aspect", fixed_aspect);
 	dataset->get("crop_aspect", s);
 	crop_aspect.set(s, false);
+	double crop_aspect_v = crop_aspect.get_double(false);
+	if(crop_aspect_v < 0.0001 || crop_aspect_v > 1000.0)
+		crop_aspect.set("", false);
 	dataset->get("enabled_scale", enabled_scale);
 	dataset->get("scale_str", s);
 	scale_size.set(s, false);
@@ -318,15 +321,14 @@ bool PS_Crop::load(DataSet *dataset) {
 		const double min_size = _MIN_SIZE_PX;
 		if(crop.x2 - crop.x1 < min_size) {
 			double cx = (crop.x2 + crop.x1) / 2.0;
-			crop.x2 = cx - min_size / 2.0;
-			crop.x1 = cx + min_size / 2.0;
+			crop.x2 = cx + min_size / 2.0;
+			crop.x1 = cx - min_size / 2.0;
 		}
 		if(crop.y2 - crop.y1 < min_size) {
 			double cy = (crop.y2 + crop.y1) / 2.0;
-			crop.y2 = cy - min_size / 2.0;
-			crop.y1 = cy + min_size / 2.0;
+			crop.y2 = cy + min_size / 2.0;
+			crop.y1 = cy - min_size / 2.0;
 		}
-		
 	}
 	return true;
 }
@@ -336,12 +338,6 @@ bool PS_Crop::save(DataSet *dataset) {
 	dataset->set("enabled", enabled_crop);
 	// don't save undefined things
 	if(defined) {
-/*
-cerr << "crop_x1 == " << crop.x1 << endl;
-cerr << "crop_x2 == " << crop.x2 << endl;
-cerr << "crop_y1 == " << crop.y1 << endl;
-cerr << "crop_y2 == " << crop.y2 << endl;
-*/
 		dataset->set("crop_x1", crop.x1);
 		dataset->set("crop_x2", crop.x2);
 		dataset->set("crop_y1", crop.y1);
@@ -729,6 +725,8 @@ void FP_Crop::size_forward(FP_size_t *fp_size, const Area::t_dimensions *d_befor
 //d_after->dump();
 		}
 	}
+//cerr << "d_after->position.px_size_x == " << d_after->position.px_size_x << endl;
+//cerr << "d_after->position.px_size_y == " << d_after->position.px_size_y << endl;
 	bool enabled_scale = (ps->enabled_scale && !ps->scale_size.get(false).empty());
 	if(enabled_scale && !edit_mode) {
 		int width = 0;
@@ -739,6 +737,8 @@ void FP_Crop::size_forward(FP_size_t *fp_size, const Area::t_dimensions *d_befor
 		else
 			Area::scale_dimensions_to_size_fill(d_after, width, height);
 	}
+//cerr << "d_after->size.w == " << d_after->size.w << endl;
+//cerr << "d_after->size.h == " << d_after->size.h << endl;
 }
 
 void FP_Crop::size_backward(FP_size_t *fp_size, Area::t_dimensions *d_before, const Area::t_dimensions *d_after) {
