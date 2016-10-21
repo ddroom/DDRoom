@@ -46,7 +46,7 @@ NOTE:
 */
 #define _ASPECT_MAX 50.0
 #define _ASPECT_MIN 0.02
-#define _MIN_SIZE_PX 16
+#define _MIN_SIZE_PX 4
 //#define _MIN_SIZE_PX 32
 
 using namespace std;

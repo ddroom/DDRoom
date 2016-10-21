@@ -640,8 +640,9 @@ cerr << "scale == " << scale << endl;
 	params->lc_radius = 0.0;
 	if(ps->lc_enabled) {
 		params->lc_radius = ps->lc_radius;
-		if(scale != 1.0)
-			params->lc_radius /= scale;
+		// limit excessive increasing on too small crops etc.
+		float rescale = (scale > 0.5) ? scale : 0.5;
+		params->lc_radius /= rescale;
 	}
 
 	params->radius = 0.0;

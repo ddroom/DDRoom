@@ -99,13 +99,16 @@ void ViewClock::draw(QPainter *painter, float center_x, float center_y) {
 		p->setPen(QPen(QColor(c_r, c_g, c_b, 128), 1.0));
 		p->drawRoundRect(QRectF(0.5, 0.5, len, len), 20, 20);
 		p->setBrush(QBrush(QColor(c_r, c_g, c_b, 31)));
-		p->setPen(QPen(QColor(c_r, c_g, c_b, 63), 1.0));
+//		p->setPen(QPen(QColor(c_r, c_g, c_b, 63), 1.0));
 		for(int i = 0; i < 360; i += 30) {
 			p->save();
 			QTransform tr;
 			tr.translate(ld, ld);
 			tr.rotate(i);
 			p->setWorldTransform(tr);
+			p->setPen(QPen(QColor(63, 63, 63, 63), 1.0));
+			p->drawEllipse(0 - r2, - l1 - r2, r + 0.5, r + 0.5);
+			p->setPen(QPen(QColor(c_r, c_g, c_b, 63), 1.0));
 			p->drawEllipse(0 - r2, - l1 - r2, r, r);
 			p->restore();
 		}
