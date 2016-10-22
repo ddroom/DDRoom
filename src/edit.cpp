@@ -940,24 +940,18 @@ QWidget *Edit::get_controls_widget(QWidget *parent) {
 	if(controls_widget != nullptr)
 		return controls_widget;
 
-	controls_widget = new QWidget(parent);
-	QVBoxLayout *vb = new QVBoxLayout(controls_widget);
-	vb->setSpacing(0);
-	vb->setContentsMargins(0, 0, 0, 0);
-
-	QTabWidget *tab_widget = new QTabWidget();
+	QTabWidget *tab_widget = new QTabWidget(parent);
+	controls_widget = tab_widget;
 //	tab_widget->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
 //	tab_widget->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
 //	tab_widget->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
 	tab_widget->setTabPosition(QTabWidget::East);
-	vb->addWidget(tab_widget);
 
 //	int pages_min_width = 256 + 24;
 	int pages_min_width = 256 + 8;
 
 //	const int pages_count = 8;
 	const int pages_count = 7;
-	QWidget *pages[pages_count];
 	ControlsArea *controls_areas[pages_count];
 //	string page_names[pages_count] = {"WB", "demosaic && CA", "geometry", "sharpness", "colors", "lightness", "out RGB", "rainbow"};
 	string page_names[pages_count] = {"WB", "demosaic && CA", "geometry", "sharpness", "colors", "lightness", "rainbow"};
@@ -994,9 +988,9 @@ QWidget *Edit::get_controls_widget(QWidget *parent) {
 //	page_widgets[7].push_back(fstore->f_cm_rainbow->controls());
 
 	for(int i = 0; i < pages_count; ++i) {
-		pages[i] = new QWidget();
-		pages[i]->setMinimumWidth(pages_min_width);
-		QVBoxLayout *l = new QVBoxLayout(pages[i]);
+		QWidget *page = new QWidget();
+		page->setMinimumWidth(pages_min_width);
+		QVBoxLayout *l = new QVBoxLayout(page);
 		l->setSpacing(2);
 		l->setContentsMargins(2, 2, 2, 2);
 		l->setSizeConstraint(QLayout::SetMinimumSize);
@@ -1004,15 +998,16 @@ QWidget *Edit::get_controls_widget(QWidget *parent) {
 			l->addWidget(*it);
 		l->addStretch();
 		controls_areas[i] = new ControlsArea();
-		controls_areas[i]->setWidget(pages[i]);
+		controls_areas[i]->setWidget(page);
 		tab_widget->addTab(controls_areas[i], page_names[i].c_str());
+		filters_pages.push_back(page);
 	}
-	int max = pages[0]->width();
+	int max = filters_pages[0]->width();
 	for(int i = 0; i < pages_count; ++i)
-		if(max < pages[i]->width())
-			max = pages[i]->width();
+		if(max < filters_pages[i]->width())
+			max = filters_pages[i]->width();
 	for(int i = 0; i < pages_count; ++i)
-		pages[i]->setMinimumWidth(max);
+		filters_pages[i]->setMinimumWidth(max);
 	max += controls_areas[0]->verticalScrollBar()->sizeHint().width();
 	for(int i = 0; i < pages_count; ++i) {
 		controls_areas[i]->setMinimumWidth(max);
@@ -1024,11 +1019,8 @@ QWidget *Edit::get_controls_widget(QWidget *parent) {
 }
 
 void Edit::slot_controls_enable(bool state) {
-//	if(controls_widget == nullptr)
-//		return;
-//	if(state == true)
-	if(controls_widget != nullptr)
-		controls_widget->setEnabled(state);
+	for(int i = 0; i < filters_pages.size(); ++i)
+		filters_pages[i]->setEnabled(state);
 	for(QList<QAction *>::iterator it = filters_actions_list.begin(); it != filters_actions_list.end(); ++it)
 		if((*it) != nullptr)
 			(*it)->setEnabled(state);

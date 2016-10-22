@@ -144,6 +144,7 @@ signals:
 	void signal_controls_enable(bool);
 protected:
 	QWidget *controls_widget;
+	std::vector<QWidget *> filters_pages;
 	QList<QAction *> filters_actions_list;
 
 	//-----------------
