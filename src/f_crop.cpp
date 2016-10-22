@@ -1268,7 +1268,10 @@ void F_Crop::draw(QPainter *painter, FilterEdit_event_t *et) {
 		str.sprintf("%+.0f", aspect);
 		if(str.length() == 2)
 			space += " ";
-		str.sprintf(": %s%.4f", space.c_str(), aspect);
+		if(n_width != 0 && n_height != 0)
+			str.sprintf(": %s%.4f", space.c_str(), aspect);
+		else
+			str.sprintf(": %s", space.c_str());
 		str = tr_aspect + str;
 		painter->setPen(QColor(0x00, 0x00, 0x00));
 		painter->drawText(QPointF(rx + 5, ry + qfm.height() * 3), str);
@@ -1380,6 +1383,19 @@ void F_Crop::edit_mouse_scratch(FilterEdit_event_t *mt, bool press, bool release
 	ddr::clip_max(rc.crop_x2, rc.im_x2);
 	ddr::clip_min(rc.crop_y1, rc.im_y1);
 	ddr::clip_max(rc.crop_y2, rc.im_y2);
+	if(!press && release) {
+		// avoid 0x0 crop size
+		if((rc.crop_x2 - rc.crop_x1) < _MIN_SIZE_PX) {
+			double c = (rc.crop_x2 + rc.crop_x1) / 2.0;
+			rc.crop_x2 = c + double(_MIN_SIZE_PX) / 2.0;
+			rc.crop_x1 = c - double(_MIN_SIZE_PX) / 2.0;
+		}
+		if((rc.crop_y2 - rc.crop_y1) < _MIN_SIZE_PX) {
+			double c = (rc.crop_y2 + rc.crop_y1) / 2.0;
+			rc.crop_y2 = c + double(_MIN_SIZE_PX) / 2.0;
+			rc.crop_y1 = c - double(_MIN_SIZE_PX) / 2.0;
+		}
+	}
 	rc.apply_to_ps(ps);
 }
 

@@ -108,7 +108,7 @@ void ViewHeader::set_text(QString text) {
 }
 
 void ViewHeader::mousePressEvent(QMouseEvent *event) {
-cerr << "mouse press event" << endl;
+//cerr << "mouse press event" << endl;
 	if(event->button() == Qt::LeftButton && !active) {
 		vh_set_active(this);
 //		active = !active;
@@ -117,7 +117,7 @@ cerr << "mouse press event" << endl;
 }
 
 void ViewHeader::mouseDoubleClickEvent(QMouseEvent *event) {
-cerr << "dbl_clk" << endl;
+//cerr << "dbl_clk" << endl;
 	emit signal_double_click();
 }
 
