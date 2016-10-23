@@ -207,7 +207,7 @@ public slots:
 signals:
 	void item_clicked(Photo_ID, QString, QImage);
 	void signal_export(void);
-	void signal_update_opened_photo_ids(QList<Photo_ID>);
+	void signal_update_opened_photo_ids(QList<Photo_ID>, int);
 
 	// context menu: versions, 'save as' ...
 public:

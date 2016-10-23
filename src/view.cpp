@@ -8,10 +8,6 @@
  */
 
 /*
-NOTE:
-	- Code 'QPixmap *pixmap = new QPixmap(QPixmap::fromImage(QImage((uchar *)area->ptr(), w, h, w * 4, QImage::Format_ARGB32)));'
-		looks like a realy deep copying code so it's safe to delete 'area'.
-
 TODO:
 	- Check after photo open for possibly lost resize event, and do update if necessary.
 */
@@ -59,7 +55,6 @@ QColor View::_bg_color(void) {
 
 //------------------------------------------------------------------------------
 View *View::create(Edit *edit) {
-
 	// create real view header
 	ViewHeader *view_header = new ViewHeader();
 	QScrollBar *hb = new QScrollBar(Qt::Horizontal);
@@ -87,7 +82,7 @@ View *View::create(Edit *edit) {
 	l->setColumnStretch(0, 1);
 	vbl->addWidget(view_header);
 	vbl->addWidget(scrolled_view, 1);
-	v->parent_widget = view_frame;
+	v->view_widget = view_frame;
 	return v;
 }
 
@@ -388,7 +383,7 @@ View::View(ViewHeader *_view_header, QScrollBar *_sb_x, QScrollBar *_sb_y, Edit 
 
 	edit = _edit;
 	connect(Config::instance(), SIGNAL(changed(void)), this, SLOT(slot_config_changed(void)));
-	connect(this, SIGNAL(update_image(void)), this, SLOT(slot_update_image(void)));
+	connect(this, SIGNAL(signal_update_image(void)), this, SLOT(slot_update_image(void)));
 
 	request_ID = 0;
 	image = new image_t;
@@ -467,15 +462,8 @@ void View::slot_view_header_double_click(void) {
 }
 
 QWidget *View::widget(void) {
-	return parent_widget;
+	return view_widget;
 }
-
-/*
-// TODO: use that when photo name is changed, like a new virtual copy was created
-void View::set_photo_name(QString photo_name) {
-	view_header->set_text(photo_name);
-}
-*/
 
 void View::helper_grid_enable(bool to_show) {
 	bool to_update = (show_helper_grid != to_show);
@@ -584,7 +572,7 @@ void View::photo_open_finish(PhotoProcessed_t *pp) {
 //		scrollbars_update();
 	}
 	delete pp;
-	emit update_image();
+	emit signal_update_image();
 	emit update();
 	// update zoom UI
 	image->zoom_ui_disabled = false;
@@ -928,25 +916,6 @@ void View::slot_resize_update_timeout() {
 }
 
 //------------------------------------------------------------------------------
-/*
-QPixmap *View::_area_to_qpixmap(Area *area, bool save) {
-	int w = area->dimensions()->width();
-	int h = area->dimensions()->height();
-cerr << "_area_to_qpixmap: " << w << "x" << h << endl;
-	QPixmap *pixmap = new QPixmap(QPixmap::fromImage(QImage((uchar *)area->ptr(), w, h, w * 4, QImage::Format_ARGB32)));
-//	QPixmap *pixmap = new QPixmap(QPixmap::fromImage(QImage((uchar *)area->ptr(), w, h, w * 4, QImage::Format_ARGB32)).copy());
-#if 0
-	static int count = 0;
-	count++;
-	char buf[128];
-	sprintf(buf, "/home/spectr/misc/04%d.jpeg", count);
-	pixmap->save(QString::fromLocal8Bit(buf), "jpeg", 95);
-#endif
-	delete area;
-	return pixmap;
-}
-*/
-
 // convert all Areas into corresponding pixmaps
 void View::slot_update_image(void) {
 	bool to_update = false;
@@ -1650,7 +1619,7 @@ cerr << "ERROR: receive_tile(): image->thumb_area stil not empty" << endl;
 		QImage thumbnail = (tile->area->to_qimage().copy());
 		tile->area = nullptr;
 		// reset tiles
-		emit update_image();
+		emit signal_update_image();
 		// update thumbnail in browser
 		edit->update_thumbnail((void *)this, thumbnail);
 	} else {
@@ -1666,7 +1635,7 @@ cerr << "ERROR: receive_tile(): image->thumb_area stil not empty" << endl;
 			}
 		image->lock.unlock();
 		if(update)
-			emit update_image();
+			emit signal_update_image();
 	}
 }
 
@@ -1988,7 +1957,6 @@ cerr << "dimensions.size.h   == " << t->tiles[0].dimensions_post.size.h << endl;
 	return t;
 }
 //------------------------------------------------------------------------------
-
 QPixmap View::rotate_pixmap(QPixmap *pixmap, int angle) {
 	if(angle == 270)	angle = -90;
 	if(angle == -270)	angle = 90;

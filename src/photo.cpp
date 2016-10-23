@@ -67,13 +67,13 @@ QString Photo_t::photo_name_with_versions(Photo_ID _photo_id, int v_count) {
 
 //------------------------------------------------------------------------------
 Photo_ID::Photo_ID(void) {
-	_version = 0;
 	_file_name = "";
+	_version = 0;
 }
 
 Photo_ID::Photo_ID(std::string file_name, int version) {
-	_version = version;
 	_file_name = file_name;
+	_version = version;
 }
 
 std::string Photo_ID::get_file_name(void) {

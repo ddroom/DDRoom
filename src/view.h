@@ -30,30 +30,7 @@
 class View : public QWidget, public TilesReceiver {
 	Q_OBJECT
 
-//== zoom section
-public:
-	enum class zoom_t {
-		zoom_fit,	// fit image into view
-		zoom_100,	// 1:1
-		zoom_custom // zoom defined as 'zoom_scale' value
-	};
-	// call from 'Edit' as response to UI change
-	void set_zoom(zoom_t zoom_type, float zoom_scale);
-	// call from 'Edit' on View switch
-	void get_zoom(zoom_t &zoom_type, float &zoom_scale, bool &zoom_ui_disabled);
-	// inner call on mouse doubleclick zoom change
-	void set_zoom(zoom_t zoom_type, float zoom_scale, bool flag_center, int vp_x, int vp_y); // vp_x, vp_y - coordinates of mouse on double-click
-
-signals:
-	// signal to 'Edit' on mouse doubleclick zoom change
-	void signal_zoom_ui_update(void);
-
-protected:
-	void update_image_to_zoom(double pos_x = -1, double pos_y = -1, bool pos_at_viewport = true);
-	QSize resize_ignore_sb_x;
-	QSize resize_ignore_sb_y;
-
-//== other sections
+	//== misc section
 public:
 	~View();
 	static View *create(class Edit *edit);
@@ -64,20 +41,19 @@ public:
 	// call by 'Edit' on views switch
 	void set_active(bool _active);
 
+	// change photo name when versions was changed etc.
 	void update_photo_name(void);
+	// draw loading thumbnail with timer
 	void photo_open_start(QImage, std::shared_ptr<Photo_t> photo = std::shared_ptr<Photo_t>());
+	// stop loading timer and switch to a real photo
 	void photo_open_finish(class PhotoProcessed_t *);
 	void view_refresh(void);
 	void set_cursor(const Cursor::cursor &_cursor);
 	void helper_grid_enable(bool);
 	bool helper_grid_enabled(void);
-	void set_photo_name(QString photo_name);
 
 	void keyEvent(QKeyEvent *event);
 	QColor static _bg_color(void);
-
-	void update_rotation(bool clockwise);
-	QPixmap rotate_pixmap(QPixmap *pixmap, int angle);
 
 public slots:
 	void scroll_x_changed(int);
@@ -98,9 +74,6 @@ protected slots:
 	//--
 protected:
 	View(class ViewHeader *, QScrollBar *_sb_x, QScrollBar *_sb_y, class Edit *edit, QWidget *parent = 0);
-//	bool set_scale_fit(bool scale_new);
-//	void set_zoom_type(View::zoom_t _zoom_type);
-//	void apply_zoom_to_image(void);
 	class ViewHeader *view_header;
 	QScrollBar *sb_x;
 	QScrollBar *sb_y;
@@ -109,16 +82,14 @@ protected:
 	void sb_x_show(bool flag_show);
 	void sb_y_show(bool flag_show);
 	void scrollbars_update(void);
-//	QPixmap *_area_to_qpixmap(Area *area, bool save = false);
 	void draw(QPainter *painter);
 	void paintEvent(QPaintEvent *event);
 
-//	class Photo_t *photo;
 	std::shared_ptr<Photo_t> photo;
-	class Edit *edit;
-	QWidget *parent_widget;
+	class Edit *edit = nullptr;
+	QWidget *view_widget = nullptr;
 	// image
-	class image_t *image;
+	class image_t *image = nullptr;
 	bool show_helper_grid;
 
 	int viewport_w;
@@ -145,12 +116,40 @@ protected:
 protected slots:
 	void slot_update_image(void);
 signals:
-	void update_image(void);
+	void signal_update_image(void);
+
+	//== CW/CCW rotation
+public:
+	void update_rotation(bool clockwise);
+protected:
+	QPixmap rotate_pixmap(QPixmap *pixmap, int angle);
+
+	//== zoom section
+public:
+	enum class zoom_t {
+		zoom_fit,	// fit image into view
+		zoom_100,	// 1:1
+		zoom_custom // zoom defined as 'zoom_scale' value
+	};
+	// call from 'Edit' as response to UI change
+	void set_zoom(zoom_t zoom_type, float zoom_scale);
+	// call from 'Edit' on View switch
+	void get_zoom(zoom_t &zoom_type, float &zoom_scale, bool &zoom_ui_disabled);
+	// inner call on mouse doubleclick zoom change
+	void set_zoom(zoom_t zoom_type, float zoom_scale, bool flag_center, int vp_x, int vp_y); // vp_x, vp_y - coordinates of mouse on double-click
+
+signals:
+	// signal to 'Edit' on mouse doubleclick zoom change
+	void signal_zoom_ui_update(void);
+
+protected:
+	void update_image_to_zoom(double pos_x = -1, double pos_y = -1, bool pos_at_viewport = true);
+	QSize resize_ignore_sb_x;
+	QSize resize_ignore_sb_y;
 
 	//== TilesReceiver
 public:
 	void reset_deferred_tiles(void);
-//	void register_forward_dimensions(class Area::t_dimensions *d, int rotation);
 	void register_forward_dimensions(class Area::t_dimensions *d);
 	class TilesDescriptor_t *get_tiles(class Area::t_dimensions *, int cw_rotation, bool is_thumb);
 	Area *get_area_to_insert_tile_into(int &pos_x, int &pos_y, class Tile_t *tile) {return nullptr;}

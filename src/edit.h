@@ -69,7 +69,7 @@ public slots:
 	void slot_action_view_grid(void);
 	void slot_action_rotate_minus(void);
 	void slot_action_rotate_plus(void);
-	void slot_update_opened_photo_ids(QList<Photo_ID>);
+	void slot_update_opened_photo_ids(QList<Photo_ID>, int);
 
 signals:
 	void signal_process_load_photo(std::string);

@@ -248,6 +248,7 @@ void PS_Loader::version_rearrange(Photo_ID photo_id, bool remove_not_create, PS_
 	std::unique_lock<std::mutex> locker(ps_lock, std::defer_lock);
 	lock(file_name, locker);
 	int v_index = photo_id.get_version_index();
+cerr << "PS_loader::version_rearrange(), v_index == " << v_index << endl;
 	if(v_index < 1) v_index = 1;
 	// load all versions
 	map<int, PS_Loader *> _ps_map = versions_load(file_name, -1);
@@ -263,13 +264,19 @@ void PS_Loader::version_rearrange(Photo_ID photo_id, bool remove_not_create, PS_
 			if(i > v_index)
 				ps_map.insert(std::pair<int, PS_Loader *>(i - 1, _ps_map[i]));
 		} else {
-			if(i <= v_index)
+			if(i < v_index) {
 				ps_map.insert(std::pair<int, PS_Loader *>(i, _ps_map[i]));
-			if(i >= v_index) {
-				if(i == v_index && ps_loader != nullptr)
-					ps_map.insert(std::pair<int, PS_Loader *>(i + 1, ps_loader));
-				else
-					ps_map.insert(std::pair<int, PS_Loader *>(i + 1, _ps_map[i]));
+cerr << "add  < : " << i << endl;
+			}
+			if(i == v_index) {
+				ps_map.insert(std::pair<int, PS_Loader *>(i, _ps_map[i]));
+				ps_map.insert(std::pair<int, PS_Loader *>(i + 1, (ps_loader != nullptr) ? ps_loader : _ps_map[i]));
+cerr << "add == : " << i << endl;
+cerr << "add == : " << i + 1 << endl;
+			}
+			if(i > v_index) {
+				ps_map.insert(std::pair<int, PS_Loader *>(i + 1, _ps_map[i]));
+cerr << "add  > : " << i + 1 << endl;
 			}
 		}
 	}

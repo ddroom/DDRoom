@@ -686,20 +686,26 @@ void Edit::filters_control_clear(void) {
 }
 
 //------------------------------------------------------------------------------
-void Edit::slot_update_opened_photo_ids(QList<Photo_ID> ids_list) {
+void Edit::slot_update_opened_photo_ids(QList<Photo_ID> ids_list, int versions_count) {
 	int c = ids_list.size() / 2;
 	for(int i = 0; i < c; ++i) {
 		Photo_ID id_before = ids_list.at(i * 2 + 0);
 		Photo_ID id_after = ids_list.at(i * 2 + 1);
-//cerr << "id_before == " << id_before.get_export_file_name() << endl;
-//cerr << " id_after == " << id_after.get_export_file_name() << endl;
+#if 0
+cerr << "id_before == " << id_before.get_export_file_name() << endl;
+cerr << " id_after == " << id_after.get_export_file_name() << endl;
+cerr << "id_before == " << id_before.get_version_index() << endl;
+cerr << " id_after == " << id_after.get_version_index() << endl;
+cerr << "versions_count == " << versions_count << endl;
+#endif
 		for(int j = 0; j < 4; ++j) {
 			if(sessions[j]->photo) {
 				if(sessions[j]->photo->photo_id == id_before) {
-					std::list<int> v_list = PS_Loader::versions_list(id_after.get_file_name());
 					sessions[j]->photo->ids_lock.lock();
 					sessions[j]->photo->photo_id = id_after;
-					sessions[j]->photo->name = Photo_t::photo_name_with_versions(id_after, v_list.size());
+//cerr << "id_after.index == " << id_after.get_version_index() << endl;
+					sessions[j]->photo->name = Photo_t::photo_name_with_versions(id_after, versions_count);
+//cerr << "set name to: \"" << sessions[j]->photo->name.toStdString().c_str() << "\"" << endl;
 					sessions[j]->photo->ids_lock.unlock();
 					sessions[j]->view->update_photo_name();
 				}

@@ -8,10 +8,8 @@
  */
 
 /*
-
 TODO:	
 	- add memory manager to handle really huge set (folder) of thumbs and unload part of them if necessary when there is OOM, for process etc...
-
 */
 
 #include <iostream>
@@ -88,11 +86,7 @@ void PhotoList_Delegate::paint(QPainter *painter, const QStyleOptionViewItem &op
 	QRect rect = option.rect;
 
 	if(item == nullptr) {
-		QRect r = rect;
-		r.setX(r.x() + 1);
-		r.setY(r.y() + 1);
-		r.setWidth(r.width() - 1);
-		r.setHeight(font_height + 4 + thumbnail_size.height() + 2);
+		QRect r(rect.x() + 1, rect.y() + 1, rect.width() - 1, font_height + 4 + thumbnail_size.height() + 2);
 		painter->setPen(QColor(0xBF, 0x1F, 0x1F));
 		painter->drawRect(r);
 		photo_list->items_lock.unlock();
@@ -174,11 +168,7 @@ void PhotoList_Delegate::paint(QPainter *painter, const QStyleOptionViewItem &op
 
 	// draw icon
 	if(item->image.isNull() == false) {
-		QRect pixRect = option.rect;
-		pixRect.setX(pixRect.x() + l_image_offset_x);
-		pixRect.setY(pixRect.y() + l_image_offset_y);
-		pixRect.setWidth(thumbnail_size.width());
-		pixRect.setHeight(thumbnail_size.height());
+		QRect pixRect(option.rect.x() + l_image_offset_x, option.rect.y() + l_image_offset_y, thumbnail_size.width(), thumbnail_size.height());
 		if(item->image.isNull() == false) {
 			if(item->image.width() > thumbnail_size.width() || item->image.height() > thumbnail_size.height())
 				item->image = item->image.scaled(thumbnail_size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
@@ -191,17 +181,9 @@ void PhotoList_Delegate::paint(QPainter *painter, const QStyleOptionViewItem &op
 	if(item->version_count > 1) {
 		QString text = QString("%1/%2").arg(item->version_index).arg(item->version_count);
 		int width = fmt.width(text);
-		QRectF ver_rect;
-		ver_rect.setX(rect.x() + 3.5);
-		ver_rect.setWidth(width + 8);
-		ver_rect.setY(rect.y() + 3.5);
-		ver_rect.setHeight(font_height + 6);
-		//--
-		QRectF r = ver_rect;
-		r.setX(r.x() - 1.0);
-		r.setY(r.y() - 1.0);
-		r.setWidth(r.width() + 1.0);
-		r.setHeight(r.height() + 1.0);
+		QRectF vr(rect.x() + 3.5, rect.y() + 3.5, width + 8, font_height + 6);
+		QRectF r(vr.x() - 1, vr.y() - 1, vr.width() + 1.0, vr.height() + 1);
+
 		painter->setCompositionMode(QPainter::CompositionMode_SourceOver);
 		painter->setRenderHint(QPainter::Antialiasing, true);
 		QColor c_fill = option.palette.color(QPalette::Active, QPalette::Window);
@@ -214,19 +196,15 @@ void PhotoList_Delegate::paint(QPainter *painter, const QStyleOptionViewItem &op
 		painter->setBrush(c_fill);
 		QColor c_pen = option.palette.color(QPalette::Normal, QPalette::Text);
 		painter->setPen(c_pen);
-		painter->drawRoundedRect(ver_rect, 4, 4);
+		painter->drawRoundedRect(vr, 4, 4);
 		painter->setRenderHint(QPainter::Antialiasing, false);
 		//--
 		painter->setPen(option.palette.color(QPalette::Normal, QPalette::Text));
-		painter->drawText(ver_rect, Qt::AlignCenter, text);
+		painter->drawText(vr, Qt::AlignCenter, text);
 	}
 
 	// draw text
-	QRect text_rect;
-	text_rect.setX(rect.x() + 1);
-	text_rect.setWidth(rect.width() - 1);
-	text_rect.setY(rect.y() + thumbnail_size.height() + 3);
-	text_rect.setHeight(font_height + 4);
+	QRect text_rect(rect.x() + 1, rect.y() + thumbnail_size.height() + 3, rect.width() - 1, font_height + 4);
 	QString text = item->name;
 	if(is_selected)
 		painter->setPen(option.palette.color(QPalette::Normal, QPalette::HighlightedText));
@@ -266,15 +244,11 @@ void PhotoList_Delegate::paint(QPainter *painter, const QStyleOptionViewItem &op
 	}
 	painter->drawText(text_rect, Qt::AlignCenter, text);
 
-	// draw edited icon
-	// TODO: set as status - 'was edit', 'is open', 'was printed' etc...
-	// TODO: update status after open/edit/close cycle, w/o folder reload
+	// draw 'edit' icon
 	if(item->flag_edit) {
-//		QRect edit_rect = option.rect;
 		int pos_x = option.rect.x() + 2;
 		int pos_y = text_rect.y() + 1;
 		int size = text_rect.height() - 2;
-		// mutex is useless here - anyway painter don't support multithreading
 		if(size != image_edit_cache_size) {
 			image_edit_cache = image_edit.scaled(QSize(size, size), Qt::KeepAspectRatio, Qt::SmoothTransformation);
 			image_edit_cache_size = size;
@@ -371,7 +345,6 @@ void PhotoList_View::set_delegate(PhotoList_Delegate *_photo_list_delegate) {
 	photo_list_delegate = _photo_list_delegate;
 	setItemDelegate(photo_list_delegate);
 
-	// looks like this part is necessary...
 	QStyleOption option;
 	option.initFrom(this);
 	QSize size = photo_list_delegate->sizeHint(option.fontMetrics.height());
@@ -525,24 +498,17 @@ PhotoList::PhotoList(QSize thumbnail_size, QWidget *_parent) : QAbstractListMode
 PhotoList::~PhotoList() {
 	update_scroll_list_to_save();
 	Config::instance()->set(CONFIG_SECTION_BROWSER, "list_center_at", scroll_list_to_save);
-//	set_folder(QString(""));
 	delete thumbs_update_timer;
 	delete thumbnail_loader;
 	delete load_thread;
-//	delete thumbnail_delegate;
-//	delete view;
-
-//	delete action_version_add;
-//	delete action_version_remove;
-//	delete action_save_photo_as;
 }
 
 void PhotoList::set_edit(Edit *_edit) {
 	if(edit != nullptr)
-		disconnect(this, SIGNAL(signal_update_opened_photo_ids(QList<Photo_ID>)), edit, SLOT(slot_update_opened_photo_ids(QList<Photo_ID>)));
+		disconnect(this, SIGNAL(signal_update_opened_photo_ids(QList<Photo_ID>, int)), edit, SLOT(slot_update_opened_photo_ids(QList<Photo_ID>, int)));
 	edit = _edit;
 	if(edit != nullptr)
-		connect(this, SIGNAL(signal_update_opened_photo_ids(QList<Photo_ID>)), edit, SLOT(slot_update_opened_photo_ids(QList<Photo_ID>)));
+		connect(this, SIGNAL(signal_update_opened_photo_ids(QList<Photo_ID>, int)), edit, SLOT(slot_update_opened_photo_ids(QList<Photo_ID>, int)));
 }
 
 void PhotoList::update_template_images(void) {
@@ -1035,20 +1001,18 @@ void PhotoList::fill_context_menu(QMenu &menu, int item_index) {
 
 void PhotoList::slot_version_add(void) {
 	Photo_ID context_menu_photo_id = items[context_menu_index].photo_id;
-	PS_Loader *ps_loader = nullptr;
-	if(edit != nullptr)
-		ps_loader = edit->version_get_current_ps_loader(context_menu_photo_id);
-	// if photo is open in edit use current settings for a new version instead of saved ones
+	PS_Loader *ps_loader = (edit == nullptr) ? nullptr : edit->version_get_current_ps_loader(context_menu_photo_id);
+	// if version is open use current settings for a new version instead of the saved ones
 	PS_Loader::version_create(context_menu_photo_id, ps_loader);
 	// update list
 	items_lock.lock();
 	int v_index = context_menu_photo_id.get_version_index();
-	v_index++;
+	++v_index;
 	PhotoList_Item_t item = items[context_menu_index];
 	string file_name = item.file_name;
-	std::list<int> v_list = PS_Loader::versions_list(file_name);
+	const int versions_count = PS_Loader::versions_list(file_name).size();
 	item.version_index = v_index;
-	item.version_count = v_list.size();
+	item.version_count = versions_count;
 	item.photo_id = Photo_ID(file_name, v_index);
 	// update index in thumbnails_cache if necessary
 	QList<Photo_ID> photo_ids;
@@ -1057,32 +1021,37 @@ void PhotoList::slot_version_add(void) {
 		Photo_ID _key = (*it).first;
 		class thumbnail_desc_t _value = (*it).second;
 		if(_value.folder_id == current_folder_id) {
-			if(_value.index > context_menu_index)
-				_value.index++;
+			bool flag_version_inc = false;
+			if(_value.index > context_menu_index) {
+				++_value.index;
+				flag_version_inc = true;
+			}
 			// update IDs
 			string record_file_name = _value.photo_id.get_file_name();
 			if(file_name == record_file_name) {
 				photo_ids.append(_value.photo_id);
-				_key = Photo_ID(record_file_name, _value.index);
-				_value.photo_id = _key;
+				int version_number = _value.photo_id.get_version_index();
+				if(flag_version_inc)
+					++version_number;
+				_key = Photo_ID(record_file_name, version_number);
 				photo_ids.append(_key);
+				_value.photo_id = _key;
 			}
 		}
 		thumbnails_cache_new[_key] = _value;
 	}
 	thumbnails_cache = thumbnails_cache_new;
 	// update all other versions before insertion
-	for(int i = context_menu_index; i >= 0; i--) {
+	for(int i = context_menu_index; i >= 0; --i) {
 		if(items[i].file_name == file_name)
-			items[i].version_count++;
+			++items[i].version_count;
 		else
 			break;
 	}
 	for(int i = context_menu_index + 1; i < items.size(); ++i)
 		if(items[i].file_name == file_name) {
-			items[i].version_index++;
-			items[i].photo_id = Photo_ID(file_name, items[i].version_index);
-			items[i].version_count++;
+			items[i].photo_id = Photo_ID(file_name, ++items[i].version_index);
+			++items[i].version_count;
 		} else
 			break;
 	// and insert
@@ -1090,7 +1059,7 @@ void PhotoList::slot_version_add(void) {
 	items_lock.unlock();
 //	cerr << "slot_version_add: " << context_menu_photo_id << endl;
 	// refresh view
-	emit signal_update_opened_photo_ids(photo_ids);
+	emit signal_update_opened_photo_ids(photo_ids, versions_count);
 	emit layoutChanged();
 }
 
@@ -1100,16 +1069,17 @@ void PhotoList::slot_version_remove(void) {
 	// update list
 	items_lock.lock();
 	string file_name = items[context_menu_index].file_name;
-	for(int i = context_menu_index - 1; i > 0; i--)
+	const int versions_count = PS_Loader::versions_list(file_name).size();
+	for(int i = context_menu_index - 1; i >= 0; --i)
 		if(items[i].file_name == file_name)
-			items[i].version_count--;
+			--items[i].version_count;
 		else
 			break;
 	for(int i = context_menu_index + 1; i < items.size(); ++i)
 		if(items[i].file_name == file_name) {
-			items[i].version_index--;
+			--items[i].version_index;
 			items[i].photo_id = Photo_ID(file_name, items[i].version_index);
-			items[i].version_count--;
+			--items[i].version_count;
 		} else
 			break;
 	items.removeAt(context_menu_index);
@@ -1120,15 +1090,22 @@ void PhotoList::slot_version_remove(void) {
 		Photo_ID _key = (*it).first;
 		class thumbnail_desc_t _value = (*it).second;
 		if(_value.folder_id == current_folder_id) {
-			if(_value.index > context_menu_index)
-				_value.index--;
+			bool flag_version_dec = false;
+			if(_value.index > context_menu_index) {
+				--_value.index;
+				flag_version_dec = true;
+			}
 			// update IDs
 			string record_file_name = _value.photo_id.get_file_name();
 			if(file_name == record_file_name) {
 				photo_ids.append(_value.photo_id);
-				_key = Photo_ID(record_file_name, _value.index);
-				_value.photo_id = _key;
+				int version_number = _value.photo_id.get_version_index();
+				if(flag_version_dec)
+					--version_number;
+				_key = Photo_ID(record_file_name, version_number);
+//				_key = Photo_ID(record_file_name, _value.index);
 				photo_ids.append(_key);
+				_value.photo_id = _key;
 			}
 		}
 		thumbnails_cache_new[_key] = _value;
@@ -1143,7 +1120,7 @@ void PhotoList::slot_version_remove(void) {
 	items_lock.unlock();
 //	cerr << "slot_version_remove: " << context_menu_photo_id << endl;
 	// refresh view
-	emit signal_update_opened_photo_ids(photo_ids);
+	emit signal_update_opened_photo_ids(photo_ids, versions_count);
 	emit layoutChanged();
 }
 
