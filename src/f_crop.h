@@ -72,7 +72,7 @@ protected:
 	static class FP_Crop *fp;
 
 	int crop_move;
-	bool aspect_normalize(void);
+	void aspect_normalize(void);
 
 	QPoint mouse_last_pos;			// transpoised and clipped inside image
 	QPoint mouse_last_pos_trans;	// transposed but not clipped

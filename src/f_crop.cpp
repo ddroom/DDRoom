@@ -844,14 +844,13 @@ void F_Crop::slot_checkbox_aspect(int state) {
 		init_le_aspect_from_photo_aspect();
 		if(!ps->enabled_crop)
 			checkbox_crop->setChecked(true);
-		if(aspect_normalize()) {
-//			emit signal_view_refresh(session_id);
-			if(ps->enabled_crop) {
-				if(edit_mode_enabled)
-					emit signal_view_refresh(session_id);
-				else
-					emit_signal_update();
-			}
+		aspect_normalize();
+//		emit signal_view_refresh(session_id);
+		if(ps->enabled_crop) {
+			if(edit_mode_enabled)
+				emit signal_view_refresh(session_id);
+			else
+				emit_signal_update();
 		}
 	}
 }
@@ -915,23 +914,45 @@ void F_Crop::slot_btn_revert(bool checked) {
 }
 
 // check photo and crop aspect !!!
-bool F_Crop::aspect_normalize(void) {
+void F_Crop::aspect_normalize(void) {
 	if(ps->crop_aspect.get(ps->cw_swapped).empty())
 		ps->crop_aspect.set(ps->photo_aspect, ps->cw_swapped);
 	double w2 = (ps->crop.x2 - ps->crop.x1) / 2.0;
 	double h2 = (ps->crop.y2 - ps->crop.y1) / 2.0;
 	double cx = ps->crop.x1 + w2;
 	double cy = ps->crop.y1 + h2;
-	double scale = sqrt(w2 * w2 + h2 * h2);
+	double length = sqrt(w2 * w2 + h2 * h2);
 	double aspect = ps->crop_aspect.get_double(false);
 	double angle = atan(1.0 / aspect);
-	w2 = scale * cos(angle);
-	h2 = scale * sin(angle);
+	w2 = length * cos(angle);
+	h2 = length * sin(angle);
+	// clip if necessary
+	double clip = 1.0;
+	if(cx - w2 < ps->im_x1) {
+		double f = (ps->im_x1 - cx) / -w2;
+		if(clip > f) clip = f;
+	}
+	if(cx + w2 > ps->im_x2) {
+		double f = (ps->im_x2 - cx) / w2;
+		if(clip > f) clip = f;
+	}
+	if(cy - h2 < ps->im_y1) {
+		double f = (ps->im_y1 - cy) / -h2;
+		if(clip > f) clip = f;
+	}
+	if(cy + h2 > ps->im_y2) {
+		double f = (ps->im_y2 - cy) / h2;
+		if(clip > f) clip = f;
+	}
+	if(clip != 1.0) {
+		length *= clip;
+		w2 = length * cos(angle);
+		h2 = length * sin(angle);
+	}
 	ps->crop.x1 = cx - w2;
 	ps->crop.x2 = cx + w2;
 	ps->crop.y1 = cy - h2;
 	ps->crop.y2 = cy + h2;
-	return true;
 }
 
 void F_Crop::edit_mode_exit(void) {
