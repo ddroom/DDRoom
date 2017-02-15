@@ -4,11 +4,10 @@
  * f_unsharp.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
-
 
 #include <QtWidgets>
 
@@ -38,15 +37,10 @@ public:
 
 protected slots:
 	void slot_checkbox_enable(int state);
+	void slot_checkbox_scaled(int state);
 	void slot_changed_amount(double value);
 	void slot_changed_radius(double value);
 	void slot_changed_threshold(double value);
-
-	void slot_checkbox_scaled(int state);
-	void slot_tab_scaled(int index);
-	void slot_changed_s_amount(double value);
-	void slot_changed_s_radius(double value);
-	void slot_changed_s_threshold(double value);
 
 protected:
 	class PS_Unsharp *ps;
@@ -55,22 +49,15 @@ protected:
 
 	QWidget *widget;
 	QCheckBox *checkbox_enable;
+	QCheckBox *checkbox_scaled;
 	class GuiSlider *slider_amount;
 	class GuiSlider *slider_radius;
 	class GuiSlider *slider_threshold;
-	QWidget *widget_unscaled;
-
-	QTabWidget *tab_scaled;
-	QCheckBox *checkbox_scaled;
-	class GuiSlider *slider_s_amount[2];
-	class GuiSlider *slider_s_radius[2];
-	class GuiSlider *slider_s_threshold[2];
-	int scaled_index;
 
 	void reconnect(bool to_connect);
 	void changed_slider(double value, double &ps_value, bool is_255);
 
-	//== local contrast
+	// local contrast
 protected slots:
 	void slot_checkbox_lc_enable(int state);
 	void slot_changed_lc_amount(double value);

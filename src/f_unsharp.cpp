@@ -2,38 +2,26 @@
  * f_unsharp.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
 
 /*
+NOTES:
+	- Used unsharp masking with double pass 1D linear Gaussian bluring for a 'local contrast' first,
+		then apply single pass one with a square kernel for 'sharpness'.
+	- Used linear amount scaling for values delta under threshold.
+	- Used limits on possible lightness change to prevent splashes.
+	- UI 'radius': 0.0 ==> 1x1 pixel, (0.0, 1.0] ==> 3x3 pixels, etc...
 
-Copyright: Mykhailo Malyshko, 2009-2015
-License: GPLv3
-
-TECH NOTE:
 	- used mutators:
 		"CM" -> string: "CIECAM02" | "CIELab"
-
-ALGORITHM NOTE:
-	- implemented sharpening with blur (Gaussian) masking; applyed 'local contrast' before 'unsharp mask' if any
-	- for sharpness (via 'unsharp mask'), with small radius, used a real (i.e. radial 2D) Gaussian blurring;
-	- for 'local contrast' used false Gaussian blurring with 2-pass squared apply 1D gaussian function, i.e. convolution;
-		that way is much faster for a really big radius and results are still acceptable;
-		'local contrast' is a 'unsharp mask' just with a huge radius and small amount of correction;
-	- masking is applyed with adoptation to prevent splashes on already sharp edges (with a big difference between values);
-		algorithm of adaptation can be improved, especially to decrease too bright splashes on light side of edge;
-
-TODO:
-	- keep open tab of 'Depend on image scale' when apply settings via undo/redo (save index of open page, apply changes, switch open page back)
-
 */
 
 #include <iostream>
 #include <math.h>
 
-//#include "ddr_math.h"
 #include "f_unsharp.h"
 #include "gui_slider.h"
 #include "cm.h"
@@ -41,8 +29,6 @@ TODO:
 #include "misc.h"
 
 using namespace std;
-
-#define _DEFAULT_SCALED_INDEX 1
 
 //------------------------------------------------------------------------------
 class PS_Unsharp : public PS_Base {
@@ -55,13 +41,10 @@ public:
 	bool save(DataSet *);
 
 	bool enabled;
-	bool scaled;
 	double amount;
 	double radius;
 	double threshold;
-	double s_amount[2];	// index:	0 - scale == 1.0
-	double s_radius[2];	//			1 - scale >= 2.0
-	double s_threshold[2];	//
+	bool scaled;
 
 	bool lc_enabled;
 	double lc_amount;
@@ -72,10 +55,10 @@ public:
 
 class FP_params_t {
 public:
-	double amount;
-	double radius;
-	double threshold;
-	double lc_radius;
+	double amount = 0.0;
+	double radius = 0.0;
+	double threshold = 0.0;
+	double lc_radius = 0.0;
 };
 
 //------------------------------------------------------------------------------
@@ -92,8 +75,8 @@ public:
 protected:
 	class task_t;
 	void scaled_parameters(const class PS_Unsharp *ps, class FP_params_t *params, double scale_x, double scale_y);
-	void process_square(class SubFlow *subflow);
-	void process_round(class SubFlow *subflow);
+	void process_double_pass(class SubFlow *subflow);
+	void process_single_pass(class SubFlow *subflow);
 };
 
 //------------------------------------------------------------------------------
@@ -113,16 +96,10 @@ PS_Base *PS_Unsharp::copy(void) {
 void PS_Unsharp::reset(void) {
 	// default settings
 	enabled = true;
+	amount = 2.5f;
+	radius = 1.5f; // 3x3
+	threshold = 0.000f;
 	scaled = true;
-	amount = 1.3f;
-	radius = 2.0f;
-	threshold = 0.015f;
-	s_amount[0] = 2.0f;	// 1.0
-	s_radius[0] = 2.5f;
-	s_amount[1] = 0.8f;	// > 2.0
-	s_radius[1] = 2.0f;	// better to avoid big radius here to avoid halo
-	for(int i = 0; i < 2; ++i)
-		s_threshold[i] = 0.015f;
 	// local contrast
 	lc_enabled = false;
 	lc_amount = 0.25f;
@@ -137,14 +114,7 @@ bool PS_Unsharp::load(DataSet *dataset) {
 	dataset->get("amount", amount);
 	dataset->get("radius", radius);
 	dataset->get("threshold", threshold);
-	// scaled
 	dataset->get("scaled", scaled);
-	dataset->get("s10_amount", s_amount[0]);
-	dataset->get("s20_amount", s_amount[1]);
-	dataset->get("s10_radius", s_radius[0]);
-	dataset->get("s20_radius", s_radius[1]);
-	dataset->get("s10_threshold", s_threshold[0]);
-	dataset->get("s20_threshold", s_threshold[1]);
 	// local contrast
 	dataset->get("local_contrast_enabled", lc_enabled);
 	dataset->get("local_contrast_amount", lc_amount);
@@ -159,15 +129,7 @@ bool PS_Unsharp::save(DataSet *dataset) {
 	dataset->set("amount", amount);
 	dataset->set("radius", radius);
 	dataset->set("threshold", threshold);
-	// scaled
 	dataset->set("scaled", scaled);
-	dataset->set("s10_amount", s_amount[0]);
-	dataset->set("s20_amount", s_amount[1]);
-	dataset->set("s10_radius", s_radius[0]);
-	dataset->set("s20_radius", s_radius[1]);
-	dataset->set("s10_threshold", s_threshold[0]);
-	dataset->set("s20_threshold", s_threshold[1]);
-//	string n_amount[] = {"s05_amount", "s10_amount", "s20_amount"};
 	// local contrast
 	dataset->set("local_contrast_enabled", lc_enabled);
 	dataset->set("local_contrast_amount", lc_amount);
@@ -209,11 +171,9 @@ FilterProcess *F_Unsharp::getFP(void) {
 class FS_Unsharp : public FS_Base {
 public:
 	FS_Unsharp(void);
-	int scaled_index;
 };
 
 FS_Unsharp::FS_Unsharp(void) {
-	scaled_index = _DEFAULT_SCALED_INDEX;
 }
 
 FS_Base *F_Unsharp::newFS(void) {
@@ -223,8 +183,7 @@ FS_Base *F_Unsharp::newFS(void) {
 void F_Unsharp::saveFS(FS_Base *fs_base) {
 	if(fs_base == nullptr)
 		return;
-	FS_Unsharp *fs = (FS_Unsharp *)fs_base;
-	fs->scaled_index = scaled_index;
+//	FS_Unsharp *fs = (FS_Unsharp *)fs_base;
 }
 
 void F_Unsharp::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t args) {
@@ -240,27 +199,8 @@ void F_Unsharp::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_
 	// FS
 	if(widget == nullptr)
 		return;
-	if(fs_base == nullptr) {
-//cerr << "fs_base == nullptr" << endl;
-		scaled_index = _DEFAULT_SCALED_INDEX;
-	} else {
-//cerr << "fs_base != nullptr" << endl;
-		FS_Unsharp *fs = (FS_Unsharp *)fs_base;
-		scaled_index = fs->scaled_index;
-	}
 	reconnect(false);
 
-//cerr << "scaled_index == " << scaled_index << endl;
-	tab_scaled->setCurrentIndex(scaled_index);
-	if(ps->scaled) {
-		checkbox_scaled->setCheckState(Qt::Checked);
-		widget_unscaled->setVisible(false);
-		tab_scaled->setVisible(true);
-	} else {
-		checkbox_scaled->setCheckState(Qt::Unchecked);
-		tab_scaled->setVisible(false);
-		widget_unscaled->setVisible(true);
-	}
 	bool en = ps->enabled;
 	slider_amount->setValue(ps->amount);
 	slider_radius->setValue(ps->radius);
@@ -268,13 +208,7 @@ void F_Unsharp::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_
 	slider_threshold->setValue(threshold);
 	ps->enabled = en;
 	checkbox_enable->setCheckState(ps->enabled ? Qt::Checked : Qt::Unchecked);
-	for(int i = 0; i < 2; ++i) {
-		slider_s_amount[i]->setValue(ps->s_amount[i]);
-		slider_s_radius[i]->setValue(ps->s_radius[i]);
-		float threshold = int(ps->s_threshold[i] * 1000.0 + 0.005);
-		threshold /= 10.0;
-		slider_s_threshold[i]->setValue(threshold);
-	}
+	checkbox_scaled->setCheckState(ps->scaled ? Qt::Checked : Qt::Unchecked);
 	// local contrast
 	checkbox_lc_enable->setCheckState(ps->lc_enabled ? Qt::Checked : Qt::Unchecked);
 	slider_lc_amount->setValue(ps->lc_amount);
@@ -310,17 +244,16 @@ QWidget *F_Unsharp::controls(QWidget *parent) {
 	hb_er->setContentsMargins(0, 0, 0, 0);
 	hb_er->setSizeConstraint(QLayout::SetMinimumSize);
 	checkbox_enable = new QCheckBox(tr("Enable"));
-	hb_er->addWidget(checkbox_enable);
+//	hb_er->addWidget(checkbox_enable);
+	hb_er->addWidget(checkbox_enable, 0, Qt::AlignLeft);
+	checkbox_scaled = new QCheckBox(tr("Scale radius"));
+	hb_er->addWidget(checkbox_scaled, 0, Qt::AlignRight);
 	vb->addLayout(hb_er);
 
-	checkbox_scaled = new QCheckBox(tr("Depend on image scale"));
-	vb->addWidget(checkbox_scaled);
-
 	//----------------------------
-	// widget w/o scaling
-	widget_unscaled = new QWidget();
-	widget_unscaled->setVisible(false);
-	QGridLayout *lw = new QGridLayout(widget_unscaled);
+	// sharpness
+	QWidget *widget_sharpness = new QWidget();
+	QGridLayout *lw = new QGridLayout(widget_sharpness);
 	lw->setSpacing(1);
 	lw->setContentsMargins(2, 1, 2, 1);
 	lw->setSizeConstraint(QLayout::SetMinimumSize);
@@ -347,50 +280,7 @@ QWidget *F_Unsharp::controls(QWidget *parent) {
 	hb_l_threshold->addWidget(l_threshold_percent);
 	lw->addLayout(hb_l_threshold, 2, 1);
 
-	vb->addWidget(widget_unscaled);
-
-	//----------------------------
-	// page for scaling
-	tab_scaled = new QTabWidget();
-	tab_scaled->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
-	tab_scaled->setVisible(false);
-//	QString tabs_labels[] = {tr("scale: < 0.5x"), tr(" = 1.0x"), tr(" > 2.0x")};
-	QString tabs_labels[] = {tr("scale: = 1.0x"), tr(" > 2.0x")};
-	for(int i = 0; i < 2; ++i) {
-		QWidget *page;
-//		if(i == 0)
-//			page = new QWidget(parent);
-//		else
-			page = new QWidget();
-		QGridLayout *pl = new QGridLayout(page);
-		pl->setSpacing(1);
-		pl->setContentsMargins(2, 1, 2, 1);
-
-		QLabel *pl_amount = new QLabel(tr("Amount"));
-		pl->addWidget(pl_amount, 1, 0);
-		slider_s_amount[i] = new GuiSlider(0.0, 6.0, 1.0, 100, 20, 10);
-		pl->addWidget(slider_s_amount[i], 1, 1);
-
-		QLabel *pl_radius = new QLabel(tr("Radius"));
-		pl->addWidget(pl_radius, 2, 0);
-		slider_s_radius[i] = new GuiSlider(0.0, 8.0, 1.0, 10, 10, 10);
-		pl->addWidget(slider_s_radius[i], 2, 1);
-
-		QLabel *pl_threshold = new QLabel(tr("Threshold"));
-		pl->addWidget(pl_threshold, 3, 0);
-		QHBoxLayout *hb_pl_threshold = new QHBoxLayout();
-		hb_pl_threshold->setSpacing(0);
-		hb_pl_threshold->setContentsMargins(0, 0, 0, 0);
-		hb_pl_threshold->setSizeConstraint(QLayout::SetMinimumSize);
-		slider_s_threshold[i] = new GuiSlider(0.0, 8.0, 0.0, 10, 10, 10);
-		hb_pl_threshold->addWidget(slider_s_threshold[i]);
-		QLabel *l_threshold_percent = new QLabel(tr("%"));
-		hb_pl_threshold->addWidget(l_threshold_percent);
-		pl->addLayout(hb_pl_threshold, 3, 1);
-
-		tab_scaled->addTab(page, tabs_labels[i]);
-	}
-	vb->addWidget(tab_scaled);
+	vb->addWidget(widget_sharpness);
 
 	//----------------------------
 	// local contrast
@@ -408,14 +298,8 @@ void F_Unsharp::reconnect(bool to_connect) {
 		connect(slider_amount, SIGNAL(signal_changed(double)), this, SLOT(slot_changed_amount(double)));
 		connect(slider_radius, SIGNAL(signal_changed(double)), this, SLOT(slot_changed_radius(double)));
 		connect(slider_threshold, SIGNAL(signal_changed(double)), this, SLOT(slot_changed_threshold(double)));
-		for(int i = 0; i < 2; ++i) {
-			connect(slider_s_amount[i], SIGNAL(signal_changed(double)), this, SLOT(slot_changed_s_amount(double)));
-			connect(slider_s_radius[i], SIGNAL(signal_changed(double)), this, SLOT(slot_changed_s_radius(double)));
-			connect(slider_s_threshold[i], SIGNAL(signal_changed(double)), this, SLOT(slot_changed_s_threshold(double)));
-		}
 		connect(checkbox_enable, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_enable(int)));
 		connect(checkbox_scaled, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_scaled(int)));
-		connect(tab_scaled, SIGNAL(currentChanged(int)), this, SLOT(slot_tab_scaled(int)));
 		// local contrast
 		connect(checkbox_lc_enable, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_lc_enable(int)));
 		connect(slider_lc_amount, SIGNAL(signal_changed(double)), this, SLOT(slot_changed_lc_amount(double)));
@@ -426,14 +310,8 @@ void F_Unsharp::reconnect(bool to_connect) {
 		disconnect(slider_amount, SIGNAL(signal_changed(double)), this, SLOT(slot_changed_amount(double)));
 		disconnect(slider_radius, SIGNAL(signal_changed(double)), this, SLOT(slot_changed_radius(double)));
 		disconnect(slider_threshold, SIGNAL(signal_changed(double)), this, SLOT(slot_changed_threshold(double)));
-		for(int i = 0; i < 2; ++i) {
-			disconnect(slider_s_amount[i], SIGNAL(signal_changed(double)), this, SLOT(slot_changed_s_amount(double)));
-			disconnect(slider_s_radius[i], SIGNAL(signal_changed(double)), this, SLOT(slot_changed_s_radius(double)));
-			disconnect(slider_s_threshold[i], SIGNAL(signal_changed(double)), this, SLOT(slot_changed_s_threshold(double)));
-		}
 		disconnect(checkbox_enable, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_enable(int)));
 		disconnect(checkbox_scaled, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_scaled(int)));
-		disconnect(tab_scaled, SIGNAL(currentChanged(int)), this, SLOT(slot_tab_scaled(int)));
 		// local contrast
 		disconnect(checkbox_lc_enable, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_lc_enable(int)));
 		disconnect(slider_lc_amount, SIGNAL(signal_changed(double)), this, SLOT(slot_changed_lc_amount(double)));
@@ -443,45 +321,21 @@ void F_Unsharp::reconnect(bool to_connect) {
 	}
 }
 
-void F_Unsharp::slot_checkbox_scaled(int state) {
-	bool scaled_enable = (state == Qt::Checked);
-	if(scaled_enable) {
-		widget_unscaled->setVisible(false);
-		tab_scaled->setVisible(true);
-	} else {
-		tab_scaled->setVisible(false);
-		widget_unscaled->setVisible(true);
-	}
-	if(ps->scaled != scaled_enable) {
-		ps->scaled = scaled_enable;
-		emit_signal_update();
-	}
-}
-
-void F_Unsharp::slot_tab_scaled(int index) {
-	scaled_index = index;
-}
-
 void F_Unsharp::slot_checkbox_enable(int state) {
 	bool value = (state == Qt::Checked);
-	bool update = (ps->enabled != value);
-	if(update) {
+	if(ps->enabled != value) {
 		ps->enabled = value;
 //cerr << "emit signal_update(session_id, ) - 1" << endl;
 		emit_signal_update();
 	}
 }
 
-void F_Unsharp::slot_changed_s_amount(double value) {
-	changed_slider(value, ps->s_amount[scaled_index], false);
-}
-
-void F_Unsharp::slot_changed_s_radius(double value) {
-	changed_slider(value, ps->s_radius[scaled_index], false);
-}
-
-void F_Unsharp::slot_changed_s_threshold(double value) {
-	changed_slider(value, ps->s_threshold[scaled_index], true);
+void F_Unsharp::slot_checkbox_scaled(int state) {
+	bool value = (state == Qt::Checked);
+	if(ps->scaled != value) {
+		ps->scaled = value;
+		emit_signal_update();
+	}
 }
 
 void F_Unsharp::slot_changed_amount(double value) {
@@ -632,52 +486,25 @@ bool FP_Unsharp::is_enabled(const PS_Base *ps_base) {
 
 void FP_Unsharp::scaled_parameters(const class PS_Unsharp *ps, class FP_params_t *params, double scale_x, double scale_y) {
 	double scale = (scale_x + scale_y) / 2.0;
-/*
-cerr << "_____________________________________________________________________" << endl;
-cerr << "=====================================================================" << endl;
-cerr << "scale == " << scale << endl;
-*/
-	params->lc_radius = 0.0;
+	// limit excessive increasing on too small crops etc.
 	if(ps->lc_enabled) {
-		params->lc_radius = ps->lc_radius;
-		// limit excessive increasing on too small crops etc.
-		float rescale = (scale > 0.5) ? scale : 0.5;
-		params->lc_radius /= rescale;
+		const double lc_scale = (scale > 0.5) ? scale : 0.5;
+		float lc_r = ps->lc_enabled ? ps->lc_radius : 0.0;
+		lc_r = ((lc_r * 2.0 + 1.0) / lc_scale);
+		lc_r = (lc_r - 1.0) / 2.0;
+		params->lc_radius = (lc_r > 0.0) ? lc_r : 0.0;
 	}
-
-	params->radius = 0.0;
-	params->amount = 0.0;
 	if(ps->enabled) {
-		if(!ps->scaled) {
-			params->amount = ps->amount;
+		params->amount = ps->amount;
+		if(ps->scaled) {
+			const double s_scale = (scale > 1.0) ? scale : 1.0;
+			double s_r = ((ps->radius * 2.0 + 1.0) / s_scale);
+			s_r = (s_r - 1.0) / 2.0;
+			params->radius = (s_r > 0.0) ? s_r : 0.0;
+		} else
 			params->radius = ps->radius;
-			params->threshold = ps->threshold;
-		} else {
-			if(scale >= 2.0) {
-				params->amount = ps->s_amount[1];
-				params->radius = ps->s_radius[1];
-				params->threshold = ps->s_threshold[1];
-			} else if(scale <= 1.0) {
-				params->amount = ps->s_amount[0];
-				params->radius = ps->s_radius[0];
-				params->threshold = ps->s_threshold[0];
-			} else {
-				scale -= 1.0;
-				params->amount = ps->s_amount[0] + (ps->s_amount[1] - ps->s_amount[0]) * scale;
-				params->radius = ps->s_radius[0] + (ps->s_radius[1] - ps->s_radius[0]) * scale;
-				params->threshold = ps->s_threshold[0] + (ps->s_threshold[1] - ps->s_threshold[0]) * scale;
-			}
-		}
+		params->threshold = ps->threshold;
 	}
-/*
-cerr << "ps->amount[0] == " << ps->s_amount[0] << "; ps->amount[1] == " << ps->s_amount[1] << endl;
-cerr << "ps->radius[0] == " << ps->s_radius[0] << "; ps->radius[1] == " << ps->s_radius[1] << endl;
-cerr << "ps->threshold[0] == " << ps->s_threshold[0] << "; ps->threshold[1] == " << ps->s_threshold[1] << endl;
-cerr << "params->amount == " << params->amount << endl;
-cerr << "params->radius == " << params->radius << endl;
-cerr << "params->threshold == " << params->threshold << endl;
-cerr << endl;
-*/
 }
 
 //------------------------------------------------------------------------------
@@ -704,14 +531,10 @@ void FP_Unsharp::size_backward(FP_size_t *fp_size, Area::t_dimensions *d_before,
 	// TODO: check together 'unsharp' and 'local contrast'
 	*d_before = *d_after;
 	int edge = 0;
-	if(params.lc_radius > 0.0 && ps->lc_enabled) {
+	if(params.lc_radius > 0.0 && ps->lc_enabled)
 		edge += int(params.lc_radius * 2.0 + 1.0) / 2 + 1;
-//		edge += int(params.lc_radius + 2.0);
-	}
-	if(params.radius > 0.0 && ps->enabled) {
+	if(params.radius > 0.0 && ps->enabled)
 		edge += int(params.radius * 2.0 + 1.0) / 2 + 1;
-//		edge += int(params.radius + 1.0);
-	}
 //cerr << endl;
 //cerr << "sizze_backward(); params.lc_radius == " << params.lc_radius << "; params.radius == " << params.radius << endl;
 //cerr << endl;
@@ -814,13 +637,15 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 //cerr << "   params.radius == " << params.radius << endl;
 //cerr << "params.lc_radius == " << params.lc_radius << endl;
 			// fill gaussian kernel
-			const float sigma = (params.radius * 2.0) / 6.0;
+			float sigma_6 = params.radius * 2.0 + 1.0;
+			sigma_6 = (sigma_6 > 1.0) ? sigma_6 : 1.0;
+			const float sigma = sigma_6 / 6.0;
 			const float sigma_sq = sigma * sigma;
-			const int kernel_length = 2 * floor(params.radius) + 1;
-			const int kernel_offset = -floor(params.radius);
-			const float kernel_offset_f = -floor(params.radius);
+			const int kernel_length = 2 * ceil(params.radius) + 1;
+			const int kernel_offset = -ceil(params.radius);
+			const float kernel_offset_f = -ceil(params.radius);
 			int kernel_length_y = (type == 1) ? kernel_length : 1;
-//cerr << "kernel_length == " << kernel_length << ", kernel_length_y == " << kernel_length_y << endl;
+//cerr << "kernel_length == " << kernel_length << ", kernel_offset == " << kernel_offset << ", kernel_length_y == " << kernel_length_y << endl;
 			kernel = new float[kernel_length * kernel_length_y];
 			for(int y = 0; y < kernel_length_y; ++y) {
 				for(int x = 0; x < kernel_length; ++x) {
@@ -872,9 +697,9 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 
 		if(!process_obj->OOM) {
 			if(type == 0)
-				process_square(subflow);
+				process_double_pass(subflow);
 			else
-				process_round(subflow);
+				process_single_pass(subflow);
 		}
 
 		subflow->sync_point();
@@ -895,7 +720,7 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 }
 
 //------------------------------------------------------------------------------
-void FP_Unsharp::process_square(class SubFlow *subflow) {
+void FP_Unsharp::process_double_pass(class SubFlow *subflow) {
 	task_t *task = (task_t *)subflow->get_private();
 
 	const int in_width = task->area_in->mem_width();
@@ -962,7 +787,7 @@ void FP_Unsharp::process_square(class SubFlow *subflow) {
 	subflow->sync_point();
 
 	float amount = task->amount;
-	float threshold = task->threshold;
+//	float threshold = task->threshold;
 	// vertical pass - from temporary to output area
 	j = 0;
 	while((j = task->y_flow_pass_2->fetch_add(1)) < y_max) {
@@ -1002,37 +827,20 @@ void FP_Unsharp::process_square(class SubFlow *subflow) {
 
 //			out[i_out + 0] = v_blur;
 //			continue;
-
-			float v_in = in[i_in + 0];
-			float v_out = v_in - v_blur;
-//			v_out = amount * ((ddr::abs(v_out) < threshold) ? 0.0 : v_out);
-			if(ddr::abs(v_out) < threshold && threshold > 0.0f) {
-				float s = v_out / threshold;
-				v_out = (v_out < 0.0f) ? (-s * s) : (s * s);
-				v_out *= threshold;
-			}
-			v_out *= amount;
-			// do adaptation to prevent signal splashing at the hard edges (where difference is already very big...)
-			if(v_out < 0.0f && v_in > 0.0f)
-				v_out *= (v_in + v_out) / v_in;
-			if(v_out > 0.0f && v_in + v_out != 0.0f)
-				v_out *= v_in / (v_in + v_out);
-			v_out = v_in + v_out;
-			if(v_out < 0.0f)	v_out = 0.0f;
-			if(v_out > 1.0f)	v_out = 1.0f;
-			// darken only alike
-			if(!task->lc_brighten && v_out > v_in)
-				v_out = v_in;
-			// brighten only alike
-			if(!task->lc_darken && v_out < v_in)
-				v_out = v_in;
+			const float v_in = in[i_in + 0];
+			float v_out = (v_in - v_blur) * amount + v_in;
+//			ddr::clip(v_out, v_in * 0.4f, v_in + (1.0f - v_in) * 0.6f);
+			const float v_min = (task->lc_darken) ? v_in * 0.4f : v_in;
+			const float v_max = (task->lc_brighten) ? v_in * 0.4f + 0.6f : v_in;
+			ddr::clip(v_out, v_min, v_max);
+//			v_out = ddr::clip(v_out);
 			out[i_out + 0] = v_out;
 		}
 	}
 }
 
 //------------------------------------------------------------------------------
-void FP_Unsharp::process_round(class SubFlow *subflow) {
+void FP_Unsharp::process_single_pass(class SubFlow *subflow) {
 	task_t *task = (task_t *)subflow->get_private();
 
 	const int in_width = task->area_in->mem_width();
@@ -1069,8 +877,8 @@ void FP_Unsharp::process_round(class SubFlow *subflow) {
 	int j = 0;
 	while((j = task->y_flow_pass_1->fetch_add(1)) < y_max) {
 		for(int i = 0; i < x_max; ++i) {
-			int l = ((j + in_y_offset) * in_width + (i + in_x_offset)) * 4;
-			int k = ((j + out_y_offset) * out_width + (i + out_x_offset)) * 4;
+			const int l = ((j + in_y_offset) * in_width + (i + in_x_offset)) * 4;
+			const int k = ((j + out_y_offset) * out_width + (i + out_x_offset)) * 4;
 			//--
 			out[k + 1] = in[l + 1];
 			out[k + 2] = in[l + 2];
@@ -1087,19 +895,12 @@ void FP_Unsharp::process_round(class SubFlow *subflow) {
 					const int in_x = i + x + kernel_offset + in_x_offset;
 					const int in_y = j + y + kernel_offset + in_y_offset;
 					if(in_x >= 0 && in_x < in_w && in_y >= 0 && in_y < in_h) {
-						float alpha = in[(in_y * in_width + in_x) * 4 + 3];
+						const float alpha = in[(in_y * in_width + in_x) * 4 + 3];
 //						if(alpha == 1.0) {
 						if(alpha > 0.05f) {
-//							float v_in = in[((in_y + in_y_offset) * in_width + in_x + in_x_offset) * 4 + 0];
-							float v_in = in[(in_y * in_width + in_x) * 4 + 0];
-/*
-							float fx = kernel_offset + x;
-							float fy = kernel_offset + y;
-							float z = sqrtf(fx * fx + fy * fy);
-							float w = (1.0 / sqrtf(2.0 * M_PI * sigma_sq)) * expf(-(z * z) / (2.0 * sigma_sq));
-*/
-							int kernel_index = y * kernel_length + x;
-							float w = kernel[kernel_index];
+							const float v_in = in[(in_y * in_width + in_x) * 4 + 0];
+							const int kernel_index = y * kernel_length + x;
+							const float w = kernel[kernel_index];
 							v_blur += v_in * w;
 							v_blur_w += w;
 						}
@@ -1113,24 +914,20 @@ void FP_Unsharp::process_round(class SubFlow *subflow) {
 			}
 			v_blur /= v_blur_w;
 
-			float v_in = in[l + 0];
+			const float v_in = in[l + 0];
 			float v_out = v_in - v_blur;
-			if(threshold > 0.0f && ddr::abs(v_out) < threshold) {
-				float s = v_out / threshold;
-				v_out = (v_out < 0.0f) ? (-s * s) : (s * s);
-				v_out *= threshold;
-			}
-			v_out *= amount;
-			// do adaptation to prevent signal splashing at the "hard" edges (where difference is already very big...)
-			if(v_out < 0.0f && v_in > 0.0f)
-				v_out *= (v_in + v_out) / v_in;
-			if(v_out > 0.0f && v_in + v_out != 0.0f)
-				v_out *= v_in / (v_in + v_out);
-			//--
+			// smooth amount increase for values under threshold to avoid coarsness
+			const float v_out_abs = ddr::abs(v_out);
+			if(v_out_abs < threshold)
+				v_out *= amount * (v_out_abs / threshold);
+			else
+				v_out *= amount;
 			v_out = v_in + v_out;
-//			if(v_out > v_in)
-//				v_out = v_in;
-			ddr::clip(v_out);
+			// limit changes
+//			ddr::clip(v_out, v_in * 0.4f, v_in + (1.0f - v_in) * 0.6f);
+			ddr::clip(v_out, v_in * 0.4f, v_in * 0.4f + 0.6f);
+			//--
+//			v_out = ddr::clip(v_out);
 			out[k + 0] = v_out;
 		}
 	}
