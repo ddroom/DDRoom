@@ -829,11 +829,14 @@ void FP_Unsharp::process_double_pass(class SubFlow *subflow) {
 //			continue;
 			const float v_in = in[i_in + 0];
 			float v_out = (v_in - v_blur) * amount + v_in;
+#if 1
 //			ddr::clip(v_out, v_in * 0.4f, v_in + (1.0f - v_in) * 0.6f);
-			const float v_min = (task->lc_darken) ? v_in * 0.4f : v_in;
-			const float v_max = (task->lc_brighten) ? v_in * 0.4f + 0.6f : v_in;
+			const float v_min = (task->lc_darken) ? v_in * 0.5f : v_in;
+			const float v_max = (task->lc_brighten) ? v_in * 0.5f + 0.5f : v_in;
 			ddr::clip(v_out, v_min, v_max);
-//			v_out = ddr::clip(v_out);
+#else
+			v_out = ddr::clip(v_out);
+#endif
 			out[i_out + 0] = v_out;
 		}
 	}
@@ -925,7 +928,7 @@ void FP_Unsharp::process_single_pass(class SubFlow *subflow) {
 			v_out = v_in + v_out;
 			// limit changes
 //			ddr::clip(v_out, v_in * 0.4f, v_in + (1.0f - v_in) * 0.6f);
-			ddr::clip(v_out, v_in * 0.4f, v_in * 0.4f + 0.6f);
+			ddr::clip(v_out, v_in * 0.5f, v_in * 0.5f + 0.5f);
 			//--
 //			v_out = ddr::clip(v_out);
 			out[k + 0] = v_out;

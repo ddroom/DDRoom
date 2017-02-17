@@ -4,7 +4,7 @@
  * process.h - renamed from "process.h" to "process_h.h" for compatibility with MinGW.
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */

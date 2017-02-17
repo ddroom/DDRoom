@@ -4,13 +4,13 @@
  * version.h
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
 
 #define APP_NAME "DDRoom"
 #define APP_NAME_FULL "Digital Dark Room"
-#define APP_VERSION	"1.0.4.1"
+#define APP_VERSION	"1.0.4.3"
 
 #endif //__H_VERSION__

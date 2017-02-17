@@ -2,7 +2,7 @@
  * cm.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
@@ -789,17 +789,10 @@ CIECAM02_priv::CIECAM02_priv(void) {
 	// average   1.0  0.69   1.0
 	// dim       0.9  0.59   0.95
 	// dark      0.8  0.525  0.8
-	_vc_F = 1.0;
-//	_vc_c = 0.690;
-	_vc_c = 0.675;
-	_vc_Nc = 1.0;
-
-	// use that with implemented lightness compression, and updated SGT
-/*
-	_vc_F = 0.8;
-	_vc_c = 0.80;
-	_vc_Nc = 0.8;
-*/
+	// use 'dim' for convenient 'ligtness' curve
+	_vc_F = 0.9;
+	_vc_c = 0.59;
+	_vc_Nc = 0.95;
 	//--
 //	_n = _vc_Yb / _XYZw[1];
 	_n = _vc_Yb / 1.0;	// use constant Yw == 100.0, i.e. Yw == 1.0;
