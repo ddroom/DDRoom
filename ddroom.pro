@@ -179,7 +179,9 @@ win32 {
 	LIBS += -L/local/lib -lws2_32 # for htonl etc...
 }
 
-LIBS += -lexiv2 -ljpeg -lpng -lz -ltiff -lopenjpeg -llensfun
+LIBS += -lOpenCL
+LIBS += -lexiv2 -ljpeg -lpng -lz -ltiff -lopenjp2 -llensfun
+#LIBS += -lexiv2 -ljpeg -lpng -lz -ltiff -lopenjpeg -llensfun
 
 # suppress 'unused-result' for dcraw.cpp
 QMAKE_CXXFLAGS_WARN_ON = -Wall -Wno-sign-compare -Wno-unused-result

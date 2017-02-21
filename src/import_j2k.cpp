@@ -2,18 +2,15 @@
  * import_j2k.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
 
-// Jpeg2000 library usage is based on source of "j2k_to_image.c" from OpenJPEG library
 /*
- * TODO:
- *	- handle in a proper way error "The number of resolutions to remove is higher..." and crash with high reduce value.
- *		- there is an error in OpenJpeg (version 1.3) library: libopenjpeg/jp2.c: 544 - 'Set Image Color Space' should be doing only in 'image != nullptr' case;
- *			verson 1.5.0 is OK.
+ *	Openjpeg library usage is based on the sample source "opj_decompress.c"
  */
+
 #include <stdio.h>
 #include <iostream>
 
@@ -24,7 +21,7 @@
 #include "import_exiv2.h"
 #include "ddr_math.h"
 
-#include <openjpeg.h>
+#include <openjpeg-2.1/openjpeg.h>
 
 #include <QFile>
 
@@ -96,7 +93,7 @@ QImage Import_J2K::thumb(Metadata *metadata, int thumb_width, int thumb_height) 
 
 void Import_J2K::callback_error(const char *msg, void *_this) {
 //	cerr << "Import_J2K::callback_error():" << msg << endl;
-	((Import_J2K *)_this)->was_callback_error = true;;
+	((Import_J2K *)_this)->was_callback_error = true;
 }
 
 void Import_J2K::callback_warning(const char *msg, void *_this) {
@@ -127,47 +124,39 @@ Area *Import_J2K::load_image(Metadata *metadata, int reduce, bool is_thumb, bool
 	}
 	QString extension = QString::fromLocal8Bit(ext.c_str()).toLower();
 	if(extension == "j2k" || extension == "j2c")
-		j2k_codec = CODEC_J2K;
+		j2k_codec = OPJ_CODEC_J2K;
 	if(extension == "jp2")
-		j2k_codec = CODEC_JP2;
+		j2k_codec = OPJ_CODEC_JP2;
 	if(extension == "jpt")
-		j2k_codec = CODEC_JPT;
+		j2k_codec = OPJ_CODEC_JPT;
 	if(j2k_codec == -1)
 		return nullptr;
-
-	// load file to memory
-	QString q_file_name = QString::fromLocal8Bit(file_name.c_str());
-	QFile ifile(q_file_name);
-	ifile.open(QIODevice::ReadOnly);
-	QByteArray j2k_data_array = ifile.readAll();
-	ifile.close();
-	if(j2k_data_array.size() == 0)
-		return nullptr;
-	long j2k_data_length = j2k_data_array.size();
-	unsigned char *j2k_data = (unsigned char *)j2k_data_array.data();
 
 	// decompress image with OpenJPEG library
 	opj_dparameters_t parameters;
 	opj_set_default_decoder_parameters(&parameters);
 	parameters.cp_reduce = reduce;
-	opj_dinfo_t *dinfo = opj_create_decompress((CODEC_FORMAT)j2k_codec);
-	opj_event_mgr_t event_mgr;
-	memset(&event_mgr, 0, sizeof(opj_event_mgr_t));
-	event_mgr.error_handler = Import_J2K::callback_error;
-	event_mgr.warning_handler = Import_J2K::callback_warning;
-	event_mgr.info_handler = Import_J2K::callback_info;
-	opj_set_event_mgr((opj_common_ptr)dinfo, &event_mgr, (void *)this);
-	opj_setup_decoder(dinfo, &parameters);
-	opj_cio_t *cio = opj_cio_open((opj_common_ptr)dinfo, j2k_data, j2k_data_length);
-	opj_image_t *image = opj_decode(dinfo, cio);
-	if(was_callback_error)
-		return nullptr;
-	opj_destroy_decompress(dinfo);
-	opj_cio_close(cio);
-	if(image == nullptr || was_callback_error)
-		return nullptr;
-	bool j2k_ok = false;
+	opj_codec_t *l_codec = opj_create_decompress((CODEC_FORMAT)j2k_codec);
+	opj_set_info_handler(l_codec, Import_J2K::callback_info, this);
+	opj_set_warning_handler(l_codec, Import_J2K::callback_warning, this);
+	opj_set_error_handler(l_codec, Import_J2K::callback_error, this);
+	opj_setup_decoder(l_codec, &parameters);
 
+	opj_stream_t *l_stream = opj_stream_create_default_file_stream(file_name.c_str(), OPJ_TRUE);
+
+	opj_image_t *image = nullptr;
+	opj_read_header(l_stream, l_codec, &image);
+	opj_decode(l_codec, l_stream, image);
+	opj_stream_destroy(l_stream);
+	opj_destroy_codec(l_codec);
+
+	if(image == nullptr)
+		return nullptr;
+	if(was_callback_error) {
+		opj_image_destroy(image);
+		return nullptr;
+	}
+	bool j2k_ok = false;
 	// check color format: suported only 3-components (RGB) and 1-component (greyscale), images
 	j2k_ok |= (image->numcomps == 3 && 
 		image->comps[0].dx   == image->comps[1].dx && 
@@ -186,6 +175,7 @@ Area *Import_J2K::load_image(Metadata *metadata, int reduce, bool is_thumb, bool
 	// process decompressed image data
 	int width = image->comps[0].w;
 	int height = image->comps[0].h;
+//cerr << "JPEG2000, width == " << width << ", height == " << height << endl;
 	metadata->width = width;
 	metadata->height = height;
     metadata->rotation = 0;

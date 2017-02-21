@@ -28,7 +28,133 @@ NOTES:
 #include "system.h"
 #include "misc.h"
 
+#define CL_USE_DEPRECATED_OPENCL_1_2_APIS
+#include <CL/cl.h>
+
 using namespace std;
+
+class ocl_t {
+public:
+	ocl_t(const char *program_source, const char *kernel_name);
+	void release_mem_objects(void);
+
+	cl_context context;
+	cl_command_queue command_queue;
+	cl_program program;
+	cl_kernel kernel;
+	cl_sampler sampler;
+	//--
+	cl_mem mem_in = nullptr;
+	cl_mem mem_out = nullptr;
+	cl_mem mem_kernel = nullptr;
+};
+
+void ocl_t::release_mem_objects(void) {
+	if(mem_in != nullptr) {
+		clReleaseMemObject(mem_in);
+		mem_in = nullptr;
+	}
+	if(mem_out != nullptr) {
+		clReleaseMemObject(mem_out);
+		mem_out = nullptr;
+	}
+	if(mem_kernel != nullptr) {
+		clReleaseMemObject(mem_kernel);
+		mem_kernel = nullptr;
+	}
+}
+
+ocl_t::ocl_t(const char *program_source, const char *kernel_name) {
+	cl_int status;
+	// get platforms list
+	cl_uint numPlatforms;
+	clGetPlatformIDs(0, NULL, &numPlatforms);
+	if(numPlatforms <= 0) {
+		cerr << "no OpenCL platforms found" << endl;
+		return;
+	}
+	cl_platform_id *platforms = new cl_platform_id[numPlatforms];
+	clGetPlatformIDs(numPlatforms, platforms, NULL);
+
+	// create context
+	context = NULL;
+	cl_platform_id ocl_platform_id = NULL;
+	cl_device_id ocl_device_id = NULL;
+	for(int i = 0; i < numPlatforms; ++i) {
+		ocl_platform_id = platforms[i];
+		cl_context_properties ctx_props[3] = {
+			CL_CONTEXT_PLATFORM,
+			(cl_context_properties)ocl_platform_id,
+			0
+		};
+//		cl_context_properties *ctx_props = cps;
+
+		cl_uint numDevices;
+		clGetDeviceIDs(ocl_platform_id, CL_DEVICE_TYPE_ALL, 0, NULL, &numDevices);
+		if(numDevices <= 0)
+			continue;
+		cl_device_id *devices = new cl_device_id[numDevices];
+		clGetDeviceIDs(ocl_platform_id, CL_DEVICE_TYPE_ALL, numDevices, devices, NULL);
+		for(int j = 0; j < numDevices; ++j) {
+			ocl_device_id = devices[j];
+			// check features - > `OpenCL 1.2` and images support
+			cl_bool image_support = CL_FALSE;
+			clGetDeviceInfo(ocl_device_id, CL_DEVICE_IMAGE_SUPPORT, sizeof(cl_bool), &image_support, NULL);
+			if(image_support != CL_TRUE)
+				continue;
+			char v_buf[64];
+			size_t v_len = 0;
+			clGetDeviceInfo(ocl_device_id, CL_DEVICE_VERSION, 63, &v_buf, &v_len);
+			v_buf[63] = '\0';
+//			cerr << "OpenCL device version: |" << v_buf << "|" << endl;
+			std::stringstream sstr(v_buf);
+			string v_name; // 'OpenCL' part
+			int v_major, v_minor;
+			char separator;
+			sstr >> v_name >> v_major >> separator >> v_minor;
+			if(v_major < 2 && v_minor < 2) // '1.2' and up
+				continue;
+//			cerr << "name == |" << v_name << "|" << v_major << ", " << v_minor << endl;
+			
+			context = clCreateContext(ctx_props, 1, &ocl_device_id, NULL, NULL, &status);
+			if(status == CL_SUCCESS)
+				break;
+			else
+				cerr << "status == " << status << endl;
+		}
+		delete[] devices;
+		if(status == CL_SUCCESS)
+			break;
+	}
+	if(context == NULL) { cerr << "OpenCL context creation failed" << endl;	return;}
+	delete[] platforms;
+
+	cl_int info;
+	status = clGetDeviceInfo(ocl_device_id, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, sizeof(info), &info, NULL);
+//	cerr << "CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS == " << info << endl;
+	status = clGetDeviceInfo(ocl_device_id, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(info), &info, NULL);
+//	cerr << "CL_DEVICE_MAX_WORK_GROUP_SIZE == " << info << endl;
+
+	// create command queue
+	command_queue = clCreateCommandQueue(context, ocl_device_id, 0, &status);
+	if(status != CL_SUCCESS) { cerr << "fail to create command quque" << endl;	return;}
+
+	program = clCreateProgramWithSource(context, 1, (const char **)&program_source, NULL, &status);
+	if(status != CL_SUCCESS) { cerr << "fail to: create program with source" << endl;	return;}
+	status = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
+	if(status != CL_SUCCESS) {
+		cerr << "fail to: build program. LOG:" << endl;
+		size_t len;
+		clGetProgramBuildInfo(program, ocl_device_id, CL_PROGRAM_BUILD_LOG, 0, NULL, &len);
+		char *buffer = new char[len + 1];
+		clGetProgramBuildInfo(program, ocl_device_id, CL_PROGRAM_BUILD_LOG, len, buffer, &len);
+		cerr << buffer << endl;
+		delete[] buffer;
+		return;
+	}
+	kernel = clCreateKernel(program, kernel_name, &status);
+	if(kernel == NULL || status != CL_SUCCESS) { cerr << "fail to: create kernel" << endl;	return;}
+}
 
 //------------------------------------------------------------------------------
 class PS_Unsharp : public PS_Base {
@@ -77,7 +203,11 @@ protected:
 	void scaled_parameters(const class PS_Unsharp *ps, class FP_params_t *params, double scale_x, double scale_y);
 	void process_double_pass(class SubFlow *subflow);
 	void process_single_pass(class SubFlow *subflow);
+
+	static class ocl_t *ocl;
 };
+
+class ocl_t *FP_Unsharp::ocl = nullptr;
 
 //------------------------------------------------------------------------------
 PS_Unsharp::PS_Unsharp(void) {
@@ -104,7 +234,7 @@ void PS_Unsharp::reset(void) {
 	lc_enabled = false;
 	lc_amount = 0.25f;
 	lc_radius = 10.0f;
-	lc_brighten = true;
+	lc_brighten = false;
 	lc_darken = true;
 }
 
@@ -578,6 +708,184 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 	Area *area_out = nullptr;
 	Area *area_to_delete = nullptr;
 
+	// OpenCL code
+#if 0
+	if(subflow->sync_point_pre()) {
+		Area::t_dimensions d_out = *area_in->dimensions();
+		Tile_t::t_position &tp = process_obj->position;
+		// keep _x_max, _y_max, px_size the same
+		d_out.position.x = tp.x;
+		d_out.position.y = tp.y;
+		d_out.size.w = tp.width;
+		d_out.size.h = tp.height;
+		d_out.edges.x1 = 0;
+		d_out.edges.x2 = 0;
+		d_out.edges.y1 = 0;
+		d_out.edges.y2 = 0;
+		const float px_size_x = area_in->dimensions()->position.px_size_x;
+		const float px_size_y = area_in->dimensions()->position.px_size_y;
+
+		FP_params_t params;
+		scaled_parameters(ps, &params, px_size_x, px_size_y);
+		// fill gaussian kernel
+		float sigma_6 = params.radius * 2.0 + 1.0;
+		sigma_6 = (sigma_6 > 1.0) ? sigma_6 : 1.0;
+		const float sigma = sigma_6 / 6.0;
+		const float sigma_sq = sigma * sigma;
+		const int kernel_width = 2 * ceil(params.radius) + 1;
+		const int kernel_offset = -ceil(params.radius);
+		const float kernel_offset_f = -ceil(params.radius);
+		const int kernel_height = kernel_width;
+//cerr << "kernel_width == " << kernel_width << ", kernel_offset == " << kernel_offset << ", kernel_height == " << kernel_height << endl;
+		float *kernel = new float[kernel_width * kernel_height];
+		for(int y = 0; y < kernel_height; ++y) {
+			for(int x = 0; x < kernel_width; ++x) {
+				const float fx = kernel_offset_f + x;
+				const float fy = kernel_offset_f + y;
+				const float z = sqrtf(fx * fx + fy * fy);
+				const float w = (1.0 / sqrtf(2.0 * M_PI * sigma_sq)) * expf(-(z * z) / (2.0 * sigma_sq));
+				kernel[y * kernel_width + x] = w;
+			}
+		}
+		//--
+		area_out = new Area(&d_out);
+		process_obj->OOM |= !area_out->valid();
+		//--
+#if 0
+		const int in_x_offset = (d_out.position.x - area_in->dimensions()->position.x) / px_size_x + 0.5 + area_in->dimensions()->edges.x1;
+		const int in_y_offset = (d_out.position.y - area_in->dimensions()->position.y) / px_size_y + 0.5 + area_in->dimensions()->edges.y1;
+#else
+		const int in_x_offset = (d_out.position.x - area_in->dimensions()->position.x) / px_size_x + 0.5 + area_in->dimensions()->edges.x1;
+		const int in_y_offset = (d_out.position.y - area_in->dimensions()->position.y) / px_size_y + 0.5 + area_in->dimensions()->edges.y1;
+		const int in_kx_offset = in_x_offset + kernel_offset;
+		const int in_ky_offset = in_y_offset + kernel_offset;
+#endif
+		void *in_ptr = area_in->ptr();
+		void *out_ptr = area_out->ptr();
+		const int in_w = area_in->mem_width();
+		const int in_h = area_in->mem_height();
+		const int out_w = area_out->mem_width();
+		const int out_h = area_out->mem_height();
+
+		// OpenCL
+		const char *program_source = "\n" \
+			"const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;\n" \
+			"kernel void test_2D(\n" \
+			"	read_only image2d_t in,\n" \
+			"	write_only image2d_t out,\n" \
+			"	int2 in_offset, int2 out_offset, int2 in_k_offset,\n" \
+			"	read_only global float *gaussian_kernel, int kernel_len,\n"\
+			"	float amount, float threshold)\n" \
+			"{\n" \
+			"	const int2 pos = (int2)(get_global_id(0), get_global_id(1));\n" \
+			"	const int2 pos_k_in = pos + in_k_offset;\n" \
+			"	float blur = 0.0f;\n" \
+			"	float w_sum = 0.0f;\n" \
+			"	for(int y = 0; y < kernel_len; ++y) {\n" \
+			"		for(int x = 0; x < kernel_len; ++x) {\n" \
+			"			const float4 px = read_imagef(in, sampler, pos_k_in + (int2)(x, y));\n" \
+			"			if(px.w > 0.05f) {\n" \
+			"				const float w = gaussian_kernel[kernel_len * y + x];\n" \
+			"				w_sum += w;\n" \
+			"				blur += px.x * w;\n" \
+			"			}\n" \
+			"		}\n" \
+			"	}\n" \
+			"	float4 px = read_imagef(in, sampler, pos + in_offset);\n" \
+			"	if(w_sum > 0.0f) {\n" \
+			"		blur /= w_sum;\n" \
+			"		const float v_in = px.x;\n" \
+			"		float hf = v_in - blur;\n" \
+			"		const float hf_abs = fabs(hf);\n" \
+			"		//hf *= (hf_abs < threshold) ? (amount * hf_abs / threshold) : amount;\n" \
+			"		hf *= (hf_abs < threshold) ? (amount * half_divide(hf_abs, threshold)) : amount;\n" \
+			"		float v_out = px.x + hf;\n" \
+			"		// px.x = fmin(fmax(v_out, v_in * 0.4f), v_in + (1.0f - v_in) * 0.6f);\n" \
+			"		//px.x = fmin(fmax(v_out, v_in * 0.5f), v_in * 0.5f + 0.5f);\n" \
+			"		px.x = clamp(v_out, v_in * 0.5f, fma(v_in, 0.5f, 0.5f));\n" \
+			"	}\n" \
+			"	write_imagef(out, pos + out_offset, px);\n" \
+			"}\n" \
+			"\n";
+
+		// init static OCL object if not already...
+		if(ocl == nullptr)
+			ocl = new ocl_t(program_source, "test_2D");
+		else
+			ocl->release_mem_objects();
+		cl_int status;
+
+		// write input area
+		cl_image_format ocl_im2d_format;
+		ocl_im2d_format.image_channel_order = CL_RGBA;
+		ocl_im2d_format.image_channel_data_type = CL_FLOAT;
+		cl_image_desc ocl_image_desc;
+		memset(&ocl_image_desc, 0, sizeof(ocl_image_desc));
+		ocl_image_desc.image_type = CL_MEM_OBJECT_IMAGE2D;
+		ocl_image_desc.image_width = in_w;
+		ocl_image_desc.image_height = in_h;
+		ocl->mem_in = clCreateImage(ocl->context, CL_MEM_READ_ONLY | CL_MEM_HOST_WRITE_ONLY, &ocl_im2d_format, &ocl_image_desc, NULL, &status);
+		if(status != CL_SUCCESS) { cerr << "fail to: create buffer in" << endl; return nullptr; }
+		ocl_image_desc.image_width = out_w;
+		ocl_image_desc.image_height = out_h;
+		ocl->mem_out = clCreateImage(ocl->context, CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, &ocl_im2d_format, &ocl_image_desc, NULL, &status);
+		if(status != CL_SUCCESS) { cerr << "fail to: create buffer out" << endl; return nullptr; }
+		// 2D gaussian kernel
+		size_t kernel_2D_size = kernel_width * kernel_height * sizeof(float);
+//		ocl->mem_kernel = clCreateBuffer(ocl->context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, kernel_2D_size, kernel, &status);
+//		ocl->mem_kernel = clCreateBuffer(ocl->context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR | CL_MEM_HOST_NO_ACCESS, kernel_2D_size, kernel, &status);
+		ocl->mem_kernel = clCreateBuffer(ocl->context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, kernel_2D_size, kernel, &status);
+		if(status != CL_SUCCESS) { cerr << "fail to: create 2D kernel buffer" << endl; return nullptr; }
+
+		size_t ocl_mem_origin[3] = {0, 0, 0};
+		size_t ocl_mem_region[3] = {0, 0, 1};
+		ocl_mem_region[0] = in_w;
+		ocl_mem_region[1] = in_h;
+		status = clEnqueueWriteImage(ocl->command_queue, ocl->mem_in, CL_TRUE, ocl_mem_origin, ocl_mem_region, in_w * 4 * sizeof(float), 0, (void *)in_ptr, 0, NULL, NULL);
+			if(status != CL_SUCCESS) { cerr << "fail to: write data to process" << endl; return nullptr; }
+
+		ocl->sampler = clCreateSampler(ocl->context, CL_FALSE, CL_ADDRESS_CLAMP, CL_FILTER_NEAREST, &status);
+		if(status != CL_SUCCESS) { cerr << "fail to: create sampler" << endl; return nullptr; }
+		// transfer arguments
+		status  = clSetKernelArg(ocl->kernel, 0, sizeof(cl_mem), &ocl->mem_in);
+		status |= clSetKernelArg(ocl->kernel, 1, sizeof(cl_mem), &ocl->mem_out);
+		cl_int2 arg_in_offset = {in_x_offset, in_y_offset};
+		cl_int2 arg_out_offset = {0, 0};
+		cl_int2 arg_in_k_offset = {in_kx_offset, in_ky_offset};
+		status |= clSetKernelArg(ocl->kernel, 2, sizeof(arg_in_offset), &arg_in_offset);
+		status |= clSetKernelArg(ocl->kernel, 3, sizeof(arg_out_offset), &arg_out_offset);
+		status |= clSetKernelArg(ocl->kernel, 4, sizeof(arg_in_k_offset), &arg_in_k_offset);
+		status |= clSetKernelArg(ocl->kernel, 5, sizeof(cl_mem), &ocl->mem_kernel);
+		cl_int arg_kernel_length = kernel_width;
+		status |= clSetKernelArg(ocl->kernel, 6, sizeof(cl_int), &arg_kernel_length);
+		cl_float arg_amount = params.amount;
+		status |= clSetKernelArg(ocl->kernel, 7, sizeof(cl_float), &arg_amount);
+		cl_float arg_threshold = params.threshold;
+		status |= clSetKernelArg(ocl->kernel, 8, sizeof(cl_float), &arg_threshold);
+		if(status != CL_SUCCESS) { cerr << "fail to: pass arguments to kernel" << endl; return nullptr; }
+
+		// run kernel
+		size_t ws_global[2];
+		ws_global[0] = out_w;
+		ws_global[1] = out_h;
+		status = clEnqueueNDRangeKernel(ocl->command_queue, ocl->kernel, 2, NULL, ws_global, NULL, 0, NULL, NULL);
+		if(status != CL_SUCCESS) { cerr << "fail to: enqueue ND range kernel, status == " << status << endl; return nullptr; }
+		clFinish(ocl->command_queue);
+
+		// read resulting area
+		ocl_mem_region[0] = out_w;
+		ocl_mem_region[1] = out_h;
+		status = clEnqueueReadImage(ocl->command_queue, ocl->mem_out, CL_TRUE, ocl_mem_origin, ocl_mem_region, out_w * 4 * sizeof(float), 0, (void *)out_ptr, 0, NULL, NULL);
+			if(status != CL_SUCCESS) { cerr << "fail to: read results" << endl; return 0; }
+
+		ocl->release_mem_objects();
+	}
+	subflow->sync_point_post();
+	return area_out;
+#endif
+
+	// non-OpenCL
+
 	for(int type = 0; type < 2 && !process_obj->OOM; ++type) {
 		if(type == 0 && ps->lc_enabled == false) // type == 0 - local contrast, square blur
 			continue;
@@ -597,7 +905,7 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 				area_in = area_out;
 			}
 			// non-destructive processing
-			int cores = subflow->cores();
+			const int cores = subflow->cores();
 			tasks = new task_t *[cores];
 
 			Area::t_dimensions d_out = *area_in->dimensions();
@@ -619,7 +927,7 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 			if(type == 0) {
 				// increase output of 'local contrast' if 'sharpness' is enabled
 				if(params.radius > 0.0 && ps->enabled) {
-					int edge = int(params.radius * 2.0 + 1.0) / 2 + 1;
+					const int edge = int(params.radius * 2.0 + 1.0) / 2 + 1;
 					d_out.position.x -= px_size_x * edge;
 					d_out.position.y -= px_size_y * edge;
 					d_out.size.w += edge * 2;
@@ -641,20 +949,19 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 			sigma_6 = (sigma_6 > 1.0) ? sigma_6 : 1.0;
 			const float sigma = sigma_6 / 6.0;
 			const float sigma_sq = sigma * sigma;
-			const int kernel_length = 2 * ceil(params.radius) + 1;
+			const int kernel_width = 2 * ceil(params.radius) + 1;
 			const int kernel_offset = -ceil(params.radius);
 			const float kernel_offset_f = -ceil(params.radius);
-			int kernel_length_y = (type == 1) ? kernel_length : 1;
-//cerr << "kernel_length == " << kernel_length << ", kernel_offset == " << kernel_offset << ", kernel_length_y == " << kernel_length_y << endl;
-			kernel = new float[kernel_length * kernel_length_y];
-			for(int y = 0; y < kernel_length_y; ++y) {
-				for(int x = 0; x < kernel_length; ++x) {
-					float fx = kernel_offset_f + x;
-					float fy = kernel_offset_f + y;
-					float z = sqrtf(fx * fx + fy * fy);
-					float w = (1.0 / sqrtf(2.0 * M_PI * sigma_sq)) * expf(-(z * z) / (2.0 * sigma_sq));
-					int index = y * kernel_length + x;
-					kernel[index] = w;
+			const int kernel_height = (type == 1) ? kernel_width : 1;
+//cerr << "kernel_width == " << kernel_width << ", kernel_offset == " << kernel_offset << ", kernel_height == " << kernel_height << endl;
+			kernel = new float[kernel_width * kernel_height];
+			for(int y = 0; y < kernel_height; ++y) {
+				for(int x = 0; x < kernel_width; ++x) {
+					const float fx = kernel_offset_f + x;
+					const float fy = kernel_offset_f + y;
+					const float z = sqrtf(fx * fx + fy * fy);
+					const float w = (1.0 / sqrtf(2.0 * M_PI * sigma_sq)) * expf(-(z * z) / (2.0 * sigma_sq));
+					kernel[y * kernel_width + x] = w;
 				}
 			}
 			//--
@@ -665,8 +972,8 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 				process_obj->OOM |= !area_temp->valid();
 			}
 			//--
-			int in_x_offset = (d_out.position.x - area_in->dimensions()->position.x) / px_size_x + 0.5 + area_in->dimensions()->edges.x1;
-			int in_y_offset = (d_out.position.y - area_in->dimensions()->position.y) / px_size_y + 0.5 + area_in->dimensions()->edges.y1;
+			const int in_x_offset = (d_out.position.x - area_in->dimensions()->position.x) / px_size_x + 0.5 + area_in->dimensions()->edges.x1;
+			const int in_y_offset = (d_out.position.y - area_in->dimensions()->position.y) / px_size_y + 0.5 + area_in->dimensions()->edges.y1;
 			y_flow_pass_1 = new std::atomic_int(0);
 			y_flow_pass_2 = new std::atomic_int(0);
 			for(int i = 0; i < cores; ++i) {
@@ -679,15 +986,13 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 				tasks[i]->area_temp = area_temp;
 
 				tasks[i]->kernel = kernel;
-				tasks[i]->kernel_length = kernel_length;
+				tasks[i]->kernel_length = kernel_width;
 				tasks[i]->kernel_offset = kernel_offset;
 				tasks[i]->amount = params.amount;
 				tasks[i]->threshold = params.threshold;
 				tasks[i]->lc_brighten = ps->lc_brighten;
 				tasks[i]->lc_darken = ps->lc_darken;
-
 //				tasks[i]->radius = params.radius;
-
 				tasks[i]->in_x_offset = in_x_offset;
 				tasks[i]->in_y_offset = in_y_offset;
 			}
@@ -783,7 +1088,7 @@ void FP_Unsharp::process_double_pass(class SubFlow *subflow) {
 		}
 	}
 
-	// synchronize temporary array
+	// temporary array barrier
 	subflow->sync_point();
 
 	float amount = task->amount;
@@ -929,6 +1234,7 @@ void FP_Unsharp::process_single_pass(class SubFlow *subflow) {
 			// limit changes
 //			ddr::clip(v_out, v_in * 0.4f, v_in + (1.0f - v_in) * 0.6f);
 			ddr::clip(v_out, v_in * 0.5f, v_in * 0.5f + 0.5f);
+//			ddr::clip(v_out, 0.0f, 1.0f);
 			//--
 //			v_out = ddr::clip(v_out);
 			out[k + 0] = v_out;

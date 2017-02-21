@@ -39,19 +39,10 @@
 #include <jpeglib.h>
 
 // png
-#define PNG_12
 #ifdef Q_OS_WIN32
 	#include <png.h>
-	#undef PNG_12
-#endif
-
-#ifdef Q_OS_MAC
-	#include <libpng15/png.h>
-	#undef PNG_12
-#endif
-
-#ifdef PNG_12
-	#include <libpng12/png.h>
+#else
+	#include <libpng/png.h>
 #endif
 
 // tiff

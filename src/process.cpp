@@ -397,7 +397,7 @@ void Process::process_online(void *ptr, std::shared_ptr<Photo_t> photo, int requ
 		photo->area_raw = Import::image(photo->photo_id.get_file_name(), photo->metadata);
 //cerr << "photo->area_raw == " << (unsigned long)photo->area_raw << endl;
 		if(photo->area_raw == nullptr || !photo->area_raw->valid()) {
-			if(!photo->area_raw->valid()) {
+			if(photo->area_raw != nullptr && !photo->area_raw->valid()) {
 				OOM_desc_t *OOM_desc = new OOM_desc_t;
 				OOM_desc->photo_id = photo->photo_id;
 				OOM_desc->at_export = false;
