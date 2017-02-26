@@ -60,11 +60,11 @@ export_parameters_t::export_parameters_t(void) {
 	process_single = true;
 	_file_name_wo_ext = "";
 	folder = "";
-	image_type = export_parameters_t::image_type_png;
+	image_type = export_parameters_t::image_type_jpeg;
 	process_asap = true;
-	t_jpeg_iq = 95;
-	t_jpeg_color_subsampling = false;
-	t_jpeg_color_space = false;
+	t_jpeg_iq = 90;
+	t_jpeg_color_subsampling_1x1 = false;
+	t_jpeg_color_space_rgb = false;
 	t_png_compression = 3;
 	t_png_alpha = false;
 	t_png_bits = 8;
@@ -345,12 +345,12 @@ void Export::export_jpeg(string fname, Area *area_image, Area *area_thumb, expor
 	cinfo.input_components = 3;
 	cinfo.in_color_space = JCS_RGB;
 	jpeg_set_defaults(&cinfo);
-	if(ep->t_jpeg_color_space == 0) {
-		// default
-		jpeg_set_colorspace(&cinfo, JCS_YCbCr);
-	} else {
+	if(ep->t_jpeg_color_space_rgb) {
 		// for best colors, useful for anaglyph images
 		jpeg_set_colorspace(&cinfo, JCS_RGB);
+	} else {
+		// default
+		jpeg_set_colorspace(&cinfo, JCS_YCbCr);
 	}
 #if JPEG_LIB_VERSION >= 80
 	cinfo.block_size = 8;	// compatibility
@@ -361,7 +361,9 @@ void Export::export_jpeg(string fname, Area *area_image, Area *area_thumb, expor
 // TODO: check error handling via force incorrect factor value to '0'
 	// with JCS_RGB is 1x1 (about x4 larger file); with JCS_YCbCr can be 2x2 (as default) or 1x1 (about x2 larger file)
 	int colors_subsample = 2;
-	if(ep->t_jpeg_color_subsampling)
+	if(ep->t_jpeg_color_subsampling_1x1)
+		colors_subsample = 1;
+	if(ep->t_jpeg_color_space_rgb)
 		colors_subsample = 1;
 	cinfo.comp_info[0].v_samp_factor = colors_subsample;
 	cinfo.comp_info[0].h_samp_factor = colors_subsample;

@@ -35,36 +35,18 @@ using namespace std;
 
 class ocl_t {
 public:
-	ocl_t(const char *program_source, const char *kernel_name);
-	void release_mem_objects(void);
+	ocl_t(void);
 
 	cl_context context;
 	cl_command_queue command_queue;
 	cl_program program;
-	cl_kernel kernel;
+	cl_kernel kernel_unsharp;
+	cl_kernel kernel_lc_pass_1;
+	cl_kernel kernel_lc_pass_2;
 	cl_sampler sampler;
-	//--
-	cl_mem mem_in = nullptr;
-	cl_mem mem_out = nullptr;
-	cl_mem mem_kernel = nullptr;
 };
 
-void ocl_t::release_mem_objects(void) {
-	if(mem_in != nullptr) {
-		clReleaseMemObject(mem_in);
-		mem_in = nullptr;
-	}
-	if(mem_out != nullptr) {
-		clReleaseMemObject(mem_out);
-		mem_out = nullptr;
-	}
-	if(mem_kernel != nullptr) {
-		clReleaseMemObject(mem_kernel);
-		mem_kernel = nullptr;
-	}
-}
-
-ocl_t::ocl_t(const char *program_source, const char *kernel_name) {
+ocl_t::ocl_t(void) {
 	cl_int status;
 	// get platforms list
 	cl_uint numPlatforms;
@@ -136,12 +118,27 @@ ocl_t::ocl_t(const char *program_source, const char *kernel_name) {
 //	cerr << "CL_DEVICE_MAX_WORK_GROUP_SIZE == " << info << endl;
 
 	// create command queue
-	command_queue = clCreateCommandQueue(context, ocl_device_id, 0, &status);
+//	command_queue = clCreateCommandQueue(context, ocl_device_id, 0, &status);
+	command_queue = clCreateCommandQueue(context, ocl_device_id, CL_QUEUE_PROFILING_ENABLE, &status);
 	if(status != CL_SUCCESS) { cerr << "fail to create command quque" << endl;	return;}
 
-	program = clCreateProgramWithSource(context, 1, (const char **)&program_source, NULL, &status);
+	//--
+	QFile ifile(QString::fromLocal8Bit("./f_unsharp.cl"));
+	ifile.open(QIODevice::ReadOnly);
+	QByteArray program_source = ifile.readAll();
+	ifile.close();
+	if(program_source.size() == 0)
+		return;
+	size_t program_length = program_source.size();
+	char *program_str = (char *)program_source.data();
+
+	sampler = clCreateSampler(context, CL_FALSE, CL_ADDRESS_CLAMP, CL_FILTER_NEAREST, &status);
+	if(status != CL_SUCCESS) { cerr << "fail to: create sampler" << endl; return; }
+	//
+	program = clCreateProgramWithSource(context, 1, (const char **)&program_str, &program_length, &status);
 	if(status != CL_SUCCESS) { cerr << "fail to: create program with source" << endl;	return;}
-	status = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
+	status = clBuildProgram(program, 0, NULL, "-cl-mad-enable -cl-fast-relaxed-math", NULL, NULL);
+//	status = clBuildProgram(program, 0, NULL, "-cl-mad-enable", NULL, NULL);
 	if(status != CL_SUCCESS) {
 		cerr << "fail to: build program. LOG:" << endl;
 		size_t len;
@@ -152,8 +149,12 @@ ocl_t::ocl_t(const char *program_source, const char *kernel_name) {
 		delete[] buffer;
 		return;
 	}
-	kernel = clCreateKernel(program, kernel_name, &status);
-	if(kernel == NULL || status != CL_SUCCESS) { cerr << "fail to: create kernel" << endl;	return;}
+	kernel_unsharp = clCreateKernel(program, "unsharp", &status);
+	if(kernel_unsharp == NULL || status != CL_SUCCESS) { cerr << "fail to: create kernel" << endl;	return;}
+	kernel_lc_pass_1 = clCreateKernel(program, "lc_pass_1", &status);
+	if(kernel_lc_pass_1 == NULL || status != CL_SUCCESS) { cerr << "fail to: create kernel" << endl;	return;}
+	kernel_lc_pass_2 = clCreateKernel(program, "lc_pass_2", &status);
+	if(kernel_lc_pass_2 == NULL || status != CL_SUCCESS) { cerr << "fail to: create kernel" << endl;	return;}
 }
 
 //------------------------------------------------------------------------------
@@ -617,14 +618,14 @@ bool FP_Unsharp::is_enabled(const PS_Base *ps_base) {
 void FP_Unsharp::scaled_parameters(const class PS_Unsharp *ps, class FP_params_t *params, double scale_x, double scale_y) {
 	double scale = (scale_x + scale_y) / 2.0;
 	// limit excessive increasing on too small crops etc.
-	if(ps->lc_enabled) {
+	if(ps->lc_enabled && ps->lc_amount != 0.0) {
 		const double lc_scale = (scale > 0.5) ? scale : 0.5;
-		float lc_r = ps->lc_enabled ? ps->lc_radius : 0.0;
+		float lc_r = (ps->lc_enabled) ? ps->lc_radius : 0.0;
 		lc_r = ((lc_r * 2.0 + 1.0) / lc_scale);
 		lc_r = (lc_r - 1.0) / 2.0;
 		params->lc_radius = (lc_r > 0.0) ? lc_r : 0.0;
 	}
-	if(ps->enabled) {
+	if(ps->enabled && ps->amount != 0.0) {
 		params->amount = ps->amount;
 		if(ps->scaled) {
 			const double s_scale = (scale > 1.0) ? scale : 1.0;
@@ -654,8 +655,6 @@ void FP_Unsharp::size_backward(FP_size_t *fp_size, Area::t_dimensions *d_before,
 		return;
 	const PS_Unsharp *ps = (const PS_Unsharp *)ps_base;
 	FP_params_t params;
-//cerr << "d_before->position.size == " << d_before->size.w << " x " << d_before->size.h << endl;
-//cerr << " d_after->position.size == " << d_after->size.w << " x " << d_after->size.h << endl;
 	scaled_parameters(ps, &params, d_after->position.px_size_x, d_after->position.px_size_y);
 	// again, do handle overlapping issue here
 	// TODO: check together 'unsharp' and 'local contrast'
@@ -666,7 +665,7 @@ void FP_Unsharp::size_backward(FP_size_t *fp_size, Area::t_dimensions *d_before,
 	if(params.radius > 0.0 && ps->enabled)
 		edge += int(params.radius * 2.0 + 1.0) / 2 + 1;
 //cerr << endl;
-//cerr << "sizze_backward(); params.lc_radius == " << params.lc_radius << "; params.radius == " << params.radius << endl;
+//cerr << "size_backward(); params.lc_radius == " << params.lc_radius << "; params.radius == " << params.radius << endl;
 //cerr << endl;
 	const float px_size_x = d_before->position.px_size_x;
 	const float px_size_y = d_before->position.px_size_y;
@@ -674,6 +673,11 @@ void FP_Unsharp::size_backward(FP_size_t *fp_size, Area::t_dimensions *d_before,
 	d_before->position.y -= px_size_y * edge;
 	d_before->size.w += edge * 2;
 	d_before->size.h += edge * 2;
+/*
+cerr << "F_Unsharp, size_backward()" << endl;
+cerr << "d_before->position.size == " << d_before->size.w << " x " << d_before->size.h << endl;
+cerr << " d_after->position.size == " << d_after->size.w << " x " << d_after->size.h << endl;
+*/
 }
 
 class FP_Unsharp::task_t {
@@ -711,181 +715,255 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 	// OpenCL code
 #if 0
 	if(subflow->sync_point_pre()) {
-		Area::t_dimensions d_out = *area_in->dimensions();
-		Tile_t::t_position &tp = process_obj->position;
-		// keep _x_max, _y_max, px_size the same
-		d_out.position.x = tp.x;
-		d_out.position.y = tp.y;
-		d_out.size.w = tp.width;
-		d_out.size.h = tp.height;
-		d_out.edges.x1 = 0;
-		d_out.edges.x2 = 0;
-		d_out.edges.y1 = 0;
-		d_out.edges.y2 = 0;
-		const float px_size_x = area_in->dimensions()->position.px_size_x;
-		const float px_size_y = area_in->dimensions()->position.px_size_y;
+		enum class type {
+			lc,
+			sharpness,
+		};
+		bool enabled_lc = !(ps->lc_enabled == false || ps->lc_amount == 0.0 || ps->lc_radius == 0.0);
+		bool enabled_sharpness = !(ps->enabled == false || ps->amount == 0.0 || ps->radius == 0.0);
+		const int type_index_max = (enabled_lc ? 1 : 0) + (enabled_sharpness ? 1 : 0);
+		type types_array[2] = {type::lc, type::sharpness};
+		if(enabled_lc == false && enabled_sharpness == true)
+			types_array[0] = type::sharpness; // skip lc and unsharp only;
 
-		FP_params_t params;
-		scaled_parameters(ps, &params, px_size_x, px_size_y);
-		// fill gaussian kernel
-		float sigma_6 = params.radius * 2.0 + 1.0;
-		sigma_6 = (sigma_6 > 1.0) ? sigma_6 : 1.0;
-		const float sigma = sigma_6 / 6.0;
-		const float sigma_sq = sigma * sigma;
-		const int kernel_width = 2 * ceil(params.radius) + 1;
-		const int kernel_offset = -ceil(params.radius);
-		const float kernel_offset_f = -ceil(params.radius);
-		const int kernel_height = kernel_width;
-//cerr << "kernel_width == " << kernel_width << ", kernel_offset == " << kernel_offset << ", kernel_height == " << kernel_height << endl;
-		float *kernel = new float[kernel_width * kernel_height];
-		for(int y = 0; y < kernel_height; ++y) {
-			for(int x = 0; x < kernel_width; ++x) {
-				const float fx = kernel_offset_f + x;
-				const float fy = kernel_offset_f + y;
-				const float z = sqrtf(fx * fx + fy * fy);
-				const float w = (1.0 / sqrtf(2.0 * M_PI * sigma_sq)) * expf(-(z * z) / (2.0 * sigma_sq));
-				kernel[y * kernel_width + x] = w;
-			}
-		}
-		//--
-		area_out = new Area(&d_out);
-		process_obj->OOM |= !area_out->valid();
-		//--
-#if 0
-		const int in_x_offset = (d_out.position.x - area_in->dimensions()->position.x) / px_size_x + 0.5 + area_in->dimensions()->edges.x1;
-		const int in_y_offset = (d_out.position.y - area_in->dimensions()->position.y) / px_size_y + 0.5 + area_in->dimensions()->edges.y1;
-#else
-		const int in_x_offset = (d_out.position.x - area_in->dimensions()->position.x) / px_size_x + 0.5 + area_in->dimensions()->edges.x1;
-		const int in_y_offset = (d_out.position.y - area_in->dimensions()->position.y) / px_size_y + 0.5 + area_in->dimensions()->edges.y1;
-		const int in_kx_offset = in_x_offset + kernel_offset;
-		const int in_ky_offset = in_y_offset + kernel_offset;
-#endif
-		void *in_ptr = area_in->ptr();
-		void *out_ptr = area_out->ptr();
-		const int in_w = area_in->mem_width();
-		const int in_h = area_in->mem_height();
-		const int out_w = area_out->mem_width();
-		const int out_h = area_out->mem_height();
-
-		// OpenCL
-		const char *program_source = "\n" \
-			"const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;\n" \
-			"kernel void test_2D(\n" \
-			"	read_only image2d_t in,\n" \
-			"	write_only image2d_t out,\n" \
-			"	int2 in_offset, int2 out_offset, int2 in_k_offset,\n" \
-			"	read_only global float *gaussian_kernel, int kernel_len,\n"\
-			"	float amount, float threshold)\n" \
-			"{\n" \
-			"	const int2 pos = (int2)(get_global_id(0), get_global_id(1));\n" \
-			"	const int2 pos_k_in = pos + in_k_offset;\n" \
-			"	float blur = 0.0f;\n" \
-			"	float w_sum = 0.0f;\n" \
-			"	for(int y = 0; y < kernel_len; ++y) {\n" \
-			"		for(int x = 0; x < kernel_len; ++x) {\n" \
-			"			const float4 px = read_imagef(in, sampler, pos_k_in + (int2)(x, y));\n" \
-			"			if(px.w > 0.05f) {\n" \
-			"				const float w = gaussian_kernel[kernel_len * y + x];\n" \
-			"				w_sum += w;\n" \
-			"				blur += px.x * w;\n" \
-			"			}\n" \
-			"		}\n" \
-			"	}\n" \
-			"	float4 px = read_imagef(in, sampler, pos + in_offset);\n" \
-			"	if(w_sum > 0.0f) {\n" \
-			"		blur /= w_sum;\n" \
-			"		const float v_in = px.x;\n" \
-			"		float hf = v_in - blur;\n" \
-			"		const float hf_abs = fabs(hf);\n" \
-			"		//hf *= (hf_abs < threshold) ? (amount * hf_abs / threshold) : amount;\n" \
-			"		hf *= (hf_abs < threshold) ? (amount * half_divide(hf_abs, threshold)) : amount;\n" \
-			"		float v_out = px.x + hf;\n" \
-			"		// px.x = fmin(fmax(v_out, v_in * 0.4f), v_in + (1.0f - v_in) * 0.6f);\n" \
-			"		//px.x = fmin(fmax(v_out, v_in * 0.5f), v_in * 0.5f + 0.5f);\n" \
-			"		px.x = clamp(v_out, v_in * 0.5f, fma(v_in, 0.5f, 0.5f));\n" \
-			"	}\n" \
-			"	write_imagef(out, pos + out_offset, px);\n" \
-			"}\n" \
-			"\n";
-
-		// init static OCL object if not already...
+		// initialize OCL object and load programs
+		cl_mem mem_out = nullptr;
 		if(ocl == nullptr)
-			ocl = new ocl_t(program_source, "test_2D");
-		else
-			ocl->release_mem_objects();
+			ocl = new ocl_t();
 		cl_int status;
+		Area::t_dimensions d_in = *area_in->dimensions();
+		for(int type_index = 0; type_index < type_index_max; ++type_index) {
+			type ftype = types_array[type_index];
+			FP_params_t params;
+			Area::t_dimensions d_out = d_in;
+			Tile_t::t_position &tp = process_obj->position;
+			// keep _x_max, _y_max, px_size the same
+			d_out.position.x = tp.x;
+			d_out.position.y = tp.y;
+			d_out.size.w = tp.width;
+			d_out.size.h = tp.height;
+			d_out.edges = Area::t_edges();
+			const float px_size_x = d_in.position.px_size_x;
+			const float px_size_y = d_in.position.px_size_y;
 
-		// write input area
-		cl_image_format ocl_im2d_format;
-		ocl_im2d_format.image_channel_order = CL_RGBA;
-		ocl_im2d_format.image_channel_data_type = CL_FLOAT;
-		cl_image_desc ocl_image_desc;
-		memset(&ocl_image_desc, 0, sizeof(ocl_image_desc));
-		ocl_image_desc.image_type = CL_MEM_OBJECT_IMAGE2D;
-		ocl_image_desc.image_width = in_w;
-		ocl_image_desc.image_height = in_h;
-		ocl->mem_in = clCreateImage(ocl->context, CL_MEM_READ_ONLY | CL_MEM_HOST_WRITE_ONLY, &ocl_im2d_format, &ocl_image_desc, NULL, &status);
-		if(status != CL_SUCCESS) { cerr << "fail to: create buffer in" << endl; return nullptr; }
-		ocl_image_desc.image_width = out_w;
-		ocl_image_desc.image_height = out_h;
-		ocl->mem_out = clCreateImage(ocl->context, CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, &ocl_im2d_format, &ocl_image_desc, NULL, &status);
-		if(status != CL_SUCCESS) { cerr << "fail to: create buffer out" << endl; return nullptr; }
-		// 2D gaussian kernel
-		size_t kernel_2D_size = kernel_width * kernel_height * sizeof(float);
-//		ocl->mem_kernel = clCreateBuffer(ocl->context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, kernel_2D_size, kernel, &status);
-//		ocl->mem_kernel = clCreateBuffer(ocl->context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR | CL_MEM_HOST_NO_ACCESS, kernel_2D_size, kernel, &status);
-		ocl->mem_kernel = clCreateBuffer(ocl->context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, kernel_2D_size, kernel, &status);
-		if(status != CL_SUCCESS) { cerr << "fail to: create 2D kernel buffer" << endl; return nullptr; }
+			scaled_parameters(ps, &params, px_size_x, px_size_y);
+			if(ftype == type::lc) {
+				// increase output of 'local contrast' if 'sharpness' is enabled
+				if(enabled_sharpness) {
+					const int edge = int(params.radius * 2.0 + 1.0) / 2 + 1;
+					d_out.position.x -= px_size_x * edge;
+					d_out.position.y -= px_size_y * edge;
+					d_out.size.w += edge * 2;
+					d_out.size.h += edge * 2;
+				}
+				// local contrast parameters
+				params.amount = ps->lc_amount;
+				params.radius = params.lc_radius;
+				params.threshold = 0.0;
+			}
+			const int out_w = d_out.size.w;
+			const int out_h = d_out.size.h;
+			// fill gaussian kernel
+			float sigma_6 = params.radius * 2.0 + 1.0;
+			sigma_6 = (sigma_6 > 1.0) ? sigma_6 : 1.0;
+			const float sigma = sigma_6 / 6.0;
+			const float sigma_sq = sigma * sigma;
+			const int kernel_width = 2 * ceil(params.radius) + 1;
+			const int kernel_offset = -ceil(params.radius);
+			const float kernel_offset_f = -ceil(params.radius);
+			const int kernel_height = (ftype == type::sharpness) ? kernel_width : 1;
+			float *kernel = new float[kernel_width * kernel_height];
+			for(int y = 0; y < kernel_height; ++y) {
+				for(int x = 0; x < kernel_width; ++x) {
+					const float fx = kernel_offset_f + x;
+					const float fy = kernel_offset_f + y;
+					const float z = sqrtf(fx * fx + fy * fy);
+					const float w = (1.0 / sqrtf(2.0 * M_PI * sigma_sq)) * expf(-(z * z) / (2.0 * sigma_sq));
+					kernel[y * kernel_width + x] = w;
+				}
+			}
+			const int in_x_offset = (d_out.position.x - d_in.position.x) / px_size_x + 0.5 + d_in.edges.x1;
+			const int in_y_offset = (d_out.position.y - d_in.position.y) / px_size_y + 0.5 + d_in.edges.y1;
+//			const int in_kx_offset = in_x_offset + kernel_offset;
+//			const int in_ky_offset = in_y_offset + kernel_offset;
+			//--
+			//--
+			// do filtering...
+			// arguments: in_x_offset, in_in_y_offset, kernel_width, kernel
+			cl_mem mem_in = nullptr;
+			// 2D gaussian kernel
+			size_t kernel_2D_size = kernel_width * kernel_height * sizeof(float);
+			cl_mem mem_kernel = clCreateBuffer(ocl->context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, kernel_2D_size, kernel, &status);
+			if(status != CL_SUCCESS) { cerr << "fail to: create 2D kernel buffer" << endl; return nullptr; }
+			cl_image_format ocl_im2d_format;
+			ocl_im2d_format.image_channel_order = CL_RGBA;
+			ocl_im2d_format.image_channel_data_type = CL_FLOAT;
+			cl_image_desc ocl_image_desc;
+			memset(&ocl_image_desc, 0, sizeof(ocl_image_desc));
+			ocl_image_desc.image_type = CL_MEM_OBJECT_IMAGE2D;
+			const size_t ocl_mem_origin[3] = {0, 0, 0};
+			size_t ocl_mem_region[3] = {0, 0, 1};
 
-		size_t ocl_mem_origin[3] = {0, 0, 0};
-		size_t ocl_mem_region[3] = {0, 0, 1};
-		ocl_mem_region[0] = in_w;
-		ocl_mem_region[1] = in_h;
-		status = clEnqueueWriteImage(ocl->command_queue, ocl->mem_in, CL_TRUE, ocl_mem_origin, ocl_mem_region, in_w * 4 * sizeof(float), 0, (void *)in_ptr, 0, NULL, NULL);
-			if(status != CL_SUCCESS) { cerr << "fail to: write data to process" << endl; return nullptr; }
+			if(ftype == type::lc || (ftype == type::sharpness && !enabled_lc)) {
+				// create mem_in and fill it from area_in
+				const int in_w = area_in->mem_width();
+				const int in_h = area_in->mem_height();
+				ocl_image_desc.image_width = in_w;
+				ocl_image_desc.image_height = in_h;
+				mem_in = clCreateImage(ocl->context, CL_MEM_READ_ONLY | CL_MEM_HOST_WRITE_ONLY, &ocl_im2d_format, &ocl_image_desc, NULL, &status);
+				if(status != CL_SUCCESS) { cerr << "fail to: create image in" << endl; return nullptr; }
+				ocl_mem_region[0] = in_w;
+				ocl_mem_region[1] = in_h;
+				status = clEnqueueWriteImage(ocl->command_queue, mem_in, CL_TRUE, ocl_mem_origin, ocl_mem_region, in_w * 4 * sizeof(float), 0, (void *)area_in->ptr(), 0, NULL, NULL);
+				if(status != CL_SUCCESS) { cerr << "fail to: write into image in" << endl; return nullptr; }
+			} else
+				mem_in = mem_out;
 
-		ocl->sampler = clCreateSampler(ocl->context, CL_FALSE, CL_ADDRESS_CLAMP, CL_FILTER_NEAREST, &status);
-		if(status != CL_SUCCESS) { cerr << "fail to: create sampler" << endl; return nullptr; }
-		// transfer arguments
-		status  = clSetKernelArg(ocl->kernel, 0, sizeof(cl_mem), &ocl->mem_in);
-		status |= clSetKernelArg(ocl->kernel, 1, sizeof(cl_mem), &ocl->mem_out);
-		cl_int2 arg_in_offset = {in_x_offset, in_y_offset};
-		cl_int2 arg_out_offset = {0, 0};
-		cl_int2 arg_in_k_offset = {in_kx_offset, in_ky_offset};
-		status |= clSetKernelArg(ocl->kernel, 2, sizeof(arg_in_offset), &arg_in_offset);
-		status |= clSetKernelArg(ocl->kernel, 3, sizeof(arg_out_offset), &arg_out_offset);
-		status |= clSetKernelArg(ocl->kernel, 4, sizeof(arg_in_k_offset), &arg_in_k_offset);
-		status |= clSetKernelArg(ocl->kernel, 5, sizeof(cl_mem), &ocl->mem_kernel);
-		cl_int arg_kernel_length = kernel_width;
-		status |= clSetKernelArg(ocl->kernel, 6, sizeof(cl_int), &arg_kernel_length);
-		cl_float arg_amount = params.amount;
-		status |= clSetKernelArg(ocl->kernel, 7, sizeof(cl_float), &arg_amount);
-		cl_float arg_threshold = params.threshold;
-		status |= clSetKernelArg(ocl->kernel, 8, sizeof(cl_float), &arg_threshold);
-		if(status != CL_SUCCESS) { cerr << "fail to: pass arguments to kernel" << endl; return nullptr; }
+			if(ftype == type::lc) {
+				// create mem_temp
+				const int in_w = area_in->mem_width();
+				const int in_h = area_in->mem_height();
+				const size_t mem_temp_size = in_w * in_h * sizeof(float);
+				cl_mem mem_temp = clCreateBuffer(ocl->context, CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, mem_temp_size, NULL, &status);
+				if(status != CL_SUCCESS) { cerr << "fail to: create buffer in" << endl; return nullptr; }
+				// area_temp = new Area(area_in->dimensions(), Area::type_t::type_float_p1);
+				// create mem_out
+				ocl_image_desc.image_width = out_w;
+				ocl_image_desc.image_height = out_h;
+//				mem_out = clCreateImage(ocl->context, CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, &ocl_im2d_format, &ocl_image_desc, NULL, &status);
+				cl_mem_flags mem_out_flag = enabled_sharpness ? CL_MEM_READ_WRITE : CL_MEM_WRITE_ONLY;
+				mem_out = clCreateImage(ocl->context, mem_out_flag | CL_MEM_HOST_READ_ONLY, &ocl_im2d_format, &ocl_image_desc, NULL, &status);
+				if(status != CL_SUCCESS) { cerr << "fail to: create buffer out" << endl; return nullptr; }
+				// run kernels - use 'mem_in' as input and 'mem_out' for result
+				const cl_int arg_kernel_length = kernel_width;
+				const cl_int arg_kernel_offset = kernel_offset;
+				const cl_int arg_temp_w = in_w;
+				const cl_float sigma_sq2 = sigma_sq * 2.0f;
 
-		// run kernel
-		size_t ws_global[2];
-		ws_global[0] = out_w;
-		ws_global[1] = out_h;
-		status = clEnqueueNDRangeKernel(ocl->command_queue, ocl->kernel, 2, NULL, ws_global, NULL, 0, NULL, NULL);
-		if(status != CL_SUCCESS) { cerr << "fail to: enqueue ND range kernel, status == " << status << endl; return nullptr; }
-		clFinish(ocl->command_queue);
+#define GAUSS_IN_KERNEL
+				// first pass
+				int argi_p1 = 0;
+				status  = clSetKernelArg(ocl->kernel_lc_pass_1, argi_p1++, sizeof(cl_mem), &mem_in);
+				status |= clSetKernelArg(ocl->kernel_lc_pass_1, argi_p1++, sizeof(cl_mem), &mem_temp);
+				status |= clSetKernelArg(ocl->kernel_lc_pass_1, argi_p1++, sizeof(cl_int), &arg_temp_w);
+#ifdef GAUSS_IN_KERNEL
+				status |= clSetKernelArg(ocl->kernel_lc_pass_1, argi_p1++, kernel_width * sizeof(float), NULL);
+				status |= clSetKernelArg(ocl->kernel_lc_pass_1, argi_p1++, sizeof(cl_float), &sigma_sq2);
+#else
+				status |= clSetKernelArg(ocl->kernel_lc_pass_1, argi_p1++, sizeof(cl_mem), &mem_kernel);
+#endif
+				status |= clSetKernelArg(ocl->kernel_lc_pass_1, argi_p1++, sizeof(cl_int), &arg_kernel_length);
+				status |= clSetKernelArg(ocl->kernel_lc_pass_1, argi_p1++, sizeof(cl_int), &arg_kernel_offset);
+				size_t ws_global_p1[2];
+				ws_global_p1[0] = in_w;
+				ws_global_p1[1] = in_h;
+				status = clEnqueueNDRangeKernel(ocl->command_queue, ocl->kernel_lc_pass_1, 2, NULL, ws_global_p1, NULL, 0, NULL, NULL);
+//				cl_event event;
+//				status = clEnqueueNDRangeKernel(ocl->command_queue, ocl->kernel_lc_pass_1, 2, NULL, ws_global_p1, NULL, 0, NULL, &event);
+				if(status != CL_SUCCESS) { cerr << "fail to: enqueue ND range kernel - lc_pass_1, status == " << status << endl; return nullptr; }
+				clFinish(ocl->command_queue);
 
-		// read resulting area
-		ocl_mem_region[0] = out_w;
-		ocl_mem_region[1] = out_h;
-		status = clEnqueueReadImage(ocl->command_queue, ocl->mem_out, CL_TRUE, ocl_mem_origin, ocl_mem_region, out_w * 4 * sizeof(float), 0, (void *)out_ptr, 0, NULL, NULL);
-			if(status != CL_SUCCESS) { cerr << "fail to: read results" << endl; return 0; }
+				// second pass
+				int argi_p2 = 0;
+				status  = clSetKernelArg(ocl->kernel_lc_pass_2, argi_p2++, sizeof(cl_mem), &mem_in);
+				status |= clSetKernelArg(ocl->kernel_lc_pass_2, argi_p2++, sizeof(cl_mem), &mem_out);
+				status |= clSetKernelArg(ocl->kernel_lc_pass_2, argi_p2++, sizeof(cl_mem), &mem_temp);
+				status |= clSetKernelArg(ocl->kernel_lc_pass_2, argi_p2++, sizeof(arg_temp_w), &arg_temp_w);
+				cl_int2 arg_in_offset_p2 = {in_x_offset, in_y_offset};
+				cl_int2 arg_out_offset_p2 = {0, 0};
+				status |= clSetKernelArg(ocl->kernel_lc_pass_2, argi_p2++, sizeof(arg_in_offset_p2), &arg_in_offset_p2);
+				status |= clSetKernelArg(ocl->kernel_lc_pass_2, argi_p2++, sizeof(arg_out_offset_p2), &arg_out_offset_p2);
+#ifdef GAUSS_IN_KERNEL
+				status |= clSetKernelArg(ocl->kernel_lc_pass_2, argi_p2++, kernel_width * sizeof(float), NULL);
+				status |= clSetKernelArg(ocl->kernel_lc_pass_2, argi_p2++, sizeof(cl_float), &sigma_sq2);
+#else
+				status |= clSetKernelArg(ocl->kernel_lc_pass_2, argi_p2++, sizeof(cl_mem), &mem_kernel);
+#endif
+				status |= clSetKernelArg(ocl->kernel_lc_pass_2, argi_p2++, sizeof(cl_int), &arg_kernel_length);
+				status |= clSetKernelArg(ocl->kernel_lc_pass_2, argi_p2++, sizeof(cl_int), &arg_kernel_offset);
+				cl_float arg_amount = params.amount;
+				status |= clSetKernelArg(ocl->kernel_lc_pass_2, argi_p2++, sizeof(cl_float), &arg_amount);
+				cl_int2 darken_brighten;
+				darken_brighten.x = ps->lc_darken ? 1 : 0;
+				darken_brighten.y = ps->lc_brighten ? 1 : 0;
+				status |= clSetKernelArg(ocl->kernel_lc_pass_2, argi_p2++, sizeof(cl_int2), &darken_brighten);
+				size_t ws_global_p2[2];
+				ws_global_p2[0] = out_w;
+				ws_global_p2[1] = out_h;
+//				clWaitForEvents(1, &event);
+//				clReleaseEvent(event);
+				status = clEnqueueNDRangeKernel(ocl->command_queue, ocl->kernel_lc_pass_2, 2, NULL, ws_global_p2, NULL, 0, NULL, NULL);
+				if(status != CL_SUCCESS) { cerr << "fail to: enqueue ND range kernel - lc_pass_2, status == " << status << endl; return nullptr; }
+				clFinish(ocl->command_queue);
+				clReleaseMemObject(mem_temp);
+			}
 
-		ocl->release_mem_objects();
+			if(ftype == type::sharpness) {
+				// create mem_out
+				ocl_image_desc.image_width = out_w;
+				ocl_image_desc.image_height = out_h;
+				mem_out = clCreateImage(ocl->context, CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, &ocl_im2d_format, &ocl_image_desc, NULL, &status);
+				if(status != CL_SUCCESS) { cerr << "fail to: create buffer out" << endl; return nullptr; }
+				// run kernel - use 'mem_in' on input and 'mem_out' for result
+				// transfer arguments
+				int argi_s = 0;
+				status  = clSetKernelArg(ocl->kernel_unsharp, argi_s++, sizeof(cl_mem), &mem_in);
+				status |= clSetKernelArg(ocl->kernel_unsharp, argi_s++, sizeof(cl_mem), &mem_out);
+				cl_int2 arg_in_offset = {in_x_offset, in_y_offset};
+				status |= clSetKernelArg(ocl->kernel_unsharp, argi_s++, sizeof(arg_in_offset), &arg_in_offset);
+				cl_int2 arg_out_offset = {0, 0};
+				status |= clSetKernelArg(ocl->kernel_unsharp, argi_s++, sizeof(arg_out_offset), &arg_out_offset);
+				cl_int arg_kernel_offset = kernel_offset;
+				status |= clSetKernelArg(ocl->kernel_unsharp, argi_s++, sizeof(cl_int), &arg_kernel_offset);
+				cl_int arg_kernel_length = kernel_width;
+				status |= clSetKernelArg(ocl->kernel_unsharp, argi_s++, sizeof(cl_int), &arg_kernel_length);
+#ifdef GAUSS_IN_KERNEL
+				status |= clSetKernelArg(ocl->kernel_unsharp, argi_s++, kernel_2D_size, NULL);
+				cl_float sigma_sq2 = sigma_sq * 2.0f;
+				status |= clSetKernelArg(ocl->kernel_unsharp, argi_s++, sizeof(cl_float), &sigma_sq2);
+#else
+				status |= clSetKernelArg(ocl->kernel_unsharp, argi_s++, sizeof(cl_mem), &mem_kernel);
+#endif
+				cl_float arg_amount = params.amount;
+				status |= clSetKernelArg(ocl->kernel_unsharp, argi_s++, sizeof(cl_float), &arg_amount);
+				cl_float arg_threshold = params.threshold;
+				status |= clSetKernelArg(ocl->kernel_unsharp, argi_s++, sizeof(cl_float), &arg_threshold);
+				if(status != CL_SUCCESS) { cerr << "fail to: pass arguments to kernel" << endl; return nullptr; }
+
+				// run kernel
+				size_t ws_global[2];
+				ws_global[0] = out_w;
+				ws_global[1] = out_h;
+				status = clEnqueueNDRangeKernel(ocl->command_queue, ocl->kernel_unsharp, 2, NULL, ws_global, NULL, 0, NULL, NULL);
+				if(status != CL_SUCCESS) { cerr << "fail to: enqueue ND range kernel - sharpness, status == " << status << endl; return nullptr; }
+				clFinish(ocl->command_queue);
+			}
+
+			// release memory
+			if(mem_in != nullptr) {
+				clReleaseMemObject(mem_in);
+				mem_in = nullptr;
+			};
+			// create area_out and release 'mem_out'
+			if(type_index + 1 == type_index_max) {
+				// read resulting area
+				area_out = new Area(&d_out);
+				ocl_mem_region[0] = out_w;
+				ocl_mem_region[1] = out_h;
+				status = clEnqueueReadImage(ocl->command_queue, mem_out, CL_TRUE, ocl_mem_origin, ocl_mem_region, out_w * 4 * sizeof(float), 0, (void *)area_out->ptr(), 0, NULL, NULL);
+				if(status != CL_SUCCESS) { cerr << "fail to: read results" << endl; return nullptr; }
+				clReleaseMemObject(mem_out);
+			}
+			delete[] kernel;
+			clReleaseMemObject(mem_kernel);
+			d_in = d_out;
+		}
 	}
 	subflow->sync_point_post();
 	return area_out;
 #endif
 
-	// non-OpenCL
-
+	// CPU
 	for(int type = 0; type < 2 && !process_obj->OOM; ++type) {
 		if(type == 0 && ps->lc_enabled == false) // type == 0 - local contrast, square blur
 			continue;
@@ -913,12 +991,9 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 			// keep _x_max, _y_max, px_size the same
 			d_out.position.x = tp.x;
 			d_out.position.y = tp.y;
-			d_out.size.w = tp.width;
-			d_out.size.h = tp.height;
-			d_out.edges.x1 = 0;
-			d_out.edges.x2 = 0;
-			d_out.edges.y1 = 0;
-			d_out.edges.y2 = 0;
+			d_out.size = Area::t_size(tp.width, tp.height);
+//			d_out.size.h = tp.height;
+			d_out.edges = Area::t_edges();
 			const float px_size_x = area_in->dimensions()->position.px_size_x;
 			const float px_size_y = area_in->dimensions()->position.px_size_y;
 

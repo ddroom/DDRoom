@@ -58,7 +58,8 @@ NOTE on quit:
 using namespace std;
 
 //#define _PREVIEW_SIZE	256
-#define _PREVIEW_SIZE	384
+//#define _PREVIEW_SIZE	384
+#define _PREVIEW_SIZE	448
 //#define _PREVIEW_SIZE	512
 
 //------------------------------------------------------------------------------

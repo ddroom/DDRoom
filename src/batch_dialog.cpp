@@ -2,16 +2,9 @@
  * batch_dialog.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
- */
-
-/*
- * TODO:
-	- add checkbox - rewrite exist file
-	- add sophisticated file naming scheme
-    - add Exif fields selection option
  */
 
 #include "batch_dialog.h"
@@ -20,14 +13,8 @@
 #include <fstream>
 #include <iostream>
 
-// to get value of Z_BEST_COMPRESSION - maximum compression ratio for PNG compression
 #include <zlib.h>
-
-// to show or not to show "improve color resolution" checkbox?
 #include <jpeglib.h>
-#if JPEG_LIB_VERSION >= 80
-#define _JPEG_COLOR_SHARPNESS
-#endif
 
 using namespace std;
 //------------------------------------------------------------------------------
@@ -41,7 +28,6 @@ Batch_Dialog::Batch_Dialog(export_parameters_t *_ep, QWidget *parent) : QDialog(
 	setModal(true);
 	setMinimumWidth(700);
 	setMaximumWidth(QApplication::desktop()->width());
-//	setSizeConstraint(QLayout::SetMinAndMaxSize);
 	setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Fixed);
 
 	QString type_name_jpeg = QString(tr("JPEG"));
@@ -49,8 +35,6 @@ Batch_Dialog::Batch_Dialog(export_parameters_t *_ep, QWidget *parent) : QDialog(
 	QString type_name_tiff = QString(tr("TIFF"));
 
 	QVBoxLayout *layout_main = new QVBoxLayout(this);
-//	layout_main->setSizeConstraint(QLayout::SetFixedSize);
-//	layout_main->setSizeConstraint(QLayout::SetMinAndMaxSize);
 	QGroupBox *gb_file_opts = new QGroupBox(tr("File options"));
 	QGridLayout *layout_save_opts = new QGridLayout(gb_file_opts);
 
@@ -136,49 +120,8 @@ Batch_Dialog::Batch_Dialog(export_parameters_t *_ep, QWidget *parent) : QDialog(
 	gl_jpeg_color->setSizeConstraint(QLayout::SetMinimumSize);
 	l_jpeg->addLayout(gl_jpeg_color);
 	int gl_jpeg_color_row = 0;
-#ifdef _JPEG_COLOR_SHARPNESS
-/*
-	QCheckBox *checkbox_jpeg_sharpness = new QCheckBox(tr("Improve colors sharpness"));
-	checkbox_jpeg_sharpness->setCheckState(ep->t_jpeg_color_subsampling ? Qt::Checked : Qt::Unchecked);
-	connect(checkbox_jpeg_sharpness, SIGNAL(stateChanged(int)), this, SLOT(slot_jpeg_color_subsampling(int)));
-	l_jpeg->addWidget(checkbox_jpeg_sharpness);
-*/
-	QVBoxLayout *lb_color_subsampling = new QVBoxLayout();
-	QLabel *label_color_subsampling = new QLabel(tr("Color subsampling:"));
-	QRadioButton *radio_color_subsampling_22 = new QRadioButton(tr("2x2"));
-	QRadioButton *radio_color_subsampling_11 = new QRadioButton(tr("1x1"));
-	QButtonGroup *radio_jpeg_color_subsampling = new QButtonGroup(lb_color_subsampling);
-	radio_jpeg_color_subsampling->addButton(radio_color_subsampling_22, 0);
-	radio_jpeg_color_subsampling->addButton(radio_color_subsampling_11, 1);
-//	lb_color_subsampling->addWidget(label_color_subsampling);
-	lb_color_subsampling->addWidget(radio_color_subsampling_22);
-	lb_color_subsampling->addWidget(radio_color_subsampling_11);
-	lb_color_subsampling->addStretch();
-	gl_jpeg_color->addWidget(label_color_subsampling, 0, 0, Qt::AlignRight | Qt::AlignTop);
-	gl_jpeg_color->addLayout(lb_color_subsampling, 0, 1);
-	gl_jpeg_color_row++;
-//	l_jpeg->addLayout(lb_color_subsampling);
-	connect(radio_jpeg_color_subsampling, SIGNAL(buttonClicked(int)), this, SLOT(slot_jpeg_color_subsampling(int)));
-	if(ep->t_jpeg_color_subsampling == 0)		radio_color_subsampling_22->setChecked(true);
-	if(ep->t_jpeg_color_subsampling == 1)		radio_color_subsampling_11->setChecked(true);
-#endif
-/*
-	QHBoxLayout *hb_tiff_bits = new QHBoxLayout();
-	QLabel *label_tiff_bits = new QLabel(tr("Bits per channel:"));
-	QRadioButton *radio_tiff_bits_8 = new QRadioButton(tr("8 bits"));
-	QRadioButton *radio_tiff_bits_16 = new QRadioButton(tr("16 bits"));
-	QButtonGroup *radio_tiff_bits = new QButtonGroup(hb_tiff_bits);
-	radio_tiff_bits->addButton(radio_tiff_bits_8, 8);
-	radio_tiff_bits->addButton(radio_tiff_bits_16, 16);
-	hb_tiff_bits->addWidget(label_tiff_bits);
-	hb_tiff_bits->addWidget(radio_tiff_bits_8);
-	hb_tiff_bits->addWidget(radio_tiff_bits_16);
-	hb_tiff_bits->addStretch();
-	l_tiff->addLayout(hb_tiff_bits);
-*/
 
-//	QGroupBox *gb_color_space = new QGroupBox(tr("Color space:"));
-//	QVBoxLayout *vb_color_space = new QVBoxLayout(gb_color_space);
+	// color space: YCbCr or RGB
 	QVBoxLayout *lb_color_space = new QVBoxLayout();
 	QLabel *label_color_space = new QLabel(tr("Color space:"));
 	QRadioButton *radio_color_space_ycbcr = new QRadioButton(tr("YCbCr"));
@@ -186,20 +129,29 @@ Batch_Dialog::Batch_Dialog(export_parameters_t *_ep, QWidget *parent) : QDialog(
 	QButtonGroup *radio_jpeg_color_space = new QButtonGroup(lb_color_space);
 	radio_jpeg_color_space->addButton(radio_color_space_ycbcr, 0);
 	radio_jpeg_color_space->addButton(radio_color_space_rgb, 1);
-//	lb_color_space->addWidget(label_color_space);
 	lb_color_space->addWidget(radio_color_space_ycbcr);
 	lb_color_space->addWidget(radio_color_space_rgb);
 	lb_color_space->addStretch();
 	gl_jpeg_color->addWidget(label_color_space, gl_jpeg_color_row, 0, Qt::AlignRight | Qt::AlignTop);
-	gl_jpeg_color->addLayout(lb_color_space, gl_jpeg_color_row, 1);
-//	l_jpeg->addLayout(lb_color_space);
-/*
-	QCheckBox *checkbox_jpeg_colors = new QCheckBox(tr("Improve colors rendition"));
-	checkbox_jpeg_colors->setCheckState(ep->t_jpeg_color_space ? Qt::Checked : Qt::Unchecked);
-	l_jpeg->addWidget(checkbox_jpeg_colors);
-*/
-	if(ep->t_jpeg_color_space == 0)		radio_color_space_ycbcr->setChecked(true);
-	if(ep->t_jpeg_color_space == 1)		radio_color_space_rgb->setChecked(true);
+	gl_jpeg_color->addLayout(lb_color_space, gl_jpeg_color_row++, 1);
+	if(ep->t_jpeg_color_space_rgb == 0)		radio_color_space_ycbcr->setChecked(true);
+	if(ep->t_jpeg_color_space_rgb == 1)		radio_color_space_rgb->setChecked(true);
+
+	// color subsampling: 2x2 or 1x1
+	QVBoxLayout *vb_jpeg_subsampling = new QVBoxLayout();
+	label_jpeg_subsampling = new QLabel(tr("Color subsampling:"));
+	rb_jpeg_subsampling_22 = new QRadioButton(tr("2x2"));
+	rb_jpeg_subsampling_11 = new QRadioButton(tr("1x1"));
+	rb_jpeg_subsampling = new QButtonGroup(vb_jpeg_subsampling);
+	rb_jpeg_subsampling->addButton(rb_jpeg_subsampling_22, 0);
+	rb_jpeg_subsampling->addButton(rb_jpeg_subsampling_11, 1);
+	vb_jpeg_subsampling->addWidget(rb_jpeg_subsampling_22);
+	vb_jpeg_subsampling->addWidget(rb_jpeg_subsampling_11);
+	vb_jpeg_subsampling->addStretch();
+	gl_jpeg_color->addWidget(label_jpeg_subsampling, gl_jpeg_color_row, 0, Qt::AlignRight | Qt::AlignTop);
+	gl_jpeg_color->addLayout(vb_jpeg_subsampling, gl_jpeg_color_row++, 1);
+	if(ep->t_jpeg_color_subsampling_1x1 == 0)		rb_jpeg_subsampling_22->setChecked(true);
+	if(ep->t_jpeg_color_subsampling_1x1 == 1)		rb_jpeg_subsampling_11->setChecked(true);
 
 	l_jpeg->addStretch();
 	stack_type->addWidget(tab_jpeg);
@@ -329,8 +281,6 @@ Batch_Dialog::Batch_Dialog(export_parameters_t *_ep, QWidget *parent) : QDialog(
 	vb_scaling->addLayout(layout_scaling);
 	vb_scaling->addStretch();
 
-//	layout_main->addWidget(gb_scaling);
-//	layout_main->addWidget(gb_scaling);
 	hb_main->addWidget(gb_scaling);
 	layout_main->addLayout(hb_main);
 	layout_main->addStretch();
@@ -393,8 +343,8 @@ Batch_Dialog::Batch_Dialog(export_parameters_t *_ep, QWidget *parent) : QDialog(
 	connect(check_png_alpha, SIGNAL(stateChanged(int)), this, SLOT(slot_png_alpha(int)));
 	connect(check_tiff_alpha, SIGNAL(stateChanged(int)), this, SLOT(slot_tiff_alpha(int)));
 	connect(slider_jpeg_iq, SIGNAL(signal_changed(double)), this, SLOT(slot_jpeg_iq(double)));
-//	connect(checkbox_jpeg_colors, SIGNAL(stateChanged(int)), this, SLOT(slot_jpeg_color_space(int)));
 	connect(radio_jpeg_color_space, SIGNAL(buttonClicked(int)), this, SLOT(slot_jpeg_color_space(int)));
+	connect(rb_jpeg_subsampling, SIGNAL(buttonClicked(int)), this, SLOT(slot_jpeg_subsampling(int)));
 	connect(slider_png_compression, SIGNAL(signal_changed(double)), this, SLOT(slot_png_compression(double)));
 	if(line_file_name != nullptr)
 		connect(line_file_name, SIGNAL(editingFinished(void)), this, SLOT(slot_line_file_name(void)));
@@ -403,15 +353,15 @@ Batch_Dialog::Batch_Dialog(export_parameters_t *_ep, QWidget *parent) : QDialog(
 	connect(line_scaling_height, SIGNAL(editingFinished(void)), this, SLOT(slot_line_scaling_height(void)));
 	connect(check_scaling_enable, SIGNAL(stateChanged(int)), this, SLOT(slot_scaling_enable(int)));
 	connect(scale_fit_radio, SIGNAL(buttonClicked(int)), this, SLOT(slot_scale_fit_radio(int)));
-//	connect(check_scaling_to_fill, SIGNAL(stateChanged(int)), this, SLOT(slot_scaling_to_fill(int)));
 
 	connect(line_folder, SIGNAL(editingFinished(void)), this, SLOT(slot_line_folder(void)));
 	connect(button_ok, SIGNAL(pressed(void)), this, SLOT(slot_button_ok(void)));
 	connect(button_cancel, SIGNAL(pressed(void)), this, SLOT(reject(void)));
 
 	setLayout(layout_main);
-
 	setFixedHeight(sizeHint().height());
+
+	normalize_jpeg_subsampling();
 
 	emit slot_scaling_enable(ep->scaling_force ? Qt::Checked : Qt::Unchecked);
 }
@@ -436,26 +386,6 @@ void Batch_Dialog::slot_image_type_clicked(int id) {
 }
 
 void Batch_Dialog::slot_button_folder_pressed(void) {
-/*
-	QFileDialog dialog(this, tr("Select destination folder"));//, QString::fromLocal8Bit(ep->folder.c_str()));
-//	dialog.setDirectory(QString::fromLocal8Bit(ep->folder.c_str()));
-	dialog.setDirectory(QDir(QString::fromLocal8Bit(ep->folder.c_str())));
-	dialog.setFileMode(QFileDialog::Directory);
-//	dialog.setFileMode(QFileDialog::AnyFile);
-//	dialog.setAcceptMode(QFileDialog::AcceptSave);
-	QStringList filters;
-	filters << "images (*.jpeg *.jpg)";
-//	filters << "*.jpeg" << "*.jpg" << "*.png" << "*.tiff" << "*.tif";
-	dialog.setNameFilters(filters);
-	dialog.setViewMode(QFileDialog::Detail);
-	dialog.setOptions(QFileDialog::DontResolveSymlinks);
-	dialog.setOption(QFileDialog::ShowDirsOnly, false);
-	if(dialog.exec()) {
-		QString q_folder = dialog.directory().absolutePath();
-		line_folder->setText(q_folder);
-		ep->folder = q_folder.toLocal8Bit().constData();
-	}
-*/
 	QString q_folder = QFileDialog::getExistingDirectory(this, tr("Select destination folder"), QString::fromLocal8Bit(ep->folder.c_str()), QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
 	line_folder->setText(q_folder);
 	ep->folder = q_folder.toLocal8Bit().constData();
@@ -481,16 +411,30 @@ void Batch_Dialog::slot_jpeg_iq(double _value) {
 	ep->t_jpeg_iq = _value + 0.05;
 }
 
-//void Batch_Dialog::slot_jpeg_color_subsampling(int checked) {
-//	ep->t_jpeg_color_subsampling = (checked == Qt::Checked);
-void Batch_Dialog::slot_jpeg_color_subsampling(int id) {
-	ep->t_jpeg_color_subsampling = id;
+void Batch_Dialog::normalize_jpeg_subsampling(void) {
+	disconnect(rb_jpeg_subsampling, SIGNAL(buttonClicked(int)), this, SLOT(slot_jpeg_subsampling(int)));
+	if(ep->t_jpeg_color_space_rgb == 1) {
+		rb_jpeg_subsampling_11->setChecked(true);
+		rb_jpeg_subsampling_22->setEnabled(false);
+		rb_jpeg_subsampling_11->setEnabled(false);
+		label_jpeg_subsampling->setEnabled(false);
+	} else {
+		if(ep->t_jpeg_color_subsampling_1x1 == 0)		rb_jpeg_subsampling_22->setChecked(true);
+		if(ep->t_jpeg_color_subsampling_1x1 == 1)		rb_jpeg_subsampling_11->setChecked(true);
+		rb_jpeg_subsampling_22->setEnabled(true);
+		rb_jpeg_subsampling_11->setEnabled(true);
+		label_jpeg_subsampling->setEnabled(true);
+	}
+	connect(rb_jpeg_subsampling, SIGNAL(buttonClicked(int)), this, SLOT(slot_jpeg_subsampling(int)));
 }
 
-//void Batch_Dialog::slot_jpeg_color_space(int checked) {
-//	ep->t_jpeg_color_space = (checked == Qt::Checked);
+void Batch_Dialog::slot_jpeg_subsampling(int id) {
+	ep->t_jpeg_color_subsampling_1x1 = id;
+}
+
 void Batch_Dialog::slot_jpeg_color_space(int id) {
-	ep->t_jpeg_color_space = id;
+	ep->t_jpeg_color_space_rgb = id;
+	normalize_jpeg_subsampling();
 }
 
 void Batch_Dialog::slot_png_compression(double _value) {

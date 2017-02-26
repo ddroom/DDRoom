@@ -71,12 +71,12 @@ Profiler::~Profiler() {
 	long total = 0;
 	for(vector<pair<string, long> >::iterator it = prof.begin(); it != prof.end(); ++it) {
 		QString str;
-		str.sprintf("%d:%03d", (int)((*it).second / 1000), (int)((*it).second % 1000));
+		str.sprintf("%d.%03d", (int)((*it).second / 1000), (int)((*it).second % 1000));
 		total += (*it).second;
-		cerr << str.toLocal8Bit().constData() << " sec. for " << (*it).first << endl;
+		cerr << str.toLocal8Bit().constData() << " sec for: " << (*it).first << endl;
 	}
 	QString str;
-	str.sprintf("TOTAL:    %d:%03d", (int)(total / 1000), (int)(total % 1000));
+	str.sprintf("TOTAL:    %d.%03d sec.", (int)(total / 1000), (int)(total % 1000));
 	cerr << str.toLocal8Bit().constData() << endl;
 	cerr << "==================================" << endl;
 #endif

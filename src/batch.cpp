@@ -420,8 +420,8 @@ cerr << endl << "batch process: DONE" << endl << endl;
 void Batch::load_default_ep(export_parameters_t *ep) {
 	Config::instance()->get(CONFIG_SECTION_BATCH, "process_asap", ep->process_asap);
 	Config::instance()->get(CONFIG_SECTION_BATCH, "type_jpeg_iq", ep->t_jpeg_iq);
-	Config::instance()->get(CONFIG_SECTION_BATCH, "type_jpeg_color_subsampling", ep->t_jpeg_color_subsampling);
-	Config::instance()->get(CONFIG_SECTION_BATCH, "type_jpeg_color_space", ep->t_jpeg_color_space);
+	Config::instance()->get(CONFIG_SECTION_BATCH, "type_jpeg_color_subsampling", ep->t_jpeg_color_subsampling_1x1);
+	Config::instance()->get(CONFIG_SECTION_BATCH, "type_jpeg_color_space", ep->t_jpeg_color_space_rgb);
 	Config::instance()->get(CONFIG_SECTION_BATCH, "type_png_compression", ep->t_png_compression);
 	Config::instance()->get(CONFIG_SECTION_BATCH, "type_png_alpha", ep->t_png_alpha);
 	Config::instance()->get(CONFIG_SECTION_BATCH, "type_png_bits", ep->t_png_bits);
@@ -439,8 +439,8 @@ void Batch::load_default_ep(export_parameters_t *ep) {
 void Batch::save_default_ep(export_parameters_t *ep) {
 	Config::instance()->set(CONFIG_SECTION_BATCH, "process_asap", ep->process_asap);
 	Config::instance()->set(CONFIG_SECTION_BATCH, "type_jpeg_iq", ep->t_jpeg_iq);
-	Config::instance()->set(CONFIG_SECTION_BATCH, "type_jpeg_color_subsampling", ep->t_jpeg_color_subsampling);
-	Config::instance()->set(CONFIG_SECTION_BATCH, "type_jpeg_color_space", ep->t_jpeg_color_space);
+	Config::instance()->set(CONFIG_SECTION_BATCH, "type_jpeg_color_subsampling", ep->t_jpeg_color_subsampling_1x1);
+	Config::instance()->set(CONFIG_SECTION_BATCH, "type_jpeg_color_space", ep->t_jpeg_color_space_rgb);
 	Config::instance()->set(CONFIG_SECTION_BATCH, "type_png_compression", ep->t_png_compression);
 	Config::instance()->set(CONFIG_SECTION_BATCH, "type_png_alpha", ep->t_png_alpha);
 	Config::instance()->set(CONFIG_SECTION_BATCH, "type_png_bits", ep->t_png_bits);

@@ -9,7 +9,6 @@
  *
  */
 
-
 #include <string>
 #include <QtWidgets>
 
@@ -28,9 +27,7 @@ protected slots:
 	void slot_image_type_clicked(int id);
 	void slot_button_folder_pressed(void);
 	void slot_jpeg_iq(double _value);
-//	void slot_jpeg_improve_sharpness(int checked);
-//	void slot_jpeg_improve_colors(int checked);
-	void slot_jpeg_color_subsampling(int id);
+	void slot_jpeg_subsampling(int id);
 	void slot_jpeg_color_space(int id);
 	void slot_png_compression(double _value);
 	void slot_png_bits(int id);
@@ -38,10 +35,8 @@ protected slots:
 	void slot_tiff_bits(int id);
 	void slot_tiff_alpha(int checked);
 	void slot_line_file_name(void);
-	// TODO: check folder too
 	void slot_process_asap(int checked);
 	void slot_scaling_enable(int checked);
-//	void slot_scaling_to_fill(int checked);
 	void slot_scale_fit_radio(int index);
 	void slot_line_scaling_width(void);
 	void slot_line_scaling_height(void);
@@ -56,12 +51,17 @@ protected:
 	QLineEdit *line_scaling_height;
 	QLabel *label_scaling_width;
 	QLabel *label_scaling_height;
-//	QCheckBox *check_scaling_to_fill;
 	QButtonGroup *scale_fit_radio;
 	QToolButton *b_size_fit;
 	QLabel *l_size_fit;
 	QToolButton *b_size_fill;
 	QLabel *l_size_fill;
+
+	QRadioButton *rb_jpeg_subsampling_22;
+	QRadioButton *rb_jpeg_subsampling_11;
+	QButtonGroup *rb_jpeg_subsampling;
+	QLabel *label_jpeg_subsampling;
+	void normalize_jpeg_subsampling(void);
 
 	QTabWidget *tab_type;
 

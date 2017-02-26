@@ -42,8 +42,8 @@ public:
 	image_type_t image_type;
 	bool process_asap;
 	int t_jpeg_iq;	// 0 - 100 %
-	bool t_jpeg_color_subsampling;
-	bool t_jpeg_color_space;
+	bool t_jpeg_color_subsampling_1x1; // 'true' == 1x1, 'false' == 2x2
+	bool t_jpeg_color_space_rgb; // 'true' == RGB, 'false' == YCbCr
 	int t_png_compression;	// 0 - 9 - check zlib.h
 	bool t_png_alpha;
 	int t_png_bits;	// 8 | 16

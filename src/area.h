@@ -55,10 +55,12 @@ public:
 		int32_t x2 = 0;	// right offset
 		int32_t y1 = 0;	// top offset
 		int32_t y2 = 0;	// bottom offset
+		t_edges() = default;
+		t_edges(int32_t _x1, int32_t _x2, int32_t _y1, int32_t _y2) : x1(_x1), x2(_x2), y1(_y1), y2(_y2) {}
 	};
 
 	struct t_dimensions {
-		t_dimensions(void)  = default;
+		t_dimensions(void) = default;
 		t_dimensions(int width, int height) : size(width, height) {}
 		void dump(void) const;
 		// size of actual data in memory
