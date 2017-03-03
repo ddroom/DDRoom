@@ -19,25 +19,27 @@ class Flow {
 	friend class SubFlow;
 
 public:
-	enum flow_method_t {
-		flow_method_thread,
-		flow_method_function
-	};
-	Flow(void (*method)(void *obj, class SubFlow *subflow, void *data), void *object, void *method_data, flow_method_t flow_method = flow_method_thread);
+	Flow(void (*f_ptr)(void *obj, class SubFlow *subflow, void *data), void *f_object, void *f_data, int _threads_count = 0);
 	virtual ~Flow(void);
 	void flow(void);
 
 protected:
+	friend class SubFlow;
 	void set_private(void **priv_array);
+
+protected:
 	class SubFlow **subflows;
-	int cores;
-	std::condition_variable w_m_lock;
-	std::condition_variable w_s_lock;
-	std::condition_variable w_jobs;
+	int threads_count;
+
 	std::mutex m_lock;
-	std::mutex m_jobs;
-	std::atomic_int c_lock;
-	std::atomic_int c_jobs;
+	std::condition_variable cv_in;
+	std::condition_variable cv_out;
+	std::condition_variable cv_master;
+	int b_counter_in = 0;
+	int b_counter_out = 0;
+	bool b_flag_in = false;
+	bool b_flag_out = false;
+	bool b_flag_master_wakeup = false;
 };
 
 //------------------------------------------------------------------------------
@@ -45,71 +47,50 @@ class SubFlow {
 	friend class Flow;
 
 public:
-	SubFlow(Flow *parent);
+	SubFlow(Flow *parent, int _id, int threads_count);
 	virtual ~SubFlow();
 
-	virtual bool is_master(void) {return _master;}
-	virtual int cores(void) {return _cores;}
+	bool is_master(void) {return _master;}
+	int threads_count(void) {return i_threads_count;}
+	int id(void) {return i_id;} // for debug purposes
 
 	// Some data that should be shared between all of the threads.
-	virtual void set_private(void **priv_array);
-	virtual void *get_private(void);
+	void set_private(void **priv_array);
+	void *get_private(void);
 
-	// Note: avoid recursion of sync_point_pre()/sync_point_post() calls.
-	virtual void sync_point(void) = 0;
-	virtual bool sync_point_pre(void) = 0;
-	virtual void sync_point_post(void) = 0;
-
-	virtual void wait(void);
-	virtual void start(void);
-
-protected:
-//	virtual void run(void);
-	void (*method)(void *, class SubFlow *, void *);
-	void *object;
-	void *method_data;
-
-	Flow *_parent;
-	bool _master;
-	int _cores;
-	void *_target_private;
-};
-
-//------------------------------------------------------------------------------
-class SubFlow_Function : public SubFlow {
-public:
-	SubFlow_Function(Flow *parent);
-	virtual ~SubFlow_Function();
+	// 'classic' barrier w/o any priority
 	void sync_point(void);
+	// splitted barrier
+	// will return 'true' for the master thread, which will return ASAP, and 'false' for all other
 	bool sync_point_pre(void);
-	void sync_point_post(void);
-};
-
-//------------------------------------------------------------------------------
-class SubFlow_Thread : public SubFlow {
-	friend class Flow;
-
-public:
-	virtual ~SubFlow_Thread();
-	void sync_point(void);
-	bool sync_point_pre(void);
+	// master thread will wakeup all other threads, and those will do nothing in here
 	void sync_point_post(void);
 
 	void wait(void);
 	void start(void);
 
 protected:
-	SubFlow_Thread(Flow *parent, bool master, int cores);
-//	void run(void);
-
 	std::thread *std_thread = nullptr;
-	std::condition_variable *w_m_lock;
-	std::condition_variable *w_s_lock;
-	std::condition_variable *w_jobs;
-	std::mutex *m_lock;
-	std::mutex *m_jobs;
-	std::atomic_int *c_lock;
-	std::atomic_int *c_jobs;
+	void (*f_ptr)(void *, class SubFlow *, void *);
+	void *f_object;
+	void *f_data;
+
+	Flow *const _parent;
+	bool _master;
+	const int i_id;
+	const int i_threads_count;
+	void *_target_private = nullptr;
+
+	// shared barrier objects from the parent Flow object
+	std::mutex *m_lock = nullptr;
+	std::condition_variable *cv_in = nullptr;
+	std::condition_variable *cv_out = nullptr;
+	std::condition_variable *cv_master = nullptr;
+	int *b_counter_in = nullptr;
+	int *b_counter_out = nullptr;
+	bool *b_flag_in = nullptr;
+	bool *b_flag_out = nullptr;
+	bool *b_flag_master_wakeup = nullptr;
 };
 
 //------------------------------------------------------------------------------

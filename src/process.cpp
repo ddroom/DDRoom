@@ -57,10 +57,10 @@ NOTE on quit:
 
 using namespace std;
 
-//#define _PREVIEW_SIZE	256
-//#define _PREVIEW_SIZE	384
-#define _PREVIEW_SIZE	448
-//#define _PREVIEW_SIZE	512
+//#define _THUMBNAIL_SIZE	256
+//#define _THUMBNAIL_SIZE	384
+//#define _THUMBNAIL_SIZE	448
+#define _THUMBNAIL_SIZE	512
 
 //------------------------------------------------------------------------------
 
@@ -174,7 +174,7 @@ public:
 
 	list<filter_record_t> filter_records[2];	// 0 - thumbnail, 1 - tiles
 	DataSet *mutators;
-	DataSet *mutators_mpass;
+	DataSet *mutators_multipass;
 	TilesDescriptor_t *tiles_request;
 	int tile_index;
 
@@ -186,7 +186,7 @@ Process::task_run_t::task_run_t(void) {
 	tiles_receiver = nullptr;
 	scale_override = false;
 	mutators = nullptr;
-	mutators_mpass = nullptr;
+	mutators_multipass = nullptr;
 	tiles_request = nullptr;
 	_s_raw_colors = false;
 	request_ID = 0;
@@ -362,13 +362,6 @@ void Process::assign_filters(list<filter_record_t> &filters, task_run_t *task) {
 //			flag_crgb |= ((*it).filter->id() == string("F_WB"));
 		}
 	}
-#if 0
-	for(int pass = 0; pass < 2; ++pass) {
-		cerr << "pass == " << pass << endl;
-		for(std::list<filter_record_t>::iterator it = task->filter_records[pass].begin(); it != task->filter_records[pass].end(); ++it)
-			cerr << "    \"" << (*it).fp_2d->name() << "\"" << endl;
-	}
-#endif
 }
 
 //------------------------------------------------------------------------------
@@ -449,7 +442,7 @@ cerr << "decline processing task, failed to import \"" << photo->photo_id.get_ex
 
 	// apply filters
 	Flow flow(Process::subflow_run_mt, nullptr, (void *)&task);
-//	Flow flow(Process::subflow_run_mt, nullptr, (void *)&task, Flow::flow_method_function);
+//	Flow flow(Process::subflow_run_mt, nullptr, (void *)&task, 1);
 	flow.flow();
 
 	// a real result should be handled by View via TilesReceiver; signal 'signal_process_complete' should be send from the other place
@@ -645,13 +638,6 @@ void Process::process_demosaic(SubFlow *subflow, void *data) {
 
 	MT_t mt_obj;
 	mt_obj.subflow = subflow;
-/*
-	Process_t process_obj;
-	process_obj.area_in = task->area_transfer;
-	process_obj.metadata = task->photo->metadata;
-	process_obj.mutators = task->mutators;
-	process_obj.allow_destructive = false;
-*/
 	Filter_t filter_obj;
 	filter_obj.ps_base = ps_fr((Filter *)fstore->f_demosaic, task->filter_records[0]);
 	filter_obj.filter = fstore->f_demosaic;
@@ -681,7 +667,7 @@ void Process::run_mt(SubFlow *subflow, void *data) {
 		quit_lock.lock();
 		prof = new Profiler("Process");
 		Mem::state_reset();
-		task->mutators_mpass = new DataSet();
+		task->mutators_multipass = new DataSet();
 	}
 	subflow->sync_point_post();
 	if(to_quit)
@@ -723,10 +709,12 @@ void Process::run_mt(SubFlow *subflow, void *data) {
 		delete process_cache->area_wb;
 		process_cache->area_wb = nullptr;
 	}
-	// create list of enabled filters
-	list<class filter_record_t> pl_filters[3];	// 0 - thumbnail, 1 - tiles, 2 - tiles & demosaic
+	// create list of enabled filters: 
+	//   0 - thumbnail, 1 - tiles; (filters processing only)
+	//   2 - tiles & demosaic; ('size_forward' only)
+	list<class filter_record_t> pl_filters[3];
 	for(int fi = 0; fi < 3; ++fi) {
-		int fr_i = (fi == 0) ? 0 : 1;
+		const int fr_i = (fi == 0) ? 0 : 1;
 //		cerr << "filters list, iteration == " << fi << endl;
 		for(list<filter_record_t>::iterator it = task->filter_records[fr_i].begin(); it != task->filter_records[fr_i].end(); ++it) {
 			Filter *filter = (*it).filter;
@@ -737,8 +725,11 @@ void Process::run_mt(SubFlow *subflow, void *data) {
 				// NOTE WB: skip f_wb
 //				if(!process_wb && filter->id() == string("F_WB"))
 				if(filter->id() == string("F_WB")) {
+//				if(filter->id() == string("F_WB_2D")) {
 					if(!process_wb)	continue;
-					if(!task->is_offline && fi != 0)	continue;
+//					if(!task->is_offline && fi != 0)	continue;
+					// use cached result of the F_WB thumb processing with tiles processing
+					if(fi == 1)	continue;
 				}
 			}
 			if((*it).fp->is_enabled((*it).ps_base.get())) {
@@ -777,46 +768,18 @@ void Process::run_mt(SubFlow *subflow, void *data) {
 			Area::t_dimensions d;
 			// image size will be as after processing with 1:1 scale
 			process_size_forward(task, pl_filters[2], d_full_forward);
-/*
-cerr << "after process_size_forward  px_size is " << d_full_forward.position.px_size_x << ", " << d_full_forward.position.px_size_y << endl;
-cerr << "after process_size_forward position is " << d_full_forward.position.x << ", " << d_full_forward.position.y << endl;
-cerr << "after process_size_forward     size is " << d_full_forward.width() << " x " << d_full_forward.height() << endl;
-*/
-/*
-			bool scale_to_size = false;
-			int scale_to_width = 0;
-			int scale_to_height = 0;
-			bool scale_to_fit = true;
-			task->mutators->get("scale_to_size", scale_to_size);
-			if(scale_to_size && !task->scale_override) {
-				task->mutators->get("scale_to_width", scale_to_width);
-				task->mutators->get("scale_to_height", scale_to_height);
-				task->mutators->get("scale_to_fit", scale_to_fit);
-//cerr << "scale_to_size: " << scale_to_width << " x " << scale_to_height << "; and scale_to_fit == " << scale_to_fit << endl;
-				if(scale_to_fit)
-					Area::scale_dimensions_to_size_fit(&d_full_forward, scale_to_width, scale_to_height);
-				else
-					Area::scale_dimensions_to_size_fill(&d_full_forward, scale_to_width, scale_to_height);
-			}
-*/
-/*
-cerr << "after process_size_forward  px_size is " << d_full_forward.position.px_size_x << ", " << d_full_forward.position.px_size_y << endl;
-cerr << "after process_size_forward position is " << d_full_forward.position.x << ", " << d_full_forward.position.y << endl;
-cerr << "after process_size_forward     size is " << d_full_forward.width() << " x " << d_full_forward.height() << endl;
-*/
 			task->tiles_receiver->register_forward_dimensions(&d_full_forward);
 			delete task->mutators;
 			task->mutators = nullptr;
 		}
 		subflow->sync_point_post();
 	}
-	// ** request set of tiles (from TilesReceiver) and process each in a line, in a two passes
-	// ** first pass - process thumbnail _PREVIEW_SIZE x _PREVIEW_SIZE on CPU only
-	// ** second pass - process requested tiles
+	//  request set of tiles (from TilesReceiver) and process each in a line, in a two passes
+	//  first pass - process thumbnail _THUMBNAIL_SIZE x _THUMBNAIL_SIZE on CPU only
+	//  second pass - process requested tiles
 	int iteration = (process_view_tiles) ? 1 : 0;
 	for(; iteration < 2; ++iteration) {
-//		if(is_master)
-//			cerr << "iteration == " << iteration << endl;
+//		if(is_master) cerr << "iteration == " << iteration << endl;
 		// NOTE: some ideas about possible tiles cache: useless for geometry filters, useful - for colors
 		if(subflow->sync_point_pre()) {
 			task->mutators = new DataSet();
@@ -833,9 +796,9 @@ cerr << "after process_size_forward     size is " << d_full_forward.width() << "
 //cerr << "size == " << d_full_forward.width() << "x" << d_full_forward.height() << endl;
 				target_dimensions = d_full_forward;
 				if(iteration == 0) {
-					int preview_size_w = _PREVIEW_SIZE;
-					int preview_size_h = _PREVIEW_SIZE;
-					Area::scale_dimensions_to_size_fit(&target_dimensions, preview_size_w, preview_size_h);
+					const int thumbnail_w = _THUMBNAIL_SIZE;
+					const int thumbnail_h = _THUMBNAIL_SIZE;
+					Area::scale_dimensions_to_size_fit(&target_dimensions, thumbnail_w, thumbnail_h);
 /*
 cerr << "preview size: " << preview_size_w << " x " << preview_size_h << endl;
 cerr << "  px_size is: " << target_dimensions.position.px_size_x << ", " << target_dimensions.position.px_size_y << endl;
@@ -887,16 +850,6 @@ cerr << "     size is: " << target_dimensions.width() << " x " << target_dimensi
 		// don't clean up mess on quit
 		if(to_quit)
 			return;
-/*
-		bool to_abort = Process::ID_to_abort(task->request_ID);
-		if(to_abort) {
-			subflow->sync_point();
-			if(is_master) {
-				ID_remove(task->request_ID);
-			}
-			break;
-		}
-*/
 	}
 	//---------------------------------------------
 	// clean
@@ -906,7 +859,7 @@ cerr << "     size is: " << target_dimensions.width() << " x " << target_dimensi
 		delete prof;
 		Mem::state_print();
 		Mem::state_reset(false);
-		delete task->mutators_mpass;
+		delete task->mutators_multipass;
 	}
 	subflow->sync_point_post();
 }
@@ -933,6 +886,7 @@ cerr << "       d_in.w&h == " << d_in.size.w << " x " << d_in.size.h << endl;
 		FP_size_t fp_size((*it).ps_base.get());
 		fp_size.metadata = task->photo->metadata;
 		fp_size.mutators = task->mutators;
+		fp_size.mutators_multipass = task->mutators_multipass;
 		fp_size.cw_rotation = task->photo->cw_rotation;
 		// allow edit mode for online processing
 		if(!task->is_offline)
@@ -987,6 +941,7 @@ cerr << "  position: " << target_dimensions.position.x << "-" << target_dimensio
 				FP_size_t fp_size((*it).ps_base.get());
 				fp_size.metadata = task->photo->metadata;
 				fp_size.mutators = task->mutators;
+				fp_size.mutators_multipass = task->mutators_multipass;
 				fp_size.cw_rotation = task->photo->cw_rotation;
 //				fp_size.is_tile = (i != 0);
 				d_out = d_in;
@@ -1057,8 +1012,8 @@ void Process::process_filters(SubFlow *subflow, Process::task_run_t *task, std::
 			was_abortion = true;
 			break;
 		}
-//if(is_thumb)
-//cerr << "____ process_filters(): is_thumb" << endl;
+//if(is_thumb) cerr << "____ process_filters(): is_thumb" << endl;
+
 		//-- get index of the next tile to process
 		if(subflow->sync_point_pre()) {
 			task->tile_index = -1;
@@ -1077,6 +1032,7 @@ void Process::process_filters(SubFlow *subflow, Process::task_run_t *task, std::
 		int index = task->tile_index;
 		if(index == -1)
 			break;
+
 		//-- process tile
 		Tile_t *tile = &tiles_request->tiles[index];
 		Area *area_in = nullptr;
@@ -1097,60 +1053,49 @@ void Process::process_filters(SubFlow *subflow, Process::task_run_t *task, std::
 				prof->mark((*it).fp->name());
 			MT_t mt_obj;
 			mt_obj.subflow = subflow;
-/*
-			Process_t process_obj;
-			process_obj.area_in = task->area_transfer;
-			if(subflow->is_master())
-				process_obj.position = tile->fp_position[(*it).fp_2d->name()];
-			process_obj.metadata = task->photo->metadata;
-			process_obj.allow_destructive = allow_destructive;
-			process_obj.mutators = task->mutators;
-			process_obj.mutators_mpass = task->mutators_mpass;
-			// looks like map operator [] is not thread-safe... Do below only from master thread
-			process_obj.fp_cache = nullptr;
-*/
-			Process_t *process_obj = nullptr;
+//			Process_t *process_obj = nullptr;
 			Filter_t filter_obj;
 			filter_obj.ps_base = ps;
 			filter_obj.fs_base = nullptr;
 			if(subflow->sync_point_pre()) {
-				process_obj = new Process_t;
+				Process_t *process_obj = new Process_t;
 				process_obj->area_in = task->area_transfer;
 				process_obj->position = tile->fp_position[(*it).fp_2d->name()];
 				process_obj->metadata = task->photo->metadata;
 				process_obj->allow_destructive = allow_destructive;
 				process_obj->mutators = task->mutators;
-				process_obj->mutators_mpass = task->mutators_mpass;
+				process_obj->mutators_multipass = task->mutators_multipass;
 				// looks like map operator [] is not thread-safe... Do below only from master thread
 				process_obj->fp_cache = nullptr;
 				task->process_obj = process_obj;
 				//--
 				map<class FilterProcess *, class FP_Cache_t *>::iterator it_cache = process_cache->filters_cache.find((*it).fp);
 				if(it_cache != process_cache->filters_cache.end())
-					process_obj->fp_cache = (*it_cache).second;
-				filter_obj.fs_base = task->photo->map_fs_base[filter];
+					task->process_obj->fp_cache = (*it_cache).second;
 			}
 			subflow->sync_point_post();
 //			process_obj = task->process_obj;
 			filter_obj.filter = task->is_offline ? nullptr : filter;
 			filter_obj.is_offline = task->is_offline;
+			filter_obj.fs_base = task->photo->map_fs_base[filter];
 //			if(is_master)
 //				cerr << "process filter: \"" << (*it).fp_2d->name() << "\"" << endl;
 			Area *area_rez = (*it).fp_2d->process(&mt_obj, task->process_obj, &filter_obj);
 			if(subflow->sync_point_pre()) {
 				// NOTE WB: cache area if result of WB filter
-				if(process_cache->area_wb == nullptr && !task->is_offline) {
+//				if(process_cache->area_wb == nullptr && !task->is_offline) {
+				if(process_cache->area_wb == nullptr) {
 					if((*it).fp_2d->name() == "F_WB_2D") {
-//cerr << "__ filter WB..." << endl;
-//cerr << "__             process_cache->area_wb == " << (unsigned long)process_cache->area_wb << endl;
+//cerr << "__ filter \"F_WB_2D\"..." << endl;
+//cerr << "__             process_cache->area_wb == " << std::hex << (unsigned long)process_cache->area_wb << std::dec << endl;
 						process_cache->area_wb = new Area(*area_rez);
 					}
 				}
 				task->area_transfer = area_rez;
 				delete area_in;
 				area_in = task->area_transfer;
-				task->OOM |= process_obj->OOM;
-				delete process_obj;
+				task->OOM |= task->process_obj->OOM;
+				delete task->process_obj;
 //cerr << "task->OOM == " << task->OOM << endl;
 			}
 			subflow->sync_point_post();

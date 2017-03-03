@@ -15,8 +15,7 @@ NOTES:
 	- Used limits on possible lightness change to prevent splashes.
 	- UI 'radius': 0.0 ==> 1x1 pixel, (0.0, 1.0] ==> 3x3 pixels, etc...
 
-	- used mutators:
-		"CM" -> string: "CIECAM02" | "CIELab"
+	- Used mutators_multipass 'px_scale_x', 'px_scale_y' for sharpness radius correct scaling, set by F_Crop on scaling.
 */
 
 #include <iostream>
@@ -616,13 +615,13 @@ bool FP_Unsharp::is_enabled(const PS_Base *ps_base) {
 }
 
 void FP_Unsharp::scaled_parameters(const class PS_Unsharp *ps, class FP_params_t *params, double scale_x, double scale_y) {
-	double scale = (scale_x + scale_y) / 2.0;
+	double scale = (scale_x + scale_y) * 0.5;
 	// limit excessive increasing on too small crops etc.
 	if(ps->lc_enabled && ps->lc_amount != 0.0) {
 		const double lc_scale = (scale > 0.5) ? scale : 0.5;
 		float lc_r = (ps->lc_enabled) ? ps->lc_radius : 0.0;
 		lc_r = ((lc_r * 2.0 + 1.0) / lc_scale);
-		lc_r = (lc_r - 1.0) / 2.0;
+		lc_r = (lc_r - 1.0) * 0.5;
 		params->lc_radius = (lc_r > 0.0) ? lc_r : 0.0;
 	}
 	if(ps->enabled && ps->amount != 0.0) {
@@ -630,7 +629,7 @@ void FP_Unsharp::scaled_parameters(const class PS_Unsharp *ps, class FP_params_t
 		if(ps->scaled) {
 			const double s_scale = (scale > 1.0) ? scale : 1.0;
 			double s_r = ((ps->radius * 2.0 + 1.0) / s_scale);
-			s_r = (s_r - 1.0) / 2.0;
+			s_r = (s_r - 1.0) * 0.5;
 			params->radius = (s_r > 0.0) ? s_r : 0.0;
 		} else
 			params->radius = ps->radius;
@@ -654,11 +653,19 @@ void FP_Unsharp::size_backward(FP_size_t *fp_size, Area::t_dimensions *d_before,
 	if(is_enabled(ps_base) == false)
 		return;
 	const PS_Unsharp *ps = (const PS_Unsharp *)ps_base;
+	*d_before = *d_after;
+	double px_scale_x = 1.0;
+	double px_scale_y = 1.0;
+	fp_size->mutators_multipass->get("px_scale_x", px_scale_x);
+	fp_size->mutators_multipass->get("px_scale_y", px_scale_y);
+	if(px_scale_x < 1.0) px_scale_x = 1.0;
+	if(px_scale_y < 1.0) px_scale_y = 1.0;
+	const double px_size_x = d_before->position.px_size_x;
+	const double px_size_y = d_before->position.px_size_y;
 	FP_params_t params;
-	scaled_parameters(ps, &params, d_after->position.px_size_x, d_after->position.px_size_y);
+	scaled_parameters(ps, &params, px_size_x / px_scale_x, px_size_y / px_scale_y);
 	// again, do handle overlapping issue here
 	// TODO: check together 'unsharp' and 'local contrast'
-	*d_before = *d_after;
 	int edge = 0;
 	if(params.lc_radius > 0.0 && ps->lc_enabled)
 		edge += int(params.lc_radius * 2.0 + 1.0) / 2 + 1;
@@ -667,8 +674,6 @@ void FP_Unsharp::size_backward(FP_size_t *fp_size, Area::t_dimensions *d_before,
 //cerr << endl;
 //cerr << "size_backward(); params.lc_radius == " << params.lc_radius << "; params.radius == " << params.radius << endl;
 //cerr << endl;
-	const float px_size_x = d_before->position.px_size_x;
-	const float px_size_y = d_before->position.px_size_y;
 	d_before->position.x -= px_size_x * edge;
 	d_before->position.y -= px_size_y * edge;
 	d_before->size.w += edge * 2;
@@ -743,10 +748,16 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 			d_out.size.w = tp.width;
 			d_out.size.h = tp.height;
 			d_out.edges = Area::t_edges();
-			const float px_size_x = d_in.position.px_size_x;
-			const float px_size_y = d_in.position.px_size_y;
+			double px_scale_x = 1.0;
+			double px_scale_y = 1.0;
+			process_obj->mutators_multipass->get("px_scale_x", px_scale_x);
+			process_obj->mutators_multipass->get("px_scale_y", px_scale_y);
+			if(px_scale_x < 1.0) px_scale_x = 1.0;
+			if(px_scale_y < 1.0) px_scale_y = 1.0;
+			const double px_size_x = d_in.position.px_size_x;
+			const double px_size_y = d_in.position.px_size_y;
 
-			scaled_parameters(ps, &params, px_size_x, px_size_y);
+			scaled_parameters(ps, &params, px_size_x / px_scale_x, px_size_y / px_scale_y);
 			if(ftype == type::lc) {
 				// increase output of 'local contrast' if 'sharpness' is enabled
 				if(enabled_sharpness) {
@@ -983,8 +994,8 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 				area_in = area_out;
 			}
 			// non-destructive processing
-			const int cores = subflow->cores();
-			tasks = new task_t *[cores];
+			const int threads_count = subflow->threads_count();
+			tasks = new task_t *[threads_count];
 
 			Area::t_dimensions d_out = *area_in->dimensions();
 			Tile_t::t_position &tp = process_obj->position;
@@ -994,11 +1005,16 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 			d_out.size = Area::t_size(tp.width, tp.height);
 //			d_out.size.h = tp.height;
 			d_out.edges = Area::t_edges();
-			const float px_size_x = area_in->dimensions()->position.px_size_x;
-			const float px_size_y = area_in->dimensions()->position.px_size_y;
+			double px_scale_x = 1.0;
+			double px_scale_y = 1.0;
+			process_obj->mutators_multipass->get("px_scale_x", px_scale_x);
+			process_obj->mutators_multipass->get("px_scale_y", px_scale_y);
+			if(px_scale_x < 1.0) px_scale_x = 1.0;
+			if(px_scale_y < 1.0) px_scale_y = 1.0;
+			const double px_size_x = area_in->dimensions()->position.px_size_x;
+			const double px_size_y = area_in->dimensions()->position.px_size_y;
 
-			scaled_parameters(ps, &params, px_size_x, px_size_y);
-//			scaled_parameters(ps, &params, area_in->dimensions()->position.px_size);
+			scaled_parameters(ps, &params, px_size_x / px_scale_x, px_size_y / px_scale_y);
 			if(type == 0) {
 				// increase output of 'local contrast' if 'sharpness' is enabled
 				if(params.radius > 0.0 && ps->enabled) {
@@ -1051,7 +1067,7 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 			const int in_y_offset = (d_out.position.y - area_in->dimensions()->position.y) / px_size_y + 0.5 + area_in->dimensions()->edges.y1;
 			y_flow_pass_1 = new std::atomic_int(0);
 			y_flow_pass_2 = new std::atomic_int(0);
-			for(int i = 0; i < cores; ++i) {
+			for(int i = 0; i < threads_count; ++i) {
 				tasks[i] = new task_t;
 				tasks[i]->area_in = area_in;
 				tasks[i]->area_out = area_out;
@@ -1090,7 +1106,7 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 				delete area_temp;
 			delete y_flow_pass_1;
 			delete y_flow_pass_2;
-			for(int i = 0; i < subflow->cores(); ++i)
+			for(int i = 0; i < subflow->threads_count(); ++i)
 				delete tasks[i];
 			delete[] tasks;
 			delete[] kernel;

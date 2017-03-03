@@ -23,16 +23,19 @@
 
 using namespace std;
 
-// 4.00 MB each - 4(float) * 4(RGBA) * 512 * 512 == 4,194,304
+//  1.0 MB == 4(float) * 4(RGBA) *  256 *  256 ==  1,048,576
+//  2.0 MB ~= 4(float) * 4(RGBA) *  360 *  360 ==  2,073,600
+//  4.0 MB == 4(float) * 4(RGBA) *  512 *  512 ==  4,194,304
+// 16.0 MB == 4(float) * 4(RGBA) * 1024 * 1024 == 16,777,216
+
 #define TILE_LENGTH 512
-#define TILE_WIDTH 512
-#define TILE_HEIGHT 512
-#define TILE_OFFLINE_WIDTH 1024
-#define TILE_OFFLINE_HEIGHT 1024
-// 1.98 MB each - 4(float) * 4(RGBA) * 360 * 360 == 2,073,600
-//#define TILE_LENGTH 360
-// 1.00 MB each - 4(float) * 4(RGBA) * 256 * 256 == 1,048,576
-//#define TILE_LENGTH 256
+//#define TILE_OFFLINE_LENGTH 360
+#define TILE_OFFLINE_LENGTH 1024
+
+#define TILE_WIDTH	TILE_LENGTH
+#define TILE_HEIGHT	TILE_LENGTH
+#define TILE_OFFLINE_WIDTH	TILE_OFFLINE_LENGTH
+#define TILE_OFFLINE_HEIGHT	TILE_OFFLINE_LENGTH
 
 //------------------------------------------------------------------------------
 std::atomic_int ID_t::_counter(0);

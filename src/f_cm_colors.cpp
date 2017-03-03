@@ -2,15 +2,14 @@
  * f_cm_colors.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
 
 /*
  * NOTES:
-	- used mutators:
-		"CM" -> string: "CIECAM02" | "CIELab"
+	- used mutators: 'CM' == 'CIECAM02' | 'CIELab'
 
 TODO:
 	- keep and restore level of compression at FS_Base
@@ -466,7 +465,7 @@ void FP_CM_Colors::filter_pre(fp_cp_args_t *args) {
 		sg = new Saturation_Gamut(cm_type, ocs_name);
 	}
 
-	for(int i = 0; i < args->cores; ++i) {
+	for(int i = 0; i < args->threads_count; ++i) {
 		task_t *task = new task_t;
 		task->saturation = saturation;
 		task->js_curve = ps->enabled_js_curve;
@@ -481,7 +480,7 @@ void FP_CM_Colors::filter_post(fp_cp_args_t *args) {
 	FP_CM_Colors::task_t *t = (FP_CM_Colors::task_t *)args->ptr_private[0];
 	if(t->sg != nullptr)
 		delete t->sg;
-	for(int i = 0; i < args->cores; ++i) {
+	for(int i = 0; i < args->threads_count; ++i) {
 		t = (FP_CM_Colors::task_t *)args->ptr_private[i];
 		delete t;
 	}
@@ -539,10 +538,10 @@ Area *FP_CM_Colors::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filt
 		if(!ps->enabled_saturation)
 			saturation = 1.0;
 
-		int cores = subflow->cores();
+		int threads_count = subflow->threads_count();
 		_flow_p1 = new std::atomic_int(0);
-		tasks = new task_t *[cores];
-		for(int i = 0; i < cores; ++i) {
+		tasks = new task_t *[threads_count];
+		for(int i = 0; i < threads_count; ++i) {
 			tasks[i] = new task_t;
 			tasks[i]->area_in = area_in;
 			tasks[i]->area_out = _area_out;
@@ -629,7 +628,7 @@ Area *FP_CM_Colors::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filt
 		delete _flow_p1;
 		if(tasks[0]->sg != nullptr)
 			delete tasks[0]->sg;
-		for(int i = 0; i < subflow->cores(); ++i)
+		for(int i = 0; i < subflow->threads_count(); ++i)
 			delete tasks[i];
 		delete[] tasks;
 	}

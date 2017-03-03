@@ -53,7 +53,7 @@ HEADERS	= \
 	src/f_cm_sepia.h \
 	src/f_cm_colors.h \
 	src/f_unsharp.h \
-	src/f_cm_to_rgb.h \
+	src/f_cm_to_cs.h \
 \
 	src/f_soften.h \
 \
@@ -138,7 +138,7 @@ SOURCES	= \
 	src/f_cm_sepia.cpp \
 	src/f_cm_colors.cpp \
 	src/f_unsharp.cpp \
-	src/f_cm_to_rgb.cpp \
+	src/f_cm_to_cs.cpp \
 \
 	src/f_soften.cpp \
 \
@@ -194,11 +194,11 @@ QMAKE_CFLAGS_RELEASE -= -O2
 QMAKE_CFLAGS_RELEASE += -O3
 QMAKE_CFLAGS_RELEASE += -g
 
-QMAKE_CXXFLAGS_DEBUG += -O0
+QMAKE_CXXFLAGS_DEBUG += -O3
 QMAKE_CXXFLAGS_DEBUG += -ggdb
 QMAKE_CXXFLAGS_DEBUG += -fstack-check
 QMAKE_CXXFLAGS_DEBUG += -g
-QMAKE_CFLAGS_DEBUG += -O0
+QMAKE_CFLAGS_DEBUG += -O3
 QMAKE_CFLAGS_DEBUG += -ggdb
 QMAKE_CFLAGS_DEBUG += -g
 

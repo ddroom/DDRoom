@@ -2,17 +2,13 @@
  * f_soften.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
 
-/*
- * NOTES:
-*/
 #include <iostream>
 
-//#include "ddr_math.h"
 #include "f_soften.h"
 #include "system.h"
 #include "gui_slider.h"
@@ -283,8 +279,8 @@ Area *FP_Soften::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_
 
 	if(subflow->sync_point_pre()) {
 		// non-destructive processing
-		int cores = subflow->cores();
-		tasks = new task_t *[cores];
+		int threads_count = subflow->threads_count();
+		tasks = new task_t *[threads_count];
 		// gaussian kernel
 		const float sigma = (ps->radius * 2.0) / 6.0;
 		const float sigma_sq = sigma * sigma;
@@ -324,7 +320,7 @@ Area *FP_Soften::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_
 		process_obj->OOM |= !area_out->valid();
 
 		y_flow = new std::atomic_int(0);
-		for(int i = 0; i < cores; ++i) {
+		for(int i = 0; i < threads_count; ++i) {
 			tasks[i] = new task_t;
 			tasks[i]->area_in = area_in;
 			tasks[i]->area_out = area_out;
@@ -348,7 +344,7 @@ Area *FP_Soften::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_
 
 	if(subflow->sync_point_pre()) {
 		delete y_flow;
-		for(int i = 0; i < subflow->cores(); ++i)
+		for(int i = 0; i < subflow->threads_count(); ++i)
 			delete tasks[i];
 		delete[] tasks;
 		delete[] kernel;

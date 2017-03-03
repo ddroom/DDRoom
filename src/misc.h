@@ -42,7 +42,7 @@ public:
 		s_cm_sepia,
 		s_cm_colors,
 		s_unsharp,
-		s_cm_to_rgb,
+		s_cm_to_cs,
 		s_curve,
 		s_invert,
 		//

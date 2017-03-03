@@ -186,6 +186,7 @@ void Saturation_Gamut::lightness_edge_Js(float &J, float &s, float h) {
 		s = 0.0;
 		return;
 	}
+	ddr::clip(J, 0.0, 10.0);
 	ddr::clip(h);
 //	if(h >= 1.0)	h -= 1.0;
 //	if(h < 0.0)		h += 1.0;

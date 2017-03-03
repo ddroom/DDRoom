@@ -20,10 +20,10 @@ class fp_cp_args_t {
 public:
 	class Metadata *metadata;
 	DataSet *mutators;			// <- , \|/ - rename to "mutators_ro" and "mutators_rw"
-	DataSet *mutators_mpass; // will keep data between thumb and scaled processing
+	DataSet *mutators_multipass; // will keep data between thumb and scaled processing
 	class PS_Base *ps_base; // TODO: check necessity of sharepointer it
 	void **ptr_private;
-	int cores;
+	int threads_count;
 	class FP_Cache_t *cache;
 	class Filter *filter;
 	class FS_Base *fs_base;

@@ -10,12 +10,14 @@
  */
 
 
-#include <map>
+//#include <map>
 #include <vector>
 #include <string>
+#include <chrono>
 
 #include <QtWidgets>
-#include <QTime>
+
+#define PROFILER_HIGH_RES_CLOCK
 
 //------------------------------------------------------------------------------
 class Profiler {
@@ -24,9 +26,14 @@ public:
 	~Profiler();
 	void mark(std::string mark);
 protected:
+	// use long for microseconds
 	std::vector<std::pair<std::string, long> > prof;
+#ifdef PROFILER_HIGH_RES_CLOCK
+	std::chrono::time_point<std::chrono::high_resolution_clock> cr_time;
+#else
+	std::chrono::time_point<std::chrono::steady_clock> cr_time;
+#endif
 	std::string cr_mark;
-	QTime cr_time;
 	std::string _module;
 };
 

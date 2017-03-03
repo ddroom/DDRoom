@@ -2,7 +2,7 @@
  * f_cm_lightness.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -791,7 +791,7 @@ void FP_CM_Lightness::filter_pre(fp_cp_args_t *args) {
 		sg = new Saturation_Gamut(cm_type, ocs_name);
 	}
 
-	for(int i = 0; i < args->cores; ++i) {
+	for(int i = 0; i < args->threads_count; ++i) {
 		task_t *task = new task_t;
 		task->fp_cache = fp_cache;
 		if(do_histograms) {
@@ -829,7 +829,7 @@ void FP_CM_Lightness::filter_post(fp_cp_args_t *args) {
 		for(int i = 0; i < HIST_SIZE; ++i) {
 			hist_in[i] = 0;
 			hist_out[i] = 0;
-			for(int k = 0; k < args->cores; ++k) {
+			for(int k = 0; k < args->threads_count; ++k) {
 				hist_in[i] += tasks[k]->hist_in[i];
 				hist_out[i] += tasks[k]->hist_out[i];
 			}
@@ -852,7 +852,7 @@ void FP_CM_Lightness::filter_post(fp_cp_args_t *args) {
 		}
 */
 	}
-	for(int i = 0; i < args->cores; ++i) {
+	for(int i = 0; i < args->threads_count; ++i) {
 		FP_CM_Lightness::task_t *t = (FP_CM_Lightness::task_t *)args->ptr_private[i];
 		delete t;
 	}

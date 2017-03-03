@@ -2,7 +2,7 @@
  * f_crgb_to_cm.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -431,22 +431,22 @@ void FP_cRGB_to_CM::filter_pre(fp_cp_args_t *args) {
 	args->mutators->set("CM_compress_saturation", ps->compress_saturation);
 	if(ps->compress_saturation_manual) {
 		args->mutators->set("CM_compress_saturation_factor", ps->compress_saturation_factor);
-		args->mutators_mpass->set("CM_compress_saturation_factor", ps->compress_saturation_factor);
+		args->mutators_multipass->set("CM_compress_saturation_factor", ps->compress_saturation_factor);
 		if(args->filter != nullptr)
 			filter->ui_set_compress_saturation_factor(factor);
 	} else {
 		if(args->filter != nullptr) {
-			if(args->mutators_mpass->get("CM_compress_saturation_factor", factor))
+			if(args->mutators_multipass->get("CM_compress_saturation_factor", factor))
 				filter->ui_set_compress_saturation_factor(factor);
 		}
 	}
-	args->mutators_mpass->set("CM_compress_strength", ps->compress_strength);
-	args->mutators_mpass->set("CM_desaturation_strength", ps->desaturation_strength);
+	args->mutators_multipass->set("CM_compress_strength", ps->compress_strength);
+	args->mutators_multipass->set("CM_desaturation_strength", ps->desaturation_strength);
 /*
 	if(ps->desaturate_overexp && ps->compress_strength != 0.0) {
-		args->mutators_mpass->set("CM_compress_strength", ps->compress_strength);
+		args->mutators_multipass->set("CM_compress_strength", ps->compress_strength);
 	} else {
-		args->mutators_mpass->set("CM_compress_strength", 0.0);
+		args->mutators_multipass->set("CM_compress_strength", 0.0);
 	}
 */
 
@@ -456,7 +456,7 @@ void FP_cRGB_to_CM::filter_pre(fp_cp_args_t *args) {
 		matrix[i] = args->metadata->cRGB_to_XYZ[i];
 	CM *cm = CM::new_CM(ps->cm_type, CS_White(args->metadata->cRGB_illuminant_XYZ), CS_White("E"));;
 	CM_Convert *cm_convert = cm->get_convert_XYZ_to_Jsh();
-	for(int i = 0; i < args->cores; ++i) {
+	for(int i = 0; i < args->threads_count; ++i) {
 		task_t *task = new task_t;
 		for(int j = 0; j < 9; ++j)
 			task->cmatrix[j] = matrix[j];
@@ -468,7 +468,7 @@ void FP_cRGB_to_CM::filter_pre(fp_cp_args_t *args) {
 
 void FP_cRGB_to_CM::filter_post(fp_cp_args_t *args) {
 	FP_cRGB_to_CM::task_t *t = (FP_cRGB_to_CM::task_t *)args->ptr_private[0];
-	for(int i = 0; i < args->cores; ++i) {
+	for(int i = 0; i < args->threads_count; ++i) {
 		t = (FP_cRGB_to_CM::task_t *)args->ptr_private[i];
 		if(i == 0)
 			delete t->cm;

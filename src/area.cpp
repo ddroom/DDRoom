@@ -2,7 +2,7 @@
  * area.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
@@ -421,10 +421,10 @@ cerr << "out size == " << out_w << "x" << out_h << endl;
 
 		// TODO: apply correct offsets/px_size to area_out
 		D_AREA_PTR(area_out);
-		int cores = subflow->cores();
-		tasks = new scale_task_t *[cores];
+		int threads_count = subflow->threads_count();
+		tasks = new scale_task_t *[threads_count];
 		y_flow = new std::atomic_int(0);
-		for(int i = 0; i < cores; ++i) {
+		for(int i = 0; i < threads_count; ++i) {
 			tasks[i] = new scale_task_t;
 			tasks[i]->area_in = this;
 			tasks[i]->area_out = area_out;
@@ -455,7 +455,7 @@ cerr << "out size == " << out_w << "x" << out_h << endl;
 	}
 
 	if(subflow->sync_point_pre()) {
-		for(int i = 0; i < subflow->cores(); ++i)
+		for(int i = 0; i < subflow->threads_count(); ++i)
 			delete tasks[i];
 		delete[] tasks;
 		delete y_flow;

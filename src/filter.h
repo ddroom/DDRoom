@@ -159,7 +159,7 @@ public:
 	class Metadata *metadata;
 
 	class DataSet *mutators;
-	class DataSet *mutators_mpass;
+	class DataSet *mutators_multipass;
 	class FP_Cache_t *fp_cache;
 
 	class Area *area_in;
@@ -202,6 +202,7 @@ public:
 	class Metadata *metadata = nullptr;	// used for lens correction detection 
 	Filter *filter = nullptr;			// 'Edit' mode - f_crop etc...
 	class DataSet *mutators = nullptr;	// name -> value
+	class DataSet *mutators_multipass = nullptr;
 	int cw_rotation = 0;
 //	bool is_tile;
 };
@@ -380,7 +381,7 @@ public:
 	class F_CM_Rainbow *f_cm_rainbow;
 	class F_CM_Sepia *f_cm_sepia;
 	class F_CM_Colors *f_cm_colors;
-	class F_CM_to_RGB *f_cm_to_rgb;
+	class F_CM_to_CS *f_cm_to_cs;
 //	class F_Curve *f_curve;
 /*
 	class F_Invert *f_invert;

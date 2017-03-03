@@ -52,9 +52,6 @@
 
 using namespace std;
 
-#define DEFAULT_SCALE_WIDTH		800
-#define DEFAULT_SCALE_HEIGHT	600
-
 //------------------------------------------------------------------------------
 export_parameters_t::export_parameters_t(void) {
 	process_single = true;
@@ -62,8 +59,8 @@ export_parameters_t::export_parameters_t(void) {
 	folder = "";
 	image_type = export_parameters_t::image_type_jpeg;
 	process_asap = true;
-	t_jpeg_iq = 90;
-	t_jpeg_color_subsampling_1x1 = false;
+	t_jpeg_iq = 95;
+	t_jpeg_color_subsampling_1x1 = true;
 	t_jpeg_color_space_rgb = false;
 	t_png_compression = 3;
 	t_png_alpha = false;
@@ -72,8 +69,8 @@ export_parameters_t::export_parameters_t(void) {
 	t_tiff_bits = 8;
 	scaling_force = false;
 	scaling_to_fill = false;	// true - allow cut to fill size; false - use smallest size to fit
-	scaling_width = DEFAULT_SCALE_WIDTH;
-	scaling_height = DEFAULT_SCALE_HEIGHT;
+	scaling_width = 1280;
+	scaling_height = 720;
 }
 
 string export_parameters_t::image_type_to_ext(export_parameters_t::image_type_t t) {

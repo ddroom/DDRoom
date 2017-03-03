@@ -122,7 +122,7 @@ Batch_Dialog::Batch_Dialog(export_parameters_t *_ep, QWidget *parent) : QDialog(
 	int gl_jpeg_color_row = 0;
 
 	// color space: YCbCr or RGB
-	QVBoxLayout *lb_color_space = new QVBoxLayout();
+	QHBoxLayout *lb_color_space = new QHBoxLayout();
 	QLabel *label_color_space = new QLabel(tr("Color space:"));
 	QRadioButton *radio_color_space_ycbcr = new QRadioButton(tr("YCbCr"));
 	QRadioButton *radio_color_space_rgb = new QRadioButton(tr("RGB"));
@@ -138,18 +138,18 @@ Batch_Dialog::Batch_Dialog(export_parameters_t *_ep, QWidget *parent) : QDialog(
 	if(ep->t_jpeg_color_space_rgb == 1)		radio_color_space_rgb->setChecked(true);
 
 	// color subsampling: 2x2 or 1x1
-	QVBoxLayout *vb_jpeg_subsampling = new QVBoxLayout();
+	QHBoxLayout *lb_jpeg_subsampling = new QHBoxLayout();
 	label_jpeg_subsampling = new QLabel(tr("Color subsampling:"));
-	rb_jpeg_subsampling_22 = new QRadioButton(tr("2x2"));
 	rb_jpeg_subsampling_11 = new QRadioButton(tr("1x1"));
-	rb_jpeg_subsampling = new QButtonGroup(vb_jpeg_subsampling);
-	rb_jpeg_subsampling->addButton(rb_jpeg_subsampling_22, 0);
+	rb_jpeg_subsampling_22 = new QRadioButton(tr("2x2"));
+	rb_jpeg_subsampling = new QButtonGroup(lb_jpeg_subsampling);
 	rb_jpeg_subsampling->addButton(rb_jpeg_subsampling_11, 1);
-	vb_jpeg_subsampling->addWidget(rb_jpeg_subsampling_22);
-	vb_jpeg_subsampling->addWidget(rb_jpeg_subsampling_11);
-	vb_jpeg_subsampling->addStretch();
+	rb_jpeg_subsampling->addButton(rb_jpeg_subsampling_22, 0);
+	lb_jpeg_subsampling->addWidget(rb_jpeg_subsampling_11);
+	lb_jpeg_subsampling->addWidget(rb_jpeg_subsampling_22);
+	lb_jpeg_subsampling->addStretch();
 	gl_jpeg_color->addWidget(label_jpeg_subsampling, gl_jpeg_color_row, 0, Qt::AlignRight | Qt::AlignTop);
-	gl_jpeg_color->addLayout(vb_jpeg_subsampling, gl_jpeg_color_row++, 1);
+	gl_jpeg_color->addLayout(lb_jpeg_subsampling, gl_jpeg_color_row++, 1);
 	if(ep->t_jpeg_color_subsampling_1x1 == 0)		rb_jpeg_subsampling_22->setChecked(true);
 	if(ep->t_jpeg_color_subsampling_1x1 == 1)		rb_jpeg_subsampling_11->setChecked(true);
 

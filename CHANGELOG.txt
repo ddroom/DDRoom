@@ -1,5 +1,8 @@
 
 1.0.4.5 - Fixed JPEG export UI (disabled 2x2 color subsampling for RGB color space).
+		- Simplified threads synchronization.
+		- Added mutators_multipass 'px_scale_x', 'px_scale_y' used by F_Unsharp from F_Crop on scale.
+		- Updated profiler to use high-res C++11 clock.
 1.0.4.4 - Updated JPEG 2000 import library from openjpeg-1.5 to openjpeg-2.1.
 1.0.4.3 - F_Unsharp - simplified UI.
 1.0.4.2 - F_Crop: fixed CW rotation and change of the crop aspect and scale size in the GUI.

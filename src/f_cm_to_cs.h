@@ -1,7 +1,7 @@
-#ifndef __H_F_CM_TO_RGB__
-#define __H_F_CM_TO_RGB__
+#ifndef __H_F_CM_TO_CS__
+#define __H_F_CM_TO_CS__
 /*
- * f_cm_to_rgb.h
+ * f_cm_to_cs.h
  *
  * This source code is a part of 'DDRoom' project.
  * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
@@ -17,12 +17,12 @@
 #include "mt.h"
 
 //------------------------------------------------------------------------------
-class F_CM_to_RGB : public Filter {
+class F_CM_to_CS : public Filter {
 	Q_OBJECT
 
 public:
-	F_CM_to_RGB(int id);
-	~F_CM_to_RGB();
+	F_CM_to_CS(int id);
+	~F_CM_to_CS();
 
 	Filter::type_t type(void);
 
@@ -31,8 +31,8 @@ public:
 	FilterProcess *getFP(void);
 
 protected:
-	static class FP_CM_to_RGB *fp;
+	static class FP_CM_to_CS *fp;
 };
 //------------------------------------------------------------------------------
 
-#endif //__H_F_CM_TO_RGB__
+#endif //__H_F_CM_TO_CS__

@@ -2,7 +2,7 @@
  * f_cm_sepia.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -332,7 +332,7 @@ void FP_CM_Sepia::filter_pre(fp_cp_args_t *args) {
 	args->mutators->get("CM_ocs", ocs_name);
 	Saturation_Gamut *sg = new Saturation_Gamut(cm_type, ocs_name);
 	//--
-	for(int i = 0; i < args->cores; ++i) {
+	for(int i = 0; i < args->threads_count; ++i) {
 		task_t *task = new task_t;
 		task->sepia_hue = ps->sepia_hue;
 		task->sepia_strength = ps->sepia_strength;
@@ -347,7 +347,7 @@ void FP_CM_Sepia::filter_post(fp_cp_args_t *args) {
 	if(task->sg != nullptr)
 		delete task->sg;
 //	task_t **tasks = (task_t **)&args->ptr_private[0];
-	for(int i = 0; i < args->cores; ++i) {
+	for(int i = 0; i < args->threads_count; ++i) {
 		FP_CM_Sepia::task_t *t = (FP_CM_Sepia::task_t *)args->ptr_private[i];
 		delete t;
 	}

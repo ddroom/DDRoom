@@ -2,7 +2,7 @@
  * filter_cp.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -74,12 +74,12 @@ Area *FilterProcess_CP_Wrapper::process(MT_t *mt_obj, Process_t *process_obj, Fi
 	task_t **tasks = nullptr;
 	Area *area_out = nullptr;
 	std::atomic_int *y_flow = nullptr;
-	const int cores = subflow->cores();
+	const int threads_count = subflow->threads_count();
 //	fp_cp_args_t *args[size];
 	fp_cp_args_t_ptr *args = new fp_cp_args_t_ptr[size];
 
 	if(subflow->sync_point_pre()) {
-		tasks = new task_t *[cores];
+		tasks = new task_t *[threads_count];
 
 		bool destructive = process_obj->allow_destructive && allow_destructive;
 //destructive = false;
@@ -96,11 +96,11 @@ Area *FilterProcess_CP_Wrapper::process(MT_t *mt_obj, Process_t *process_obj, Fi
 			args[i] = new fp_cp_args_t;
 			args[i]->metadata = process_obj->metadata;
 			args[i]->mutators = process_obj->mutators;
-			args[i]->mutators_mpass = process_obj->mutators_mpass;
+			args[i]->mutators_multipass = process_obj->mutators_multipass;
 			args[i]->ps_base = fp_cp_vector[i].ps_base.get();
-			args[i]->ptr_private = new void *[cores];
+			args[i]->ptr_private = new void *[threads_count];
 //			args[i]->ptr_private = new void *[size];
-			args[i]->cores = cores;
+			args[i]->threads_count = threads_count;
 			args[i]->cache = fp_cp_vector[i].cache;
 			args[i]->filter = (filter_obj->is_offline) ? nullptr : fp_cp_vector[i].filter;
 //			if(filter_obj->fs_base_active && filter_obj->is_offline == false)
@@ -112,7 +112,7 @@ Area *FilterProcess_CP_Wrapper::process(MT_t *mt_obj, Process_t *process_obj, Fi
 		}
 
 		y_flow = new std::atomic_int(0);
-		for(int i = 0; i < cores; ++i) {
+		for(int i = 0; i < threads_count; ++i) {
 			tasks[i] = new task_t;
 			tasks[i]->flow_index = i;
 			tasks[i]->area_in = area_in;
@@ -137,7 +137,7 @@ Area *FilterProcess_CP_Wrapper::process(MT_t *mt_obj, Process_t *process_obj, Fi
 			delete args[i];
 		}
 		//
-		for(int i = 0; i < subflow->cores(); ++i)
+		for(int i = 0; i < subflow->threads_count(); ++i)
 			delete tasks[i];
 		delete[] tasks;
 		delete y_flow;

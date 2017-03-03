@@ -2,7 +2,7 @@
  * f_wb.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -15,7 +15,6 @@
 
  Notes:
  - the real colors scaling happens at "filter_gp" right now, before image sampling;
- - MARK3 - mark for a code to show a real histograms or the ones used for auto alignments
 
 */
 
@@ -473,16 +472,6 @@ void F_WB::correlated_temp_to_scale(double *scale, double temp, double tint) {
 
 //==============================================================================
 void scale_to_uv(double *uv, const double *scale, const double *cRGB_to_XYZ) {
-/*
-	// normalize scale by green
-	double s[3];
-	for(int i = 0; i < 3; ++i)
-		s[i] = scale[i] / scale[1];
-	// scale to cRGB white
-	double cRGB[3];
-	for(int i = 0; i < 3; ++i)
-		cRGB[i] = 1.0 / s[i];
-*/
 	// normalize scale by green and invert
 	double cRGB[3];
 	for(int i = 0; i < 3; ++i)
@@ -585,18 +574,6 @@ void F_WB::update_CCT_to_PS(double *s_current) {
 	scale_to_correlated_temp(temp, tint, s);
 	wb_ui_set_temp(temp, tint);
 }
-
-/*
-void F_WB::slot_load_temp_ui(QVector<double> scale) {
-	double s[3];
-	for(int i = 0; i < 3; ++i)
-		s[i] = scale[i] / scale_ref[i];
-	double temp, tint;
-	scale_to_correlated_temp(temp, tint, s);
-	// TODO: fix slider, and do "skip update" somehow
-	wb_ui_set_temp(temp, tint);
-}
-*/
 
 void F_WB::wb_ui_set_temp(double t_kelvin, double t_tint) {
 	D_GUI_THREAD_CHECK
@@ -914,14 +891,6 @@ cerr << "slot_radio_wb" << endl;
 		}
 	}
 	// set up new temp Kelvin and tint
-/*
-	double temp, tint;
-	double scale[3];
-	for(int i = 0; i < 3; ++i)
-		scale[i] = ps->scale_current[i] / scale_ref[i];
-	scale_to_correlated_temp(temp, tint, scale);
-	wb_ui_set_temp(temp, tint);
-*/
 	update_CCT_to_PS();
 	emit_signal_update();
 }
@@ -987,8 +956,6 @@ FP_WB_Cache_t::~FP_WB_Cache_t() {
 }
 
 //------------------------------------------------------------------------------
-//FP_WB::FP_WB(void) : FilterProcess_CP() {
-//	_name = "F_WB_CP";
 FP_WB::FP_WB(void) : FilterProcess_2D() {
 	_name = "F_WB_2D";
 	_fp_type = FilterProcess::fp_type_2d;
@@ -1012,6 +979,10 @@ Area *FP_WB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj)
 	FP_WB_Cache_t *fp_cache = (FP_WB_Cache_t *)process_obj->fp_cache;
 	std::atomic_int *y_flow;
 	task_t **tasks = nullptr;
+/*
+if(subflow->is_master())
+	cerr << "FP_WB::process, size == " << area_in->dimensions()->width() << "x" << area_in->dimensions()->height() << endl;
+*/
 
 	if(subflow->sync_point_pre()) {
 //		area_out = new Area(*area_in);
@@ -1135,33 +1106,6 @@ Area *FP_WB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj)
 				scale[1] *= s;
 				scale[2] *= s;
 			}
-#if 0
-			// MARK3
-			//----
-			// update and emit histograms
-			// TODO: correct that, especially unawareness of black level autocorrection
-			if(filter != nullptr) {
-				QVector<long> hist_before(256 * 3);
-				QVector<long> hist_after(256 * 3);
-				QVector<float> v(400);
-				for(int j = 0; j < 3; ++j) {
-					scale_histogram(v, 200, &metadata->c_histogram[4096 * j], 4096, 2048, 1.0, 0.0);
-					for(int i = 0; i < 256; ++i)
-						hist_before[j * 256 + i] = v[i];
-					// TODO: add offset support
-					scale_histogram(v, 200, &metadata->c_histogram[4096 * j], 4096, 2048, scale[j], offset);
-					for(int i = 0; i < 256; ++i)
-						hist_after[j * 256 + i] = v[i];
-				}
-				if(filter != nullptr) {
-					WB_Histogram_data *histogram_data = nullptr;
-					if(filter_obj->fs_base != nullptr)
-						histogram_data = &((FS_WB *)filter_obj->fs_base)->histogram_data;
-//cerr << "args->fs_base == " << (unsigned long)args->fs_base << endl;
-					filter->set_histograms(histogram_data, hist_before, hist_after);
-				}
-			}
-#endif
 			//--
 			for(int i = 0; i < 3; ++i)
 				fp_cache->scale[i] = scale[i];
@@ -1191,31 +1135,20 @@ Area *FP_WB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj)
 		float limit = 1.0f;
 		for(int k = 0; k < 3; ++k)
 			edge[k] = 1.0f;
-//			edge[k] = metadata->c_scale_ref[k];
 		if(hl_clip) {
 			for(int k = 0; k < 3; ++k) {
-//				edge[k] = scale_a[k] + scale_b[k];
 				edge[k] = edge[k] * scale_a[k] + scale_b[k];
 			}			
 			limit = (edge[0] < edge[1]) ? edge[0] : edge[1];
 			limit = (limit < edge[2]) ? limit : edge[2];
 			ddr::clip(limit, 0.05f, 1.0f);
-//			limit = 1.0f;
-#if 0
-cerr << "___________" << endl;
-cerr << "edge[0] == " << edge[0] << endl;
-cerr << "edge[1] == " << edge[1] << endl;
-cerr << "edge[2] == " << edge[2] << endl;
-cerr << "  limit == " << limit << endl;
-cerr << "___________" << endl;
-#endif
 		}
 		if(limit < 1.0f)
 			hl_clip = false;
 		//--
 		y_flow = new std::atomic_int(0);
-		tasks = new task_t *[subflow->cores()];
-		for(int i = 0; i < subflow->cores(); ++i) {
+		tasks = new task_t *[subflow->threads_count()];
+		for(int i = 0; i < subflow->threads_count(); ++i) {
 			tasks[i] = new task_t;
 			tasks[i]->area_in = area_in;
 			tasks[i]->area_out = area_out;
@@ -1240,23 +1173,8 @@ cerr << "___________" << endl;
 			}
 			tasks[i]->offset = fp_cache->offset;
 			tasks[i]->y_flow = y_flow;
-//			tasks[i]->fp_cache = fp_cache;
 			tasks[i]->hl_clip = hl_clip;
 		}
-/*
-cerr << "edge[0] == " << edge[0] << endl;
-cerr << "edge[1] == " << edge[1] << endl;
-cerr << "edge[2] == " << edge[2] << endl;
-cerr << "metadata->c_scale_ref[0] == " << metadata->c_scale_ref[0] << endl;
-cerr << "metadata->c_scale_ref[1] == " << metadata->c_scale_ref[1] << endl;
-cerr << "metadata->c_scale_ref[2] == " << metadata->c_scale_ref[2] << endl;
-cerr << "metadata->c_max[0] == " << metadata->c_max[0] << endl;
-cerr << "metadata->c_max[1] == " << metadata->c_max[1] << endl;
-cerr << "metadata->c_max[2] == " << metadata->c_max[2] << endl;
-cerr << "tasks->scale_a[0] == " << scale_a[0] << endl;
-cerr << "tasks->scale_a[1] == " << scale_a[1] << endl;
-cerr << "tasks->scale_a[2] == " << scale_a[2] << endl;
-*/
 		subflow->set_private((void **)tasks);
 	}
 	subflow->sync_point_post();
@@ -1276,8 +1194,6 @@ cerr << "tasks->scale_a[2] == " << scale_a[2] << endl;
 		const int out_mem_w = task->area_out->mem_width();
 		const int out_off_x = task->area_out->dimensions()->edges.x1;
 		const int out_off_y = task->area_out->dimensions()->edges.y1;
-//		const int out_w = task->area_out->dimensions()->width();
-//		const int out_h = task->area_out->dimensions()->height();
 
 		int y = 0;
 		while((y = task->y_flow->fetch_add(1)) < in_h) {
@@ -1321,8 +1237,6 @@ cerr << "tasks->scale_a[2] == " << scale_a[2] << endl;
 						int k = 0;
 						while(k == k1 || k == k2)
 							++k;
-//						float scale1 = (c[k1] - 1.0f) / (task->edge[k1] - 1.0f);
-//						float scale2 = (c[k2] - 1.0f) / (task->edge[k2] - 1.0f);
 						const float d1 = task->edge[k1] - 1.0f;
 						float scale1 = (d1 <= 0.0f) ? 0.0f : ((c[k1] - 1.0f) / d1);
 						const float d2 = task->edge[k2] - 1.0f;
@@ -1348,13 +1262,6 @@ cerr << "tasks->scale_a[2] == " << scale_a[2] << endl;
 							++task->hist_out[256 * k + i_out];
 					}
 				}
-/*
-				for(int k = 0; k < 3; ++k) {
-					float v = in[index_in + k] * task->c_scale[k];
-					v = (v * task->scale[k] - task->offset) / (1.0 - task->offset);
-					out[index_out + k] = ddr::clip(v);
-				}
-*/
 				out[index_out + 3] = in[index_out + 3];
 			}
 		}
@@ -1366,7 +1273,7 @@ cerr << "tasks->scale_a[2] == " << scale_a[2] << endl;
 		if(filter != nullptr) {
 			QVector<long> hist_in(256 * 3);
 			QVector<long> hist_out(256 * 3);
-			for(int i = 0; i < subflow->cores(); ++i) {
+			for(int i = 0; i < subflow->threads_count(); ++i) {
 				task_t *task = tasks[i];
 				for(int k = 0; k < 256 * 3; ++k) {
 					if(i == 0) {
@@ -1379,32 +1286,13 @@ cerr << "tasks->scale_a[2] == " << scale_a[2] << endl;
 				delete[] task->hist_in;
 				delete[] task->hist_out;
 			}
-#if 0
-			int level_in[3] = {0, 0, 0};
-			int level_out[3] = {0, 0, 0};
-			for(int k = 0; k < 256; ++k) {
-				for(int i = 0; i < 3; ++i) {
-					if(hist_in[k + 256 * i] != 0) level_in[i] = k;
-					if(hist_out[k + 256 * i] != 0) level_out[i] = k;
-				}
-			}
-cerr << "max of  hist_in[0] == " << float(level_in[0]) / 200.0 << endl;
-cerr << "max of  hist_in[1] == " << float(level_in[1]) / 200.0 << endl;
-cerr << "max of  hist_in[2] == " << float(level_in[2]) / 200.0 << endl;
-cerr << "max of hist_out[0] == " << float(level_out[0]) / 200.0 << endl;
-cerr << "max of hist_out[1] == " << float(level_out[1]) / 200.0 << endl;
-cerr << "max of hist_out[2] == " << float(level_out[2]) / 200.0 << endl;
-cerr << endl;
-#endif
 			WB_Histogram_data *histogram_data = nullptr;
 			if(filter_obj->fs_base != nullptr)
 				histogram_data = &((FS_WB *)filter_obj->fs_base)->histogram_data;
-//cerr << "args->fs_base == " << (unsigned long)args->fs_base << endl;
-// MARK3
 			filter->set_histograms(histogram_data, hist_in, hist_out);
 		}
 		delete tasks[0]->y_flow;
-		for(int i = 0; i < subflow->cores(); ++i) {
+		for(int i = 0; i < subflow->threads_count(); ++i) {
 			delete tasks[i];
 		}
 		delete tasks;

@@ -2,7 +2,7 @@
  * f_demosaic_dg.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -591,7 +591,7 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 	if(subflow->sync_point_pre()) {
 		long *dd_hist = task->dd_hist;
 		long dd_hist_size = task->dd_hist_size;
-		for(int i = 1; i < subflow->cores(); ++i) {
+		for(int i = 1; i < subflow->threads_count(); ++i) {
 			task_t *_task = ((task_t **)task->_tasks)[i];
 			for(int k = 0; k < dd_hist_size; ++k)
 				dd_hist[k] += _task->dd_hist[k];
@@ -608,7 +608,7 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 		dd_limit *= 9.0f;
 //		dd_limit *= 3.0f;
 //		dd_limit = 0.06f;
-		for(int i = 0; i < subflow->cores(); ++i) {
+		for(int i = 0; i < subflow->threads_count(); ++i) {
 			task_t *_task = ((task_t **)task->_tasks)[i];
 			_task->dd_limit = dd_limit;
 		}

@@ -2,7 +2,7 @@
  * f_demosaic.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -663,7 +663,7 @@ Area *FP_Demosaic::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filte
 		flag_process_DG = false;
 		flag_process_AHD = false;
 	}
-	const int cores = subflow->cores();
+	const int threads_count = subflow->threads_count();
 
 	// -- chromatic aberration
 	Area *bayer_ca = nullptr;
@@ -715,8 +715,8 @@ Area *FP_Demosaic::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filte
 			tf_sinc1 = new TF_Sinc1();
 			tf_sinc2 = new TF_Sinc2();
 
-			tasks_ca = new task_ca_t *[cores];
-			for(int i = 0; i < cores; ++i) {
+			tasks_ca = new task_ca_t *[threads_count];
+			for(int i = 0; i < threads_count; ++i) {
 				tasks_ca[i] = new task_ca_t;
 				tasks_ca[i]->area_in = area_in;
 				tasks_ca[i]->bayer_ca = bayer_ca;
@@ -757,7 +757,7 @@ Area *FP_Demosaic::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filte
 		subflow->sync_point();
 		if(subflow->is_master()) {
 			delete y_flow;
-			for(int i = 0; i < cores; ++i)
+			for(int i = 0; i < threads_count; ++i)
 				delete tasks_ca[i];
 			delete[] tasks_ca;
 			delete tf_sinc1;
@@ -845,8 +845,8 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 #endif
 		}
 
-//		int cores = subflow->cores();
-		tasks = new task_t *[cores];
+//		int threads_count = subflow->threads_count();
+		tasks = new task_t *[threads_count];
 		int32_t prev = 0;
 		const float max_red = metadata->demosaic_signal_max[0];
 		const float max_green = metadata->demosaic_signal_max[1] < metadata->demosaic_signal_max[3] ? metadata->demosaic_signal_max[1] : metadata->demosaic_signal_max[3];
@@ -859,7 +859,7 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 		fuji_45 = new Fuji_45(metadata->sensor_fuji_45_width, width + 4, height + 4, true);
 		long dd_hist_size = 0x400;
 		float dd_hist_scale = 0.25f;
-		for(int i = 0; i < cores; ++i) {
+		for(int i = 0; i < threads_count; ++i) {
 			tasks[i] = new task_t;
 			tasks[i]->area_in = area_in;
 			tasks[i]->area_out = area_out;
@@ -915,16 +915,16 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 			bool split_vertical = false;
 			if(split_vertical) {
 				tasks[i]->x_min = prev;
-				prev += width / cores;
-				if(i + 1 == cores)
+				prev += width / threads_count;
+				if(i + 1 == threads_count)
 					prev = width;
 				tasks[i]->x_max = prev;
 				tasks[i]->y_min = 0;
 				tasks[i]->y_max = height;
 			} else {
 				tasks[i]->y_min = prev;
-				prev += height / cores;
-				if(i + 1 == cores)
+				prev += height / threads_count;
+				if(i + 1 == threads_count)
 					prev = height;
 				tasks[i]->y_max = prev;
 				tasks[i]->x_min = 0;
@@ -1006,8 +1006,8 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 		}
 		if(area_v_signal) delete area_v_signal;
 
-//		for(int i = 0; i < subflow->cores(); ++i)
-		for(int i = 0; i < cores; ++i) {
+//		for(int i = 0; i < subflow->threads_count(); ++i)
+		for(int i = 0; i < threads_count; ++i) {
 			if(tasks[i]->dd_hist) delete tasks[i]->dd_hist;
 			delete tasks[i];
 		}
@@ -2256,13 +2256,13 @@ float *FP_Demosaic::process_denoise(class SubFlow *subflow) {
 			//--
 			// synchronize std_dev_min between threads
 			task_t **tasks = (task_t **)task->_tasks;
-			const int cores = subflow->cores();
+			const int threads_count = subflow->threads_count();
 //			float noise_std_dev_min = std_dev_min;
-			for(int i = 0; i < cores; ++i) {
+			for(int i = 0; i < threads_count; ++i) {
 				if(tasks[i]->noise_std_dev_min < std_dev_min)
 					std_dev_min = tasks[i]->noise_std_dev_min;
 			}
-			for(int i = 0; i < cores; ++i) {
+			for(int i = 0; i < threads_count; ++i) {
 //cerr << "replace std_dev min from " << tasks[i]->noise_std_dev_min << " to " << std_dev_min << endl;
 				tasks[i]->noise_std_dev_min = std_dev_min;
 			}

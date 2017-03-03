@@ -2,20 +2,17 @@
  * filter_gp.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
 
 /*
- *	TODO:
-	? - notice all mutators with correct tiles size asked by tiles_receiver (View);
-
  *	NOTES:
-	- to prevent downscaled cache abuse in workflow, use 'downscaled' rotation - when result image dimensions will be the same as original, w/o magnification.
-	- after research there was made decision to avoid usage of the Sinc2 upscaling resampling algorithm as there is no visible improvement in the image quality but minor
-		increase of the sharpness and possibly minor increase in the color noise too, with significant slowdown. In case of the downscale - there is a significant performance
-		drop with no visible image improvement but barely visible sharpness increase (and artifacts too).
+ *	- to prevent downscaled cache abuse in workflow, use 'downscaled' rotation - when result image dimensions will be the same as original, w/o magnification.
+ *	- after research there was made decision to avoid usage of the Sinc2 upscaling resampling algorithm as there is no visible improvement in the image quality but minor
+ *		increase of the sharpness and possibly minor increase in the color noise too, with significant slowdown. In case of the downscale - there is a significant performance
+ *		drop with no visible image improvement but barely visible sharpness increase (and artifacts too).
  */	
 
 #include <iostream>
@@ -436,11 +433,11 @@ public:
 Area *FilterProcess_GP_Wrapper::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj) {
 	SubFlow *subflow = mt_obj->subflow;
 	task_t **tasks = nullptr;
-	int cores = subflow->cores();
+	int threads_count = subflow->threads_count();
 	if(subflow->sync_point_pre()) {
 		bool just_copy = (fp_gp_vector.size() == 0 && process_obj->position.px_size_x == 1.0 && process_obj->position.px_size_y == 1.0);
-		tasks = new task_t *[cores];
-		for(int i = 0; i < cores; ++i) {
+		tasks = new task_t *[threads_count];
+		for(int i = 0; i < threads_count; ++i) {
 			tasks[i] = new task_t;
 			tasks[i]->just_copy = just_copy;
 		}
@@ -453,7 +450,7 @@ Area *FilterProcess_GP_Wrapper::process(MT_t *mt_obj, Process_t *process_obj, Fi
 	bool just_copy = task->just_copy;
 
 	if(subflow->sync_point_pre()) {
-		for(int i = 0; i < cores; ++i)
+		for(int i = 0; i < threads_count; ++i)
 			delete tasks[i];
 		delete[] tasks;
 	}
@@ -486,7 +483,7 @@ Area *FilterProcess_GP_Wrapper::process_copy(MT_t *mt_obj, Process_t *process_ob
 	task_copy_t **tasks = nullptr;
 	std::atomic_int *y_flow = nullptr;
 
-	int cores = subflow->cores();
+	int threads_count = subflow->threads_count();
 	// --==--
 	if(subflow->sync_point_pre()) {
 		Area::t_dimensions d_out = *area_in->dimensions();
@@ -523,9 +520,9 @@ Area *FilterProcess_GP_Wrapper::process_copy(MT_t *mt_obj, Process_t *process_ob
 		process_obj->mutators->get("wb_G_b", wb_b[1]);
 		process_obj->mutators->get("wb_B_b", wb_b[2]);
 
-		tasks = new task_copy_t *[cores];
+		tasks = new task_copy_t *[threads_count];
 		y_flow = new std::atomic_int(0);
-		for(int i = 0; i < cores; ++i) {
+		for(int i = 0; i < threads_count; ++i) {
 			tasks[i] = new task_copy_t;
 			tasks[i]->area_in = area_in;
 			tasks[i]->area_out = area_out;
@@ -548,7 +545,7 @@ Area *FilterProcess_GP_Wrapper::process_copy(MT_t *mt_obj, Process_t *process_ob
 		process_copy(subflow);
 	//--==--
 	if(subflow->sync_point_pre()) {
-		for(int i = 0; i < cores; ++i)
+		for(int i = 0; i < threads_count; ++i)
 			delete tasks[i];
 		delete[] tasks;
 		delete y_flow;
@@ -756,10 +753,10 @@ cerr << endl;
 		float delta_x = px_size_out_x;
 		float delta_y = px_size_out_y;
 
-		int cores = subflow->cores();
-		tasks_coordinates_prep = new task_coordinates_prep_t *[cores];
+		int threads_count = subflow->threads_count();
+		tasks_coordinates_prep = new task_coordinates_prep_t *[threads_count];
 		y_flow_coordinates_prep = new std::atomic_int(0);
-		for(int i = 0; i < cores; ++i) {
+		for(int i = 0; i < threads_count; ++i) {
 			tasks_coordinates_prep[i] = new task_coordinates_prep_t;
 			tasks_coordinates_prep[i]->area_out = area_coordinates_prep;
 			tasks_coordinates_prep[i]->y_flow = y_flow_coordinates_prep;
@@ -804,10 +801,10 @@ cerr << endl;
 				area_out_coordinates = new Area(&d_out, Area::type_t::type_float_p2);
 			process_obj->OOM |= !area_out_coordinates->valid();
 
-			int cores = subflow->cores();
-			tasks_coordinates = new task_coordinates_t *[cores];
+			int threads_count = subflow->threads_count();
+			tasks_coordinates = new task_coordinates_t *[threads_count];
 			y_flow_coordinates = new std::atomic_int(0);
-			for(int i = 0; i < cores; ++i) {
+			for(int i = 0; i < threads_count; ++i) {
 				tasks_coordinates[i] = new task_coordinates_t;
 				tasks_coordinates[i]->area_in = area_coordinates_prep;
 				tasks_coordinates[i]->area_out = area_out_coordinates;
@@ -860,10 +857,10 @@ cerr << endl;
 		process_obj->mutators->get("wb_G_b", wb_b[1]);
 		process_obj->mutators->get("wb_B_b", wb_b[2]);
 */
-		int cores = subflow->cores();
-		tasks_sampling = new task_sampling_t *[cores];
+		int threads_count = subflow->threads_count();
+		tasks_sampling = new task_sampling_t *[threads_count];
 		y_flow_sampling = new std::atomic_int(0);
-		for(int i = 0; i < cores; ++i) {
+		for(int i = 0; i < threads_count; ++i) {
 			tasks_sampling[i] = new task_sampling_t;
 			tasks_sampling[i]->area_in = area_in;
 			if(!resampling_only) {
@@ -896,20 +893,20 @@ cerr << endl;
 
 	//--==--
 	if(subflow->sync_point_pre()) {
-		int cores = subflow->cores();
+		int threads_count = subflow->threads_count();
 		delete area_coordinates_prep;
-		for(int i = 0; i < cores; ++i)
+		for(int i = 0; i < threads_count; ++i)
 			delete tasks_coordinates_prep[i];
 		delete[] tasks_coordinates_prep;
 		delete y_flow_coordinates_prep;
 		if(!resampling_only) {
 			delete area_out_coordinates;
-			for(int i = 0; i < cores; ++i)
+			for(int i = 0; i < threads_count; ++i)
 				delete tasks_coordinates[i];
 			delete[] tasks_coordinates;
 			delete y_flow_coordinates;
 		}
-		for(int i = 0; i < cores; ++i)
+		for(int i = 0; i < threads_count; ++i)
 			delete tasks_sampling[i];
 		delete[] tasks_sampling;
 		delete y_flow_sampling;

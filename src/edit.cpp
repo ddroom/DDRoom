@@ -56,7 +56,7 @@
 #include "f_cm_sepia.h"
 #include "f_cm_colors.h"
 #include "f_unsharp.h"
-#include "f_cm_to_rgb.h"
+#include "f_cm_to_cs.h"
 /*
 #include "f_curve.h"
 #include "f_invert.h"

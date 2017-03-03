@@ -41,7 +41,7 @@ TODO:
 #include "f_cm_sepia.h"
 #include "f_cm_colors.h"
 #include "f_unsharp.h"
-#include "f_cm_to_rgb.h"
+#include "f_cm_to_cs.h"
 /*
 #include "f_curve.h"
 #include "f_invert.h"
@@ -193,7 +193,7 @@ Filter_t::Filter_t(void) {
 Process_t::Process_t(void) {
 	metadata = nullptr;
 	mutators = nullptr;
-	mutators_mpass = nullptr;
+	mutators_multipass = nullptr;
 	area_in = nullptr;
 	allow_destructive = false;
 	OOM = false;
@@ -276,7 +276,7 @@ Filter_Store::Filter_Store(void) {
 	f_cm_sepia = new F_CM_Sepia(ProcessSource::s_cm_sepia);
 	f_cm_colors = new F_CM_Colors(ProcessSource::s_cm_colors);
 	f_unsharp = new F_Unsharp(ProcessSource::s_unsharp);
-	f_cm_to_rgb = new F_CM_to_RGB(ProcessSource::s_cm_to_rgb);
+	f_cm_to_cs = new F_CM_to_CS(ProcessSource::s_cm_to_cs);
 //	f_curve = new F_Curve(ProcessSource::s_curve);
 //	f_invert = new F_Invert(ProcessSource::s_invert);
 
@@ -306,7 +306,7 @@ Filter_Store::Filter_Store(void) {
 	filters_list_offline.push_back(f_cm_rainbow);
 	filters_list_offline.push_back(f_cm_sepia);
 	filters_list_offline.push_back(f_unsharp);
-	filters_list_offline.push_back(f_cm_to_rgb);
+	filters_list_offline.push_back(f_cm_to_cs);
 	//--
 	// online list
 	filters_list_online = filters_list_offline;
@@ -330,7 +330,7 @@ Filter_Store::Filter_Store(void) {
 	filters_list_online.push_back(f_cm_rainbow);
 	filters_list_online.push_back(f_cm_sepia);
 	filters_list_online.push_back(f_unsharp);
-	filters_list_online.push_back(f_cm_to_rgb);
+	filters_list_online.push_back(f_cm_to_cs);
 */
 	// 'color picker' for white balance
 //	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_wb, f_wb));

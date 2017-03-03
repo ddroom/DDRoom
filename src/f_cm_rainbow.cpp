@@ -2,7 +2,7 @@
  * f_cm_rainbow.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -558,7 +558,7 @@ void FP_CM_Rainbow::filter_pre(fp_cp_args_t *args) {
 	if(!tf_rainbow_is_one)
 		fp_cache->tf_rainbow = new TF_Rainbow(ps->color_enabled, ps->color_saturation);
 	//--
-	for(int i = 0; i < args->cores; ++i) {
+	for(int i = 0; i < args->threads_count; ++i) {
 		task_t *task = new task_t;
 		task->fp_cache = fp_cache;
 		args->ptr_private[i] = (void *)task;
@@ -568,7 +568,7 @@ void FP_CM_Rainbow::filter_pre(fp_cp_args_t *args) {
 void FP_CM_Rainbow::filter_post(fp_cp_args_t *args) {
 //	task_t *task = (task_t *)args->ptr_private[0];
 //	task_t **tasks = (task_t **)&args->ptr_private[0];
-	for(int i = 0; i < args->cores; ++i) {
+	for(int i = 0; i < args->threads_count; ++i) {
 		FP_CM_Rainbow::task_t *t = (FP_CM_Rainbow::task_t *)args->ptr_private[i];
 		delete t;
 	}

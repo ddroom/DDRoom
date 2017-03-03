@@ -2,17 +2,16 @@
  * system.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
 
 #include <iostream>
+#include <iomanip>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
-//#include <stdint.h>
-//#include <unistd.h>
 #include <QtGlobal>
 
 #ifdef Q_OS_WIN32
@@ -21,7 +20,7 @@
 	#include <winbase.h>
 #else
 	#include <stdint.h>
-	// CPU count for MacOSX (BSD systems)
+	// CPU count for MacOSX (i.e. BSD systems)
 	#include <sys/sysctl.h>
 	#include <sys/types.h>
 #endif
@@ -44,11 +43,18 @@ Profiler::Profiler(string module) : _module(module) {
 }
 
 void Profiler::mark(string mark) {
+#ifndef _PROFILER_OFF
+#ifdef PROFILER_HIGH_RES_CLOCK
+	auto now = std::chrono::high_resolution_clock::now();
+#else
+	auto now = std::chrono::steady_clock::now();
+#endif
 	if(cr_mark == "") {
-		cr_time = QTime::currentTime();
+		cr_time = now;
 	} else {
-		long d = cr_time.restart();
-		vector<pair<string, long> >::iterator it = prof.begin();
+		long delta = std::chrono::duration_cast<std::chrono::microseconds>(now - cr_time).count();
+		cr_time = now;
+		auto it = prof.begin();
 		bool flag = false;
 		for(; it != prof.end(); ++it) {
 			if((*it).first == cr_mark) {
@@ -57,11 +63,12 @@ void Profiler::mark(string mark) {
 			}
 		}
 		if(flag)
-			(*it).second += d;
+			(*it).second += delta;
 		else
-			prof.push_back(pair<string, long>(cr_mark, d));
+			prof.push_back(pair<string, long>(cr_mark, delta));
 	}
 	cr_mark = mark;
+#endif
 }
 
 Profiler::~Profiler() {
@@ -69,15 +76,14 @@ Profiler::~Profiler() {
 	cerr << "__________________________________" << endl;
 	cerr << "Profile for " << _module << " : " << endl;
 	long total = 0;
-	for(vector<pair<string, long> >::iterator it = prof.begin(); it != prof.end(); ++it) {
-		QString str;
-		str.sprintf("%d.%03d", (int)((*it).second / 1000), (int)((*it).second % 1000));
-		total += (*it).second;
-		cerr << str.toLocal8Bit().constData() << " sec for: " << (*it).first << endl;
+	cerr << setfill('0');
+	for(auto it = prof.begin(); it != prof.end(); ++it) {
+		long msec = (*it).second / 1000;
+		cerr << msec / 1000 << "." << setw(3) << msec % 1000 << " sec for: " << (*it).first << endl;
+		total += msec;
 	}
-	QString str;
-	str.sprintf("TOTAL:    %d.%03d sec.", (int)(total / 1000), (int)(total % 1000));
-	cerr << str.toLocal8Bit().constData() << endl;
+	cerr << "TOTAL:    " << total / 1000 << "." << setw(3) << total % 1000 << " sec." << endl;
+	cerr << setfill(' ');
 	cerr << "==================================" << endl;
 #endif
 }

@@ -2,7 +2,7 @@
  * area_helper.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
@@ -149,8 +149,8 @@ Area *AreaHelper::convert_mt(SubFlow *subflow, Area *area_in, Area::format_t out
 //cerr << "AreaHelper::convert(): rotation == " << rotation << endl;
 //rotation = 0;
 //cerr << "___________________-----------------------         rotation == " << rotation << endl;
-		int cores = subflow->cores();
-		tasks = new AreaHelper::mt_task_t *[cores];
+		int threads_count = subflow->threads_count();
+		tasks = new AreaHelper::mt_task_t *[threads_count];
 
 		Area::t_dimensions d_out;
 		d_out.size.w = area_in->dimensions()->width();
@@ -184,7 +184,7 @@ cerr << "area_out->mem_height() == " << area_out->mem_height() << endl;
 cerr << "convert, pos_x == " << pos_x << ", pos_y == " << pos_y << endl;
 */
 		y_flow = new std::atomic_int(0);
-		for(int i = 0; i < cores; ++i) {
+		for(int i = 0; i < threads_count; ++i) {
 			tasks[i] = new AreaHelper::mt_task_t;
 			tasks[i]->area_in = area_in;
 			tasks[i]->area_out = area_out;
@@ -208,7 +208,7 @@ cerr << "convert, pos_x == " << pos_x << ", pos_y == " << pos_y << endl;
 //	subflow->sync_point();
 //	if(subflow->is_master()) {
 	if(subflow->sync_point_pre()) {
-		for(int i = 0; i < subflow->cores(); ++i)
+		for(int i = 0; i < subflow->threads_count(); ++i)
 			delete tasks[i];
 		delete[] tasks;
 		delete y_flow;
