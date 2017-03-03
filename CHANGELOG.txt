@@ -1,4 +1,5 @@
 
+1.0.4.6 - F_Softness: added 'scale radius' checkbox.
 1.0.4.5 - Fixed JPEG export UI (disabled 2x2 color subsampling for RGB color space).
 		- Simplified threads synchronization.
 		- Added mutators_multipass 'px_scale_x', 'px_scale_y' used by F_Unsharp from F_Crop on scale.

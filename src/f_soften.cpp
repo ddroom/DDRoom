@@ -28,6 +28,7 @@ public:
 	bool save(class DataSet *);
 
 	bool enabled;
+	bool scaled; // scale radius
 	double strength;	// 0.0 - 1.0 - 2.0
 	double radius;		// 0.0 - 10.0
 };
@@ -47,6 +48,7 @@ public:
 protected:
 	class task_t;
 	void process(SubFlow *subflow);
+	double scaled_radius(double radius, double scale_x, double scale_y);
 };
 
 //------------------------------------------------------------------------------
@@ -65,6 +67,7 @@ PS_Base *PS_Soften::copy(void) {
 
 void PS_Soften::reset(void) {
 	enabled = false;
+	scaled = true;
 	strength = 1.0;
 	radius = 3.0;
 }
@@ -72,6 +75,7 @@ void PS_Soften::reset(void) {
 bool PS_Soften::load(DataSet *dataset) {
 	reset();
 	dataset->get("enabled", enabled);
+	dataset->get("scaled", scaled);
 	dataset->get("strength", strength);
 	dataset->get("radius", radius);
 	return true;
@@ -79,6 +83,7 @@ bool PS_Soften::load(DataSet *dataset) {
 
 bool PS_Soften::save(DataSet *dataset) {
 	dataset->set("enabled", enabled);
+	dataset->set("scaled", scaled);
 	dataset->set("strength", strength);
 	dataset->set("radius", radius);
 	return true;
@@ -128,6 +133,7 @@ void F_Soften::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t
 	slider_strength->setValue(ps->strength);
 	slider_radius->setValue(ps->radius);
 	checkbox_enable->setCheckState(ps->enabled ? Qt::Checked : Qt::Unchecked);
+	checkbox_scaled->setCheckState(ps->scaled ? Qt::Checked : Qt::Unchecked);
 	reconnect(true);
 }
 
@@ -142,8 +148,18 @@ QWidget *F_Soften::controls(QWidget *parent) {
 	l->setContentsMargins(2, 1, 2, 1);
 	l->setSizeConstraint(QLayout::SetMinimumSize);
 
-	checkbox_enable = new QCheckBox(tr("Enable"));
-	l->addWidget(checkbox_enable, 0, 0, 1, 0);
+	
+//	checkbox_enable = new QCheckBox(tr("Enable"));
+//	l->addWidget(checkbox_enable, 0, 0, 1, 0);
+    QHBoxLayout *hb_er = new QHBoxLayout();
+    hb_er->setSpacing(0);
+    hb_er->setContentsMargins(0, 0, 0, 0);
+    hb_er->setSizeConstraint(QLayout::SetMinimumSize);
+    checkbox_enable = new QCheckBox(tr("Enable"));
+    hb_er->addWidget(checkbox_enable, 0, Qt::AlignLeft);
+    checkbox_scaled = new QCheckBox(tr("Scale radius"));
+    hb_er->addWidget(checkbox_scaled, 0, Qt::AlignRight);
+    l->addLayout(hb_er, 0, 0, 1, 0);
 
 	QLabel *l_strength = new QLabel(tr("Strength"));
 	l->addWidget(l_strength, 1, 0);
@@ -166,10 +182,12 @@ void F_Soften::reconnect(bool to_connect) {
 		connect(slider_strength, SIGNAL(signal_changed(double)), this, SLOT(slot_changed_strength(double)));
 		connect(slider_radius, SIGNAL(signal_changed(double)), this, SLOT(slot_changed_radius(double)));
 		connect(checkbox_enable, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_enable(int)));
+		connect(checkbox_scaled, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_scaled(int)));
 	} else {
 		disconnect(slider_strength, SIGNAL(signal_changed(double)), this, SLOT(slot_changed_strength(double)));
 		disconnect(slider_radius, SIGNAL(signal_changed(double)), this, SLOT(slot_changed_radius(double)));
 		disconnect(checkbox_enable, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_enable(int)));
+		disconnect(checkbox_scaled, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_scaled(int)));
 	}
 }
 
@@ -201,6 +219,17 @@ void F_Soften::slot_checkbox_enable(int state) {
 	bool update = (ps->enabled != value);
 	if(update) {
 		ps->enabled = value;
+		emit_signal_update();
+	}
+}
+
+void F_Soften::slot_checkbox_scaled(int state) {
+	bool value = false;
+	if(state == Qt::Checked)
+		value = true;
+	bool update = (ps->scaled != value);
+	if(update && ps->enabled) {
+		ps->scaled = value;
 		emit_signal_update();
 	}
 }
@@ -240,6 +269,17 @@ bool FP_Soften::is_enabled(const PS_Base *ps_base) {
 	return ps->enabled;
 }
 
+double FP_Soften::scaled_radius(double radius, double scale_x, double scale_y) {
+	if(radius == 0.0)
+		return 1.0;
+	double scale = (scale_x + scale_y) * 0.5;
+	const double s_scale = (scale > 1.0) ? scale : 1.0;
+	double s_r = ((radius * 2.0 + 1.0) / s_scale);
+	s_r = (s_r - 1.0) * 0.5;
+	s_r = (s_r > 1.0) ? s_r : 1.0;
+	return s_r;
+}
+
 void FP_Soften::size_forward(FP_size_t *fp_size, const Area::t_dimensions *d_before, Area::t_dimensions *d_after) {
 	// Well, here we have 1:1 size and all edges are outer, so no cropping here
 	*d_after = *d_before;
@@ -255,9 +295,21 @@ void FP_Soften::size_backward(FP_size_t *fp_size, Area::t_dimensions *d_before, 
 	// again, do handle overlapping issue here
 	// TODO: check together 'unsharp' and 'local contrast'
 	*d_before = *d_after;
-	int edge = ps->radius + 1.0;
-	const float px_size_x = d_before->position.px_size_x;
-	const float px_size_y = d_before->position.px_size_y;
+
+	const double px_size_x = d_before->position.px_size_x;
+	const double px_size_y = d_before->position.px_size_y;
+	double radius = ps->radius;
+	if(ps->scaled) {
+		double px_scale_x = 1.0;
+		double px_scale_y = 1.0;
+		fp_size->mutators_multipass->get("px_scale_x", px_scale_x);
+		fp_size->mutators_multipass->get("px_scale_y", px_scale_y);
+		if(px_scale_x < 1.0) px_scale_x = 1.0;
+		if(px_scale_y < 1.0) px_scale_y = 1.0;
+		radius = scaled_radius(radius, px_size_x / px_scale_x, px_size_y / px_scale_y);
+	}
+	int edge = radius + 1.0;
+//	int edge = ps->radius + 1.0;
 	d_before->position.x -= px_size_x * edge;
 	d_before->position.y -= px_size_y * edge;
 	d_before->size.w += edge * 2;
@@ -281,12 +333,26 @@ Area *FP_Soften::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_
 		// non-destructive processing
 		int threads_count = subflow->threads_count();
 		tasks = new task_t *[threads_count];
+
+		const double px_size_x = area_in->dimensions()->position.px_size_x;
+		const double px_size_y = area_in->dimensions()->position.px_size_y;
+		double radius = ps->radius;
+		if(ps->scaled) {
+			double px_scale_x = 1.0;
+			double px_scale_y = 1.0;
+			process_obj->mutators_multipass->get("px_scale_x", px_scale_x);
+			process_obj->mutators_multipass->get("px_scale_y", px_scale_y);
+			if(px_scale_x < 1.0) px_scale_x = 1.0;
+			if(px_scale_y < 1.0) px_scale_y = 1.0;
+			radius = scaled_radius(radius, px_size_x / px_scale_x, px_size_y / px_scale_y);
+		}
+
 		// gaussian kernel
-		const float sigma = (ps->radius * 2.0) / 6.0;
+		const float sigma = (radius * 2.0) / 6.0;
 		const float sigma_sq = sigma * sigma;
-		const int kernel_length = 2 * floor(ps->radius) + 1;
-		const int kernel_offset = -floor(ps->radius);
-		const float kernel_offset_f = -floor(ps->radius);
+		const int kernel_length = 2 * floor(radius) + 1;
+		const int kernel_offset = -floor(radius);
+		const float kernel_offset_f = -floor(radius);
 		kernel = new float[kernel_length * kernel_length];
 		for(int y = 0; y < kernel_length; ++y) {
 			for(int x = 0; x < kernel_length; ++x) {
@@ -312,8 +378,6 @@ Area *FP_Soften::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_
 		d_out.edges.x2 = 0;
 		d_out.edges.y1 = 0;
 		d_out.edges.y2 = 0;
-		const float px_size_x = area_in->dimensions()->position.px_size_x;
-		const float px_size_y = area_in->dimensions()->position.px_size_y;
 		int in_x_offset = (tp.x - area_in->dimensions()->position.x) / px_size_x + 0.5 + area_in->dimensions()->edges.x1;
 		int in_y_offset = (tp.y - area_in->dimensions()->position.y) / px_size_y + 0.5 + area_in->dimensions()->edges.y1;
 		area_out = new Area(&d_out);

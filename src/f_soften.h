@@ -46,12 +46,14 @@ protected:
 	class GuiSlider *slider_strength;
 	class GuiSlider *slider_radius;
 	QCheckBox *checkbox_enable;
+	QCheckBox *checkbox_scaled;
 	void reconnect(bool to_connect);
 
 public slots:
 	void slot_changed_strength(double value);
 	void slot_changed_radius(double value);
 	void slot_checkbox_enable(int state);
+	void slot_checkbox_scaled(int state);
 
 protected:
 	void changed_slider(double value_new, double &value);
