@@ -9,10 +9,9 @@
 
 #include <iostream>
 #include <iomanip>
-#include <limits.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <QtGlobal>
+//#include <limits.h>
+//#include <stdio.h>
+//#include <stdlib.h>
 
 #ifdef Q_OS_WIN32
 	// CPU count for Windows
@@ -140,7 +139,7 @@ System::System(void) {
 	detected_cores = _cores;
 //	cerr << "detected cores: " << _cores << endl;
 	apply_config();
-	connect(Config::instance(), SIGNAL(changed(void)), this, SLOT(slot_config_changed(void)));
+//	connect(Config::instance(), SIGNAL(changed(void)), this, SLOT(slot_config_changed(void)));
 //	cerr << "cores to be used: " << _cores << endl;
 //	_ldb = lf_db_new();
 	_ldb = lfDatabase::Create();
@@ -168,7 +167,7 @@ struct lfDatabase *System::ldb(void) {
 	return _ldb;
 }
 
-void System::slot_config_changed(void) {
+void System::update_to_config(void) {
 	apply_config();
 }
 

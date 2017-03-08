@@ -13,10 +13,16 @@
 #include <condition_variable>
 #include <mutex>
 #include <thread>
+#include <list>
 
+//
+// 'Flow' presents a multithreaded working unit, and each of threads threads have
+// access to the 'SubFlow' object that represent it. The first thread is a 'main'
+// thread and only it should allocate resources and split tasks between subflows.
+// SubFlow::
 //------------------------------------------------------------------------------
 class Flow {
-	friend class SubFlow;
+//	friend class SubFlow;
 
 public:
 	Flow(void (*f_ptr)(void *obj, class SubFlow *subflow, void *data), void *f_object, void *f_data, int _threads_count = 0);
@@ -26,6 +32,8 @@ public:
 protected:
 	friend class SubFlow;
 	void set_private(void **priv_array);
+	void set_private(void *priv_data, int thread_index);
+	void *get_private(int thread_index);
 
 protected:
 	class SubFlow **subflows;
@@ -34,12 +42,13 @@ protected:
 	std::mutex m_lock;
 	std::condition_variable cv_in;
 	std::condition_variable cv_out;
-	std::condition_variable cv_master;
+	std::condition_variable cv_main;
 	int b_counter_in = 0;
 	int b_counter_out = 0;
 	bool b_flag_in = false;
 	bool b_flag_out = false;
-	bool b_flag_master_wakeup = false;
+	bool b_flag_main_wakeup = false;
+	bool b_flag_abort = false;
 };
 
 //------------------------------------------------------------------------------
@@ -50,33 +59,44 @@ public:
 	SubFlow(Flow *parent, int _id, int threads_count);
 	virtual ~SubFlow();
 
-	bool is_master(void) {return _master;}
-	int threads_count(void) {return i_threads_count;}
-	int id(void) {return i_id;} // for debug purposes
+	bool is_main(void) const {return _main;}
+	int threads_count(void) const {return i_threads_count;}
+	int id(void) const {return i_id;} // for debug purposes
 
 	// Some data that should be shared between all of the threads.
 	void set_private(void **priv_array);
+	void set_private(void *priv_data, int thread_index);
 	void *get_private(void);
+	// Will return pointer on the 'priv_data' only for a call from main thread.
+	void *get_private(int thread_index);
 
+	// Abort all threads but the 'main', will ignore calls from any subflow but 'main',
+	// abort will be done at or in the exit of the sync_point[_pre|_post] calls.
+	// Useful for 'OOM' exceptions handling etc..
+	void abort(void);
 	// 'classic' barrier w/o any priority
 	void sync_point(void);
 	// splitted barrier
-	// will return 'true' for the master thread, which will return ASAP, and 'false' for all other
+	// will return 'true' for the 'main' thread, which will return ASAP, and 'false' for all other
 	bool sync_point_pre(void);
-	// master thread will wakeup all other threads, and those will do nothing in here
+	// 'main' thread will wakeup all other threads, and those will do nothing in here
 	void sync_point_post(void);
 
 	void wait(void);
 	void start(void);
 
 protected:
+	class abort_exception {};
 	std::thread *std_thread = nullptr;
 	void (*f_ptr)(void *, class SubFlow *, void *);
 	void *f_object;
 	void *f_data;
+	// Wrapper for thread function to intercept 'abort' exception
+	// and finish thread's execution in a correct way.
+	void thread_wrapper(void);
 
 	Flow *const _parent;
-	bool _master;
+	bool _main;
 	const int i_id;
 	const int i_threads_count;
 	void *_target_private = nullptr;
@@ -85,12 +105,13 @@ protected:
 	std::mutex *m_lock = nullptr;
 	std::condition_variable *cv_in = nullptr;
 	std::condition_variable *cv_out = nullptr;
-	std::condition_variable *cv_master = nullptr;
+	std::condition_variable *cv_main = nullptr;
 	int *b_counter_in = nullptr;
 	int *b_counter_out = nullptr;
 	bool *b_flag_in = nullptr;
 	bool *b_flag_out = nullptr;
-	bool *b_flag_master_wakeup = nullptr;
+	bool *b_flag_main_wakeup = nullptr;
+	bool *b_flag_abort = nullptr;
 };
 
 //------------------------------------------------------------------------------

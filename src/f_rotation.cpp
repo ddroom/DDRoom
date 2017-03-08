@@ -2,31 +2,19 @@
  * f_rotation.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
-
-/*
- *	TODO:
-	- notice all mutators, to correct tiles size asked by tiles_receiver (View);
-
- *	NOTES:
- *	- to prevent downscaled cache abuse in workflow, use 'downscaled' rotation - when result image dimensions will be the same as original, w/o magnification.
- *
- */	
 
 #include <iostream>
 
 #include "f_rotation.h"
 #include "filter_gp.h"
-//#include "system.h"
 #include "gui_slider.h"
 #include "ddr_math.h"
 
 using namespace std;
-
-#define FR_MIN_TILE_SIZE 24
 
 //------------------------------------------------------------------------------
 class PS_Rotation : public PS_Base {
@@ -41,7 +29,6 @@ public:
 
 	bool enabled;
 	double rotation_angle;
-//	bool fold;
 };
 
 //------------------------------------------------------------------------------
@@ -121,14 +108,12 @@ PS_Base *PS_Rotation::copy(void) {
 void PS_Rotation::reset(void) {
 	enabled = false;
 	rotation_angle = 0.0;
-//	fold = true;
 }
 
 bool PS_Rotation::load(DataSet *dataset) {
 	reset();
 	dataset->get("enabled", enabled);
 	dataset->get("rotation_angle", rotation_angle);
-//	dataset->get("fold", fold);
 	// check values
 	if(rotation_angle > 45.0)
 		rotation_angle = 45.0;
@@ -140,7 +125,6 @@ bool PS_Rotation::load(DataSet *dataset) {
 bool PS_Rotation::save(DataSet *dataset) {
 	dataset->set("enabled", enabled);
 	dataset->set("rotation_angle", rotation_angle);
-//	dataset->set("fold", fold);
 	return true;
 }
 
@@ -188,7 +172,6 @@ void F_Rotation::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args
 		slider_angle->setValue(ps->rotation_angle);
 		ps->enabled = en;	// restore it back
 		checkbox_enable->setCheckState(ps->enabled ? Qt::Checked : Qt::Unchecked);
-//		checkbox_fold->setCheckState(ps->fold ? Qt::Checked : Qt::Unchecked);
 		reconnect(true);
 	}
 	if(q_action_precise != nullptr) {
@@ -210,8 +193,6 @@ QWidget *F_Rotation::controls(QWidget *parent) {
     hl->setContentsMargins(0, 0, 0, 0);
 	checkbox_enable = new QCheckBox(tr("Enable"));
 	hl->addWidget(checkbox_enable);
-//	checkbox_fold = new QCheckBox(tr("Fold"));
-//	hl->addWidget(checkbox_fold, 0, Qt::AlignRight);
 	l->addLayout(hl, 0, 0, 1, -1);
 
 	l->addWidget(new QLabel(tr("Angle")), 1, 0);
@@ -227,11 +208,9 @@ void F_Rotation::reconnect(bool to_connect) {
 	if(to_connect) {
 		connect(checkbox_enable, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_enable(int)));
 		connect(slider_angle, SIGNAL(signal_changed(double)), this, SLOT(changed_angle(double)));
-//		connect(checkbox_fold, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_fold(int)));
 	} else {
 		disconnect(checkbox_enable, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_enable(int)));
 		disconnect(slider_angle, SIGNAL(signal_changed(double)), this, SLOT(changed_angle(double)));
-//		disconnect(checkbox_fold, SIGNAL(stateChanged(int)), this, SLOT(slot_checkbox_fold(int)));
 	}
 }
 
@@ -239,7 +218,6 @@ QList<QAction *> F_Rotation::get_actions_list(void) {
 	QList<QAction *> l;
 	if(q_action_precise == nullptr) {
 		q_action_precise = new QAction(QIcon(":/resources/rotate_free.svg"), tr("&Rotate"), this);
-//		q_action_precise->setShortcut(tr("Ctrl+R"));
 		q_action_precise->setStatusTip(tr("Rotate photo"));
 		q_action_precise->setCheckable(true);
 		connect(q_action_precise, SIGNAL(toggled(bool)), this, SLOT(slot_action_edit(bool)));
@@ -306,16 +284,6 @@ void F_Rotation::slot_checkbox_enable(int state) {
 	}
 }
 
-/*
-void F_Rotation::slot_checkbox_fold(int state) {
-	// TODO: update cursor - change it to "cross" and back
-	bool value = (state == Qt::Checked);
-	if(ps->fold != value) {
-		ps->fold = value;
-		emit_signal_update();
-	}
-}
-*/
 void F_Rotation::draw(QPainter *painter, FilterEdit_event_t *et) {
 	if(!edit_mode_enabled || !edit_active)
 		return;
@@ -443,11 +411,8 @@ void F_Rotation::draw(QPainter *painter, FilterEdit_event_t *et) {
 		painter->setRenderHint(QPainter::Antialiasing, false);
 }
 
-//bool F_Rotation::mousePressEvent(QMouseEvent *event, Cursor::cursor &_cursor, const QSize &viewport, const QRect &image) {
 bool F_Rotation::mousePressEvent(FilterEdit_event_t *mt, Cursor::cursor &_cursor) {
 	QMouseEvent *event = (QMouseEvent *)mt->event;
-//	const QSize &viewport = mt->viewport;
-//	const QRect &image = mt->image;
 	if(!edit_mode_enabled)
 		return false;
 	bool rez = false;
@@ -457,7 +422,6 @@ edit_OSD_angle = 0.0;
 	if(event->button() == Qt::LeftButton) {
 		edit_active = true;
 		mouse_start = mt->cursor_pos;
-//		mouse_start = event->pos();
 		mouse_position = mouse_start;
 		_cursor = Cursor::cross;
 		rez = true;
@@ -465,17 +429,12 @@ edit_OSD_angle = 0.0;
 	return rez;
 }
 
-//bool F_Rotation::mouseReleaseEvent(QMouseEvent *event, Cursor::cursor &_cursor, const QSize &viewport, const QRect &image) {
 bool F_Rotation::mouseReleaseEvent(FilterEdit_event_t *mt, Cursor::cursor &_cursor) {
-//	QMouseEvent *event = (QMouseEvent *)mt->event;
-//	const QSize &viewport = mt->viewport;
-//	const QRect &image = mt->image;
 	// TODO: process only release of the left button
 	if(!edit_mode_enabled)
 		return false;
 	// check what was released left button!
 	_cursor = Cursor::cross;
-//	_cursor = Cursor::arrow;
 	// should throw signal to apply angle
 	edit_active = false;
 	QLineF guide(mouse_start, mouse_position);
@@ -486,31 +445,22 @@ bool F_Rotation::mouseReleaseEvent(FilterEdit_event_t *mt, Cursor::cursor &_curs
 	return true;
 }
 
-//bool F_Rotation::mouseMoveEvent(QMouseEvent *event, bool &accepted, Cursor::cursor &_cursor, const QSize &viewport, const QRect &image) {
 bool F_Rotation::mouseMoveEvent(FilterEdit_event_t *mt, bool &accepted, Cursor::cursor &_cursor) {
 	QMouseEvent *event = (QMouseEvent *)mt->event;
-//	const QSize &viewport = mt->viewport;
-//	const QRect &image = mt->image;
 	accepted = true;
 	bool rez = false;
 	_cursor = Cursor::cross;
 	if(event->buttons() & Qt::LeftButton) {
 		mouse_position = mt->cursor_pos;
-//		mouse_position = event->pos();
 		// update current angle/offset for OSD helper
-///*
 		QLineF guide(mouse_start, mouse_position);
 		if(guide.length() >= guide_min_length) {
-//			double angle = guide.angle();
 			edit_OSD_offset = edit_angle_normalize(guide.angle());
 			edit_OSD_angle = edit_angle_normalize(edit_OSD_offset + ps->rotation_angle);
 			edit_draw_OSD = true;
 		} else {
 			edit_draw_OSD = false;
 		}
-//*/
-//		mouse_position.setX(mouse_position.x() - image.x());
-//		mouse_position.setY(mouse_position.y() - image.y());
 		rez = true;
 	}
 	return rez;

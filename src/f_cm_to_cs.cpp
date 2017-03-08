@@ -35,6 +35,8 @@ using namespace std;
 
 #define DEFAULT_OUTPUT_COLOR_SPACE	"HDTV"
 
+#define SMAX_LENGTH 300
+
 //------------------------------------------------------------------------------
 class FP_CM_to_CS : public virtual FilterProcess_CP, public virtual FilterProcess_2D {
 protected:
@@ -48,12 +50,12 @@ public:
 	virtual void *get_ptr(bool process_thumbnail);
 
 	// shared between 2D and CP
-	QVector<class task_t *> task_prepare(int threads_count, class DataSet *mutators, class DataSet *mutators_multipass, bool do_analyze, class FP_CM_to_CS_Cache_t *fp_cache);
-	void task_release(void **tasks, int threads_count, class DataSet *mutators_multipass, bool do_analyze, class FP_CM_to_CS_Cache_t *fp_cache);
+	std::vector<class task_t *> task_prepare(int threads_count, class DataSet *mutators, class DataSet *mutators_multipass, bool do_analyze, class FP_CM_to_CS_Cache_t *fp_cache);
+	void task_release(std::vector<class task_t *> tasks, int threads_count, class DataSet *mutators_multipass, bool do_analyze, class FP_CM_to_CS_Cache_t *fp_cache);
 
 	// FilterProcess_CP
 	void filter_pre(fp_cp_args_t *args);
-	void filter(float *pixel, void *data);
+	void filter(float *pixel, fp_cp_task_t *fp_cp_task);
 	void filter_post(fp_cp_args_t *args);
 
 	// FilterProcess_2D
@@ -102,29 +104,27 @@ FP_CM_to_CS_Cache_t::FP_CM_to_CS_Cache_t(void) {
 	compression_factor = 1.0;
 }
 
-class FP_CM_to_CS::task_t {
+class FP_CM_to_CS::task_t : public fp_cp_task_t {
 public:
 	TableFunction *gamma;
 	float cmatrix[9];
 	bool to_skip;
-	CM *cm;
+	std::shared_ptr<CM> cm;
 	CM_Convert *cm_convert;
-	Saturation_Gamut *sg;
+	std::shared_ptr<Saturation_Gamut> sg;
 	float compress_saturation_factor;
 	float compress_strength;
 	float desaturation_strength;
 
 	int pixels_count;
-	int *smax_count;
-	float *smax_value;
-//	float saturation_max;
-//	float sm_j;
+	std::vector<int> smax_count = std::vector<int>(0);
+	std::vector<float> smax_value = std::vector<float>(0);
 
 	// 2D
 	Area *area_in;
 	Area *area_out;
-	std::atomic_int *flow_p1;
-	std::atomic_int *flow_p2;
+	std::atomic_int *y_flow_p1;
+	std::atomic_int *y_flow_p2;
 };
 
 FP_CM_to_CS::FP_CM_to_CS(void) : FilterProcess_CP() {
@@ -153,12 +153,12 @@ void *FP_CM_to_CS::get_ptr(bool process_thumb) {
 }
 
 void FP_CM_to_CS::filter_pre(fp_cp_args_t *args) {
-	QVector<class task_t *> tasks = task_prepare(args->threads_count, args->mutators, args->mutators_multipass, false, (FP_CM_to_CS_Cache_t *)args->cache);
+	std::vector<class task_t *> tasks = task_prepare(args->threads_count, args->mutators, args->mutators_multipass, false, (FP_CM_to_CS_Cache_t *)args->cache);
 	for(int i = 0; i < args->threads_count; ++i)
-		args->ptr_private[i] = tasks[i];
+		args->vector_private[i] = std::unique_ptr<fp_cp_task_t>(tasks[i]);
 }
 
-QVector<class FP_CM_to_CS::task_t *> FP_CM_to_CS::task_prepare(int threads_count, class DataSet *mutators, class DataSet *mutators_multipass, bool do_analyze, FP_CM_to_CS_Cache_t *fp_cache) {
+std::vector<class FP_CM_to_CS::task_t *> FP_CM_to_CS::task_prepare(int threads_count, class DataSet *mutators, class DataSet *mutators_multipass, bool do_analyze, FP_CM_to_CS_Cache_t *fp_cache) {
 	string cm_name;
 	mutators->get("CM", cm_name);
 	CM::cm_type_en cm_type = CM::get_type(cm_name);
@@ -190,14 +190,14 @@ QVector<class FP_CM_to_CS::task_t *> FP_CM_to_CS::task_prepare(int threads_count
 //		matrix[i] = m_xyz_to_output[i];
 	TableFunction *gamma = cms_matrix->get_gamma(ocs_name);
 
-	Saturation_Gamut *sg = nullptr;
-	if(compress_saturation)
-		sg = new Saturation_Gamut(cm_type, ocs_name);
-	CM *cm = CM::new_CM(cm_type, CS_White("E"), CS_White(cms_matrix->get_illuminant_name(ocs_name)));
+	std::shared_ptr<Saturation_Gamut> sg(compress_saturation ? new Saturation_Gamut(cm_type, ocs_name) : nullptr);
+	std::shared_ptr<CM> cm(CM::new_CM(cm_type, CS_White("E"), CS_White(cms_matrix->get_illuminant_name(ocs_name))));
 	CM_Convert *cm_convert = cm->get_convert_Jsh_to_XYZ();
-	QVector<class task_t *> tasks(threads_count);
+	std::vector<class task_t *> tasks(threads_count);
 	for(int i = 0; i < threads_count; ++i) {
 		task_t *task = new task_t;
+		tasks[i] = task;
+
 		task->gamma = gamma;
 //		task->to_skip = to_skip;
 		task->cm = cm;
@@ -207,15 +207,9 @@ QVector<class FP_CM_to_CS::task_t *> FP_CM_to_CS::task_prepare(int threads_count
 //			task->cmatrix[j] = matrix[j];
 		//--
 //		task->saturation_max = 0.0;
-		task->smax_count = nullptr;
-		task->smax_value = nullptr;
 		if(do_analyze) {
-			task->smax_count = new int[101];
-			task->smax_value = new float[101];
-			for(int j = 0; j < 101; ++j) {
-				task->smax_count[j] = 0;
-				task->smax_value[j] = 0.0;
-			}
+			task->smax_count.resize(SMAX_LENGTH, 0);
+			task->smax_value.resize(SMAX_LENGTH, 0.0f);
 		}
 		task->pixels_count = 0;
 
@@ -223,44 +217,37 @@ QVector<class FP_CM_to_CS::task_t *> FP_CM_to_CS::task_prepare(int threads_count
 		task->compress_strength = compress_strength;
 		task->desaturation_strength = desaturation_strength;
 		task->sg = sg;
-		//--
-		tasks[i] = task;
 	}
 	return tasks;
 }
 
 void FP_CM_to_CS::filter_post(fp_cp_args_t *args) {
-	task_release(args->ptr_private, args->threads_count, args->mutators_multipass, false, (FP_CM_to_CS_Cache_t *)args->cache);
+	std::vector<task_t *> tasks(args->vector_private.size());
+	for(int i = 0; i < args->vector_private.size(); ++i)
+		tasks[i] = (task_t *)(args->vector_private[i].get());
+	task_release(tasks, args->threads_count, args->mutators_multipass, false, (FP_CM_to_CS_Cache_t *)args->cache);
 }
 
-void FP_CM_to_CS::task_release(void **tasks, int threads_count, class DataSet *mutators_multipass, bool do_analyze, FP_CM_to_CS_Cache_t *fp_cache) {
-	FP_CM_to_CS::task_t *task = (FP_CM_to_CS::task_t *)tasks[0];
-	if(task->sg != nullptr)
-		delete task->sg;
+void FP_CM_to_CS::task_release(std::vector<class task_t *> tasks, int threads_count, class DataSet *mutators_multipass, bool do_analyze, FP_CM_to_CS_Cache_t *fp_cache) {
+	FP_CM_to_CS::task_t *task = tasks[0];
 
 	if(do_analyze) {
 		// determine saturation factor
-		int   smax_count[101];
-		float smax_value[101];
-		for(int i = 0; i < 101; ++i) {
-			smax_count[i] = 0;
-			smax_value[i] = 0.0;
-		}
-		int pixels_count = 0;
+		std::vector<int> smax_count(SMAX_LENGTH, 0);
+		std::vector<float> smax_value(SMAX_LENGTH, 0.0f);
+		long pixels_count = 0;
 		for(int j = 0; j < threads_count; ++j) {
-			task = (FP_CM_to_CS::task_t *)tasks[j];
+			task = tasks[j];
 			pixels_count += task->pixels_count;
-			for(int i = 0; i < 101; ++i) {
+			for(int i = 0; i < SMAX_LENGTH; ++i) {
 				smax_count[i] += task->smax_count[i];
 				smax_value[i] = (smax_value[i] > task->smax_value[i]) ? smax_value[i] : task->smax_value[i];
 			}
 		}
-		pixels_count /= 100;
+		pixels_count /= (SMAX_LENGTH - 1);
 		int c = 0;
 		float smax_factor = 0.0;
-//int index = 0;
-		for(int i = 1; i < 101; ++i) {
-//index = i;
+		for(int i = 1; i < SMAX_LENGTH; ++i) {
 			if(c >= pixels_count && smax_factor > 1.0)
 				break;
 			c += smax_count[i];
@@ -285,18 +272,10 @@ void FP_CM_to_CS::task_release(void **tasks, int threads_count, class DataSet *m
 			}
 		}
 	}
-	for(int j = 0; j < threads_count; ++j) {
-		task = (FP_CM_to_CS::task_t *)tasks[j];
-		if(task->smax_count)
-			delete[] task->smax_count;
-		if(task->smax_value)
-			delete[] task->smax_value;
-		delete task;
-	}
 }
 
-void FP_CM_to_CS::filter(float *pixel, void *data) {
-	task_t *task = (task_t *)data;
+void FP_CM_to_CS::filter(float *pixel, fp_cp_task_t *fp_cp_task) {
+	task_t *task = (task_t *)fp_cp_task;
 //	if(task->to_skip)
 //		return;
 	// CIECAM02 to XYZ
@@ -352,33 +331,35 @@ Area *FP_CM_to_CS::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filte
 	FP_CM_to_CS_Cache_t *fp_cache = (FP_CM_to_CS_Cache_t *)process_obj->fp_cache;
 
 	Area *_area_out = nullptr;
-	task_t **tasks = nullptr;
-	std::atomic_int *_flow_p1 = nullptr;
-	std::atomic_int *_flow_p2 = nullptr;
+	task_t *task = nullptr;
+	std::vector<std::unique_ptr<task_t>> tasks(0);
+	std::unique_ptr<std::atomic_int> y_flow_p1;
+	std::unique_ptr<std::atomic_int> y_flow_p2;
 	const int threads_count = subflow->threads_count();
 
 	if(subflow->sync_point_pre()) {
-		QVector<class task_t *> t_tasks = task_prepare(threads_count, mutators, mutators_multipass, true, fp_cache);
+		std::vector<class task_t *> v_tasks = task_prepare(threads_count, mutators, mutators_multipass, true, fp_cache);
 		// TODO: check here destructive processing
 		_area_out = new Area(*area_in);
 D_AREA_PTR(_area_out)
-		_flow_p1 = new std::atomic_int(0);
-		_flow_p2 = new std::atomic_int(0);
-		tasks = new task_t *[threads_count];
+		y_flow_p1 = std::unique_ptr<std::atomic_int>(new std::atomic_int(0));
+		y_flow_p2 = std::unique_ptr<std::atomic_int>(new std::atomic_int(0));
+		tasks.resize(threads_count);
 		for(int i = 0; i < threads_count; ++i) {
-			tasks[i] = t_tasks[i];
-			tasks[i]->area_in = area_in;
-			tasks[i]->area_out = _area_out;
-			tasks[i]->flow_p1 = _flow_p1;
-			tasks[i]->flow_p2 = _flow_p2;
-			//--
+			task = v_tasks[i];
+			tasks[i] = std::unique_ptr<task_t>(task);
+
+			task->area_in = area_in;
+			task->area_out = _area_out;
+			task->y_flow_p1 = y_flow_p1.get();
+			task->y_flow_p2 = y_flow_p2.get();
+			subflow->set_private(task, i);
 		}
-		subflow->set_private((void **)tasks);
 	}
 	subflow->sync_point_post();
 
 	// process
-	task_t *task = (task_t *)subflow->get_private();
+	task = (task_t *)subflow->get_private();
 
 	//--
 	float *in = (float *)task->area_in->ptr();
@@ -396,7 +377,7 @@ D_AREA_PTR(_area_out)
 
 	int y;
 	// pass 1: collect information, get histogram;
-	while((y = task->flow_p1->fetch_add(1)) < y_max) {
+	while((y = task->y_flow_p1->fetch_add(1)) < y_max) {
 		int in_index = ((y + in_my) * in_width + in_mx) * 4;
 		int out_index = ((y + out_my) * out_width + out_mx) * 4;
 		for(int x = 0; x < x_max; ++x) {
@@ -415,8 +396,10 @@ D_AREA_PTR(_area_out)
 				// TODO: check histograms
 				int index = 0;
 				float _J = (pixel[0] < J_edge) ? pixel[0] : J_edge;
-				index = ((J_edge - _J) / J_edge) * 100 + 1;
-				if(index > 0 && index <= 100) {
+//				index = ((J_edge - _J) / J_edge) * 100 + 1;
+//				if(index > 0 && index <= 100) {
+				index = ((J_edge - _J) / J_edge) * (SMAX_LENGTH - 1) + 1;
+				if(index > 0 && index <= (SMAX_LENGTH - 1)) {
 //				ddr::clip(index, 0, 100);
 /*
 				if(pixel[0] < J_edge) {
@@ -437,28 +420,33 @@ D_AREA_PTR(_area_out)
 
 	// master thread: analyze information, determine compression factor
 	if(subflow->sync_point_pre()) {
-		task_release((void **)tasks, threads_count, mutators_multipass, true, fp_cache);
-		QVector<class task_t *> t_tasks = task_prepare(threads_count, mutators, mutators_multipass, false, fp_cache);
+		std::vector<task_t *> v_tasks(threads_count);
+		for(int i = 0; i < threads_count; ++i)
+			v_tasks[i] = (task_t *)tasks[i].get();
+		task_release(v_tasks, threads_count, mutators_multipass, true, fp_cache);
+		v_tasks = task_prepare(threads_count, mutators, mutators_multipass, false, fp_cache);
 		// TODO: check here destructive processing
 		for(int i = 0; i < threads_count; ++i) {
-			tasks[i] = t_tasks[i];
-			tasks[i]->area_in = area_in;
-			tasks[i]->area_out = _area_out;
-			tasks[i]->flow_p1 = _flow_p1;
-			tasks[i]->flow_p2 = _flow_p2;
+			task = v_tasks[i];
+			tasks[i] = std::unique_ptr<task_t>(task);
+
+			task->area_in = area_in;
+			task->area_out = _area_out;
+			task->y_flow_p1 = y_flow_p1.get();
+			task->y_flow_p2 = y_flow_p2.get();
+			subflow->set_private(task, i);
 		}
-		subflow->set_private((void **)tasks);
 	}
 	subflow->sync_point_post();
 
 	// pass 2: apply compression with CP process function
 	task = (task_t *)subflow->get_private();
-	while((y = task->flow_p2->fetch_add(1)) < y_max) {
+	while((y = task->y_flow_p2->fetch_add(1)) < y_max) {
 		int in_index = ((y + in_my) * in_width + in_mx) * 4;
 		int out_index = ((y + out_my) * out_width + out_mx) * 4;
 		for(int x = 0; x < x_max; ++x) {
 			float *pixel = &in[in_index];
-			filter(pixel, (void *)task);
+			filter(pixel, task);
 			out[out_index + 0] = in[in_index + 0];
 			out[out_index + 1] = in[in_index + 1];
 			out[out_index + 2] = in[in_index + 2];
@@ -471,10 +459,10 @@ D_AREA_PTR(_area_out)
 
 	// clean up
 	if(subflow->sync_point_pre()) {
-		task_release((void **)tasks, threads_count, mutators_multipass, false, fp_cache);
-		delete _flow_p1;
-		delete _flow_p2;
-		delete[] tasks;
+		std::vector<task_t *> v_tasks(threads_count);
+		for(int i = 0; i < threads_count; ++i)
+			v_tasks[i] = (task_t *)tasks[i].get();
+		task_release(v_tasks, threads_count, mutators_multipass, false, fp_cache);
 	}
 	subflow->sync_point_post();
 

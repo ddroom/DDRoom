@@ -7,7 +7,6 @@
  *
  */
 
-
 #include <iostream>
 
 #include "filter_cp.h"
@@ -63,26 +62,24 @@ public:
 	Area *area_out;
 	std::atomic_int *y_flow;
 	bool destructive;
-	fp_cp_args_t **filter_args;
+	std::vector<std::unique_ptr<fp_cp_args_t>> *filter_args;
 };
 
 Area *FilterProcess_CP_Wrapper::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj) {
 	SubFlow *subflow = mt_obj->subflow;
 	Area *area_in = process_obj->area_in;
-	const int size = fp_cp_vector.size();
-
-	task_t **tasks = nullptr;
 	Area *area_out = nullptr;
-	std::atomic_int *y_flow = nullptr;
+
+	const int filters_count = fp_cp_vector.size();
 	const int threads_count = subflow->threads_count();
-//	fp_cp_args_t *args[size];
-	fp_cp_args_t_ptr *args = new fp_cp_args_t_ptr[size];
+
+	std::vector<std::unique_ptr<fp_cp_args_t>> args(0);
+
+	std::unique_ptr<std::atomic_int> y_flow;
+	std::vector<std::unique_ptr<task_t>> tasks(0);
 
 	if(subflow->sync_point_pre()) {
-		tasks = new task_t *[threads_count];
-
 		bool destructive = process_obj->allow_destructive && allow_destructive;
-//destructive = false;
 		if(destructive) {
 			area_out = new Area(*area_in);
 		} else {
@@ -91,37 +88,43 @@ Area *FilterProcess_CP_Wrapper::process(MT_t *mt_obj, Process_t *process_obj, Fi
 		}
 		D_AREA_PTR(area_out);
 
+		args.resize(filters_count);
 		// prepare post-pixel filters
-		for(int i = 0; i < size; ++i) {
-			args[i] = new fp_cp_args_t;
-			args[i]->metadata = process_obj->metadata;
-			args[i]->mutators = process_obj->mutators;
-			args[i]->mutators_multipass = process_obj->mutators_multipass;
-			args[i]->ps_base = fp_cp_vector[i].ps_base.get();
-			args[i]->ptr_private = new void *[threads_count];
-//			args[i]->ptr_private = new void *[size];
-			args[i]->threads_count = threads_count;
-			args[i]->cache = fp_cp_vector[i].cache;
-			args[i]->filter = (filter_obj->is_offline) ? nullptr : fp_cp_vector[i].filter;
+		for(int i = 0; i < filters_count; ++i) {
+			args[i] = std::unique_ptr<fp_cp_args_t>(new fp_cp_args_t);
+			fp_cp_args_t *arg = args[i].get();
+
+			arg->metadata = process_obj->metadata;
+			arg->mutators = process_obj->mutators;
+			arg->mutators_multipass = process_obj->mutators_multipass;
+			arg->ps_base = fp_cp_vector[i].ps_base.get();
+			arg->vector_private = std::vector<std::unique_ptr<fp_cp_task_t>>(threads_count);
+			arg->threads_count = threads_count;
+			arg->cache = fp_cp_vector[i].cache;
+			arg->filter = (filter_obj->is_offline) ? nullptr : fp_cp_vector[i].filter;
 //			if(filter_obj->fs_base_active && filter_obj->is_offline == false)
 			if(filter_obj->is_offline == false)
-				args[i]->fs_base = fp_cp_vector[i].fs_base;
+				arg->fs_base = fp_cp_vector[i].fs_base;
 			else
-				args[i]->fs_base = nullptr;
-			fp_cp_vector[i].fp_cp->filter_pre(args[i]);
+				arg->fs_base = nullptr;
+			fp_cp_vector[i].fp_cp->filter_pre(arg);
 		}
 
-		y_flow = new std::atomic_int(0);
+		y_flow = std::unique_ptr<std::atomic_int>(new std::atomic_int(0));
+		tasks.resize(threads_count);
 		for(int i = 0; i < threads_count; ++i) {
-			tasks[i] = new task_t;
-			tasks[i]->flow_index = i;
-			tasks[i]->area_in = area_in;
-			tasks[i]->area_out = area_out;
-			tasks[i]->y_flow = y_flow;
-			tasks[i]->destructive = destructive;
-			tasks[i]->filter_args = args;
+			tasks[i] = std::unique_ptr<task_t>(new task_t);
+			task_t *task = tasks[i].get();
+
+			task->flow_index = i;
+			task->area_in = area_in;
+			task->area_out = area_out;
+			task->y_flow = y_flow.get();
+			task->destructive = destructive;
+			task->filter_args = &args;
+
+			subflow->set_private(task, i);
 		}
-		subflow->set_private((void **)tasks);
 	}
 	subflow->sync_point_post();
 
@@ -129,22 +132,13 @@ Area *FilterProcess_CP_Wrapper::process(MT_t *mt_obj, Process_t *process_obj, Fi
 	if(!process_obj->OOM)
 		process(subflow);
 
-	subflow->sync_point();
-	if(subflow->is_master()) {
-		for(int i = 0; i < size; ++i) {
-			fp_cp_vector[i].fp_cp->filter_post(args[i]);
-			delete[] args[i]->ptr_private;
-			delete args[i];
+	if(subflow->sync_point_pre()) {
+		for(int i = 0; i < filters_count; ++i) {
+			fp_cp_vector[i].fp_cp->filter_post(args[i].get());
 		}
-		//
-		for(int i = 0; i < subflow->threads_count(); ++i)
-			delete tasks[i];
-		delete[] tasks;
-		delete y_flow;
 	}
-	subflow->sync_point();
-	delete[] args;
-//	if(subflow->is_master())
+	subflow->sync_point_post();
+//	if(subflow->is_main())
 //		cerr << "wrapper process: done" << endl;
 	return area_out;
 }
@@ -166,7 +160,7 @@ void FilterProcess_CP_Wrapper::process(class SubFlow *subflow) {
 	float *out = (float *)task->area_out->ptr();
 
 	int j = 0;
-	int size = fp_cp_vector.size();
+	int filters_count = fp_cp_vector.size();
 	Mem m_mt(4 * sizeof(float));
 	float *mt = (float *)m_mt.ptr();
 	while((j = task->y_flow->fetch_add(1)) < y_max) {
@@ -174,8 +168,8 @@ void FilterProcess_CP_Wrapper::process(class SubFlow *subflow) {
 		if(task->destructive) {
 			for(int i = 0; i < x_max; ++i) {
 				if(in[it_in + 3] > 0.0)
-					for(int s = 0; s < size; ++s)
-						fp_cp_vector[s].fp_cp->filter(&in[it_in], task->filter_args[s]->ptr_private[task->flow_index]);
+					for(int fi = 0; fi < filters_count; ++fi)
+						fp_cp_vector[fi].fp_cp->filter(&in[it_in], (*(task->filter_args))[fi]->vector_private[task->flow_index].get());
 				it_in += 4;
 			}
 		} else {
@@ -186,8 +180,8 @@ void FilterProcess_CP_Wrapper::process(class SubFlow *subflow) {
 				mt[2] = in[it_in + 2];
 				mt[3] = in[it_in + 3];
 				if(mt[3] > 0.0)
-					for(int s = 0; s < size; ++s)
-						fp_cp_vector[s].fp_cp->filter(mt, (void *)task->filter_args[s]->ptr_private[task->flow_index]);
+					for(int fi = 0; fi < filters_count; ++fi)
+						fp_cp_vector[fi].fp_cp->filter(mt, ((*(task->filter_args))[fi]->vector_private[task->flow_index].get()));
 				out[it_out + 0] = mt[0];
 				out[it_out + 1] = mt[1];
 				out[it_out + 2] = mt[2];

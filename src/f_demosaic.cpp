@@ -632,11 +632,11 @@ Area *FP_Demosaic::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filte
 	PS_Demosaic *ps = (PS_Demosaic *)(filter_obj->ps_base);
 
 	const bool flag_process_xtrans = metadata->sensor_xtrans;
-	if(subflow->is_master())
+	if(subflow->is_main())
 		_init();
 	if(flag_process_xtrans == false) {
 		if(!demosaic_pattern_is_bayer(metadata->demosaic_pattern)) {
-			if(subflow->is_master())
+			if(subflow->is_main())
 				return new Area(*area_in);
 			else
 				return nullptr;
@@ -678,12 +678,12 @@ Area *FP_Demosaic::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filte
 
 	int bayer_pattern = metadata->demosaic_pattern;
 	if(scale_red != 1.0 || scale_blue != 1.0) {
-		task_ca_t **tasks_ca = nullptr;
-		std::atomic_int *y_flow = nullptr;
-		TF_Sinc1 *tf_sinc1 = nullptr;
-		TF_Sinc2 *tf_sinc2 = nullptr;
+		std::vector<std::unique_ptr<task_ca_t>> tasks(0);
+		std::unique_ptr<std::atomic_int> y_flow;
+		std::unique_ptr<TF_Sinc1> tf_sinc1;
+		std::unique_ptr<TF_Sinc2> tf_sinc2;
+
 		if(subflow->sync_point_pre()) {
-			y_flow = new std::atomic_int(0);
 			Area::t_dimensions dims = *area_in->dimensions();
 			long double w = (long double)(dims.size.w - 4) / 2.0;
 			long double h = (long double)(dims.size.h - 4) / 2.0;
@@ -712,34 +712,37 @@ Area *FP_Demosaic::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filte
 			bool skip_red = (scale_red == 1.0) || (ps->enabled_RC == false);
 			bool skip_blue = (scale_blue == 1.0) || (ps->enabled_BY == false);
 
-			tf_sinc1 = new TF_Sinc1();
-			tf_sinc2 = new TF_Sinc2();
+			y_flow = decltype(y_flow)(new std::atomic_int(0));
+			tf_sinc1 = decltype(tf_sinc1)(new TF_Sinc1());
+			tf_sinc2 = decltype(tf_sinc2)(new TF_Sinc2());
+			tasks.resize(threads_count);
 
-			tasks_ca = new task_ca_t *[threads_count];
 			for(int i = 0; i < threads_count; ++i) {
-				tasks_ca[i] = new task_ca_t;
-				tasks_ca[i]->area_in = area_in;
-				tasks_ca[i]->bayer_ca = bayer_ca;
-				tasks_ca[i]->bayer_pattern = bayer_pattern;
-//				tasks_ca[i]->bayer_pattern = metadata->demosaic_pattern;
-				tasks_ca[i]->y_flow = y_flow;
-				tasks_ca[i]->start_in_x = -min_x;
-				tasks_ca[i]->start_in_y = -min_y;
-				tasks_ca[i]->start_in_x_red = start_in_x_red;
-				tasks_ca[i]->start_in_y_red = start_in_y_red;
-				tasks_ca[i]->start_in_x_blue = start_in_x_blue;
-				tasks_ca[i]->start_in_y_blue = start_in_y_blue;
-				tasks_ca[i]->delta_in_red = delta_in_red;
-				tasks_ca[i]->delta_in_blue = delta_in_blue;
-				tasks_ca[i]->skip_red = skip_red;
-				tasks_ca[i]->skip_blue = skip_blue;
-				tasks_ca[i]->tf_sinc1 = tf_sinc1;
-				tasks_ca[i]->tf_sinc2 = tf_sinc2;
+				tasks[i] = std::unique_ptr<task_ca_t>(new task_ca_t);
+				task_ca_t *task = tasks[i].get();
+
+				task->area_in = area_in;
+				task->bayer_ca = bayer_ca;
+				task->bayer_pattern = bayer_pattern;
+//				task->bayer_pattern = metadata->demosaic_pattern;
+				task->y_flow = y_flow.get();
+				task->start_in_x = -min_x;
+				task->start_in_y = -min_y;
+				task->start_in_x_red = start_in_x_red;
+				task->start_in_y_red = start_in_y_red;
+				task->start_in_x_blue = start_in_x_blue;
+				task->start_in_y_blue = start_in_y_blue;
+				task->delta_in_red = delta_in_red;
+				task->delta_in_blue = delta_in_blue;
+				task->skip_red = skip_red;
+				task->skip_blue = skip_blue;
+				task->tf_sinc1 = tf_sinc1.get();
+				task->tf_sinc2 = tf_sinc2.get();
 				// cropping
-				tasks_ca[i]->edge_x = edge_x;
-				tasks_ca[i]->edge_y = edge_y;
+				task->edge_x = edge_x;
+				task->edge_y = edge_y;
+				subflow->set_private(task, i);
 			}
-			subflow->set_private((void **)tasks_ca);
 			// update bayer pattern according to cropping
 			if(edge_x % 2)
 				bayer_pattern = __bayer_pattern_shift_x(bayer_pattern);
@@ -753,23 +756,13 @@ Area *FP_Demosaic::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filte
 //			process_bayer_CA_sinc1(subflow);
 			process_bayer_CA_sinc2(subflow);
 		}
-
 		subflow->sync_point();
-		if(subflow->is_master()) {
-			delete y_flow;
-			for(int i = 0; i < threads_count; ++i)
-				delete tasks_ca[i];
-			delete[] tasks_ca;
-			delete tf_sinc1;
-			delete tf_sinc2;
-		}
 		area_in = bayer_ca;
 	}
 
 	// -- demosaic
 	Area *area_out = nullptr;
-	task_t **tasks = nullptr;
-	float *not_cached_bayer = nullptr;
+	std::vector<std::unique_ptr<task_t>> tasks(0);
 	Area *area_v_signal = nullptr;
 	Area *area_noise_data = nullptr;
 	Area *area_D = nullptr;
@@ -781,9 +774,11 @@ Area *FP_Demosaic::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filte
 	Area *area_fV = nullptr;
 	Area *area_lH = nullptr;
 	Area *area_lV = nullptr;
-	std::atomic_int *fuji_45_flow = nullptr;
+
+	std::unique_ptr<std::atomic_int> fuji_45_flow;
 	Area *fuji_45_area = nullptr;
-	Fuji_45 *fuji_45 = nullptr;
+	std::unique_ptr<Fuji_45> fuji_45;
+
 	if(subflow->sync_point_pre()) {
 		int width = area_in->mem_width();
 		int height = area_in->mem_height();
@@ -845,8 +840,6 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 #endif
 		}
 
-//		int threads_count = subflow->threads_count();
-		tasks = new task_t *[threads_count];
 		int32_t prev = 0;
 		const float max_red = metadata->demosaic_signal_max[0];
 		const float max_green = metadata->demosaic_signal_max[1] < metadata->demosaic_signal_max[3] ? metadata->demosaic_signal_max[1] : metadata->demosaic_signal_max[3];
@@ -854,97 +847,97 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 		if(metadata->sensor_fuji_45) {
 			fuji_45_area = new Area(metadata->width, metadata->height, Area::type_t::type_float_p4);
 			process_obj->OOM |= !fuji_45_area->valid();
-			fuji_45_flow = new std::atomic_int(0);
+			fuji_45_flow = decltype(fuji_45_flow)(new std::atomic_int(0));
+			fuji_45 = std::unique_ptr<Fuji_45>(new Fuji_45(metadata->sensor_fuji_45_width, width + 4, height + 4, true));
 		}
-		fuji_45 = new Fuji_45(metadata->sensor_fuji_45_width, width + 4, height + 4, true);
 		long dd_hist_size = 0x400;
 		float dd_hist_scale = 0.25f;
+
+		tasks.resize(threads_count);
 		for(int i = 0; i < threads_count; ++i) {
-			tasks[i] = new task_t;
-			tasks[i]->area_in = area_in;
-			tasks[i]->area_out = area_out;
-			tasks[i]->metadata = metadata;
-			tasks[i]->xtrans_passes = ps->xtrans_passes;
+			tasks[i] = std::unique_ptr<task_t>(new task_t);
+			task_t *task = tasks[i].get();
+
+			task->area_in = area_in;
+			task->area_out = area_out;
+			task->metadata = metadata;
+			task->xtrans_passes = ps->xtrans_passes;
 /*
 			if(flag_process_xtrans) {
 				for(int u = 0; u < 6; ++u)
 					for(int v = 0; v < 6; ++v)
-						tasks[i]->sensor_xtrans_pattern[u][v] = metadata->sensor_xtrans_pattern[u][v];
+						task->sensor_xtrans_pattern[u][v] = metadata->sensor_xtrans_pattern[u][v];
 			}
 */
-			tasks[i]->width = width;
-			tasks[i]->height = height;
-			tasks[i]->bayer = (float *)area_in->ptr();
-			tasks[i]->rgba = (float *)area_out->ptr();
-			tasks[i]->bayer_pattern = bayer_pattern;
-//			tasks[i]->bayer_pattern = metadata->demosaic_pattern;
-			tasks[i]->ps = ps;
+			task->width = width;
+			task->height = height;
+			task->bayer = (float *)area_in->ptr();
+			task->rgba = (float *)area_out->ptr();
+			task->bayer_pattern = bayer_pattern;
+//			task->bayer_pattern = metadata->demosaic_pattern;
+			task->ps = ps;
 
-			tasks[i]->noise_data = area_noise_data ? (float *)area_noise_data->ptr() : nullptr;
+			task->noise_data = area_noise_data ? (float *)area_noise_data->ptr() : nullptr;
 			for(int j = 0; j < 4; ++j)
-				tasks[i]->bayer_import_prescale[j] = metadata->demosaic_import_prescale[j];
-//			tasks[i]->black_offset = metadata->demosaic_black_offset;
-			tasks[i]->max_red = max_red;
-			tasks[i]->max_green = max_green;
-			tasks[i]->max_blue = max_blue;
-			tasks[i]->_tasks = (void *)tasks;
-			tasks[i]->D = area_D ? (float *)area_D->ptr() : nullptr;
-			tasks[i]->dd_hist = nullptr;
+				task->bayer_import_prescale[j] = metadata->demosaic_import_prescale[j];
+//			task->black_offset = metadata->demosaic_black_offset;
+			task->max_red = max_red;
+			task->max_green = max_green;
+			task->max_blue = max_blue;
+			task->D = area_D ? (float *)area_D->ptr() : nullptr;
 			if(flag_process_DG) {
-				tasks[i]->dd_hist = new long[dd_hist_size];
-				for(int k = 0; k < dd_hist_size; ++k)
-					tasks[i]->dd_hist[k] = 0;
-				tasks[i]->dd_hist_size = dd_hist_size;
-				tasks[i]->dd_hist_scale = dd_hist_scale;
-				tasks[i]->dd_limit = 0.06f;
+				task->dd_hist.resize(dd_hist_size, 0);
+				task->dd_hist_scale = dd_hist_scale;
+				task->dd_limit = 0.06f;
 			}
-			tasks[i]->dn1 = area_dn1 ? (float *)area_dn1->ptr() : nullptr;
-			tasks[i]->dn2 = area_dn2 ? (float *)area_dn2->ptr() : nullptr;
-			tasks[i]->sm_temp = area_sm_temp ? (float *)area_sm_temp->ptr() : nullptr;
-			tasks[i]->gaussian = area_gaussian ? (float *)area_gaussian->ptr() : nullptr;
-			tasks[i]->c_scale[0] = metadata->c_scale_ref[0];
-			tasks[i]->c_scale[1] = metadata->c_scale_ref[1];
-			tasks[i]->c_scale[2] = metadata->c_scale_ref[2];
+			task->dn1 = area_dn1 ? (float *)area_dn1->ptr() : nullptr;
+			task->dn2 = area_dn2 ? (float *)area_dn2->ptr() : nullptr;
+			task->sm_temp = area_sm_temp ? (float *)area_sm_temp->ptr() : nullptr;
+			task->gaussian = area_gaussian ? (float *)area_gaussian->ptr() : nullptr;
+			task->c_scale[0] = metadata->c_scale_ref[0];
+			task->c_scale[1] = metadata->c_scale_ref[1];
+			task->c_scale[2] = metadata->c_scale_ref[2];
 			if(flag_process_AHD) {
-				tasks[i]->fH = (float *)area_fH->ptr();
-				tasks[i]->fV = (float *)area_fV->ptr();
-				tasks[i]->lH = (float *)area_lH->ptr();
-				tasks[i]->lV = (float *)area_lV->ptr();
+				task->fH = (float *)area_fH->ptr();
+				task->fV = (float *)area_fV->ptr();
+				task->lH = (float *)area_lH->ptr();
+				task->lV = (float *)area_lV->ptr();
 			}
 
 			bool split_vertical = false;
 			if(split_vertical) {
-				tasks[i]->x_min = prev;
+				task->x_min = prev;
 				prev += width / threads_count;
 				if(i + 1 == threads_count)
 					prev = width;
-				tasks[i]->x_max = prev;
-				tasks[i]->y_min = 0;
-				tasks[i]->y_max = height;
+				task->x_max = prev;
+				task->y_min = 0;
+				task->y_max = height;
 			} else {
-				tasks[i]->y_min = prev;
+				task->y_min = prev;
 				prev += height / threads_count;
 				if(i + 1 == threads_count)
 					prev = height;
-				tasks[i]->y_max = prev;
-				tasks[i]->x_min = 0;
-				tasks[i]->x_max = width;
+				task->y_max = prev;
+				task->x_min = 0;
+				task->x_max = width;
 			}
 			for(int j = 0; j < 4; ++j) {
-				tasks[i]->noise_std_dev[j] = 0.005;
+				task->noise_std_dev[j] = 0.005;
 			}
 
 			// Fuji 45
-			tasks[i]->fuji_45_area = fuji_45_area;
-			tasks[i]->fuji_45 = fuji_45;
-			tasks[i]->fuji_45_flow = fuji_45_flow;
+			task->fuji_45_area = fuji_45_area;
+			task->fuji_45 = fuji_45.get();
+			task->fuji_45_flow = fuji_45_flow.get();
 
 			// smooth directions detection
 			for(int l = 0; l < 9; ++l)
-				tasks[i]->cRGB_to_XYZ[l] = metadata->cRGB_to_XYZ[l];
-			tasks[i]->v_signal = area_v_signal ? (float *)area_v_signal->ptr() : nullptr;
+				task->cRGB_to_XYZ[l] = metadata->cRGB_to_XYZ[l];
+			task->v_signal = area_v_signal ? (float *)area_v_signal->ptr() : nullptr;
+
+			subflow->set_private(task, i);
 		}
-		subflow->set_private((void **)tasks);
 	}
 	subflow->sync_point_post();
 
@@ -977,12 +970,11 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 
 		// apply Fuji 45 degree rotation if necessary
 		if(metadata->sensor_fuji_45) {
-//			subflow->sync_point();
+			subflow->sync_point();
 			fuji_45_rotate(subflow);
 			if(subflow->sync_point_pre()) {
 				delete area_out;
 				area_out = fuji_45_area;
-				delete fuji_45_flow;
 			}
 			subflow->sync_point_post();
 		}
@@ -990,7 +982,7 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 
 	// cleanup
 	subflow->sync_point();
-	if(subflow->is_master()) {
+	if(subflow->is_main()) {
 //cerr << "Demosaic: size.w == " << area_out->dimensions()->size.w << "; edges.x1 == " << area_out->dimensions()->edges.x1 << endl;
 		if(area_noise_data) delete area_noise_data;
 		if(area_D) delete area_D;
@@ -1006,15 +998,6 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 		}
 		if(area_v_signal) delete area_v_signal;
 
-//		for(int i = 0; i < subflow->threads_count(); ++i)
-		for(int i = 0; i < threads_count; ++i) {
-			if(tasks[i]->dd_hist) delete tasks[i]->dd_hist;
-			delete tasks[i];
-		}
-		delete[] tasks;
-		if(not_cached_bayer != nullptr)
-			delete[] not_cached_bayer;
-
 		Area::t_edges *edges = const_cast<Area::t_edges *>(&area_out->dimensions()->edges);
 		edges->x1 = 2;
 		edges->x2 = 2;
@@ -1022,7 +1005,6 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 		edges->y2 = 2;
 		// CA
 		if(bayer_ca) delete bayer_ca;
-		if(fuji_45) delete fuji_45;
 /*
 cerr << "F_Demosaic; area_out->dimensions:" << endl;
 const Area::t_dimensions *d = area_out->dimensions();
@@ -2255,16 +2237,18 @@ float *FP_Demosaic::process_denoise(class SubFlow *subflow) {
 			mirror_2(width, height, _D);
 			//--
 			// synchronize std_dev_min between threads
-			task_t **tasks = (task_t **)task->_tasks;
+//			task_t **tasks = (task_t **)task->_tasks;
 			const int threads_count = subflow->threads_count();
 //			float noise_std_dev_min = std_dev_min;
 			for(int i = 0; i < threads_count; ++i) {
-				if(tasks[i]->noise_std_dev_min < std_dev_min)
-					std_dev_min = tasks[i]->noise_std_dev_min;
+				task_t *t = (task_t *)subflow->get_private(i);
+				if(t->noise_std_dev_min < std_dev_min)
+					std_dev_min = t->noise_std_dev_min;
 			}
 			for(int i = 0; i < threads_count; ++i) {
 //cerr << "replace std_dev min from " << tasks[i]->noise_std_dev_min << " to " << std_dev_min << endl;
-				tasks[i]->noise_std_dev_min = std_dev_min;
+				task_t *t = (task_t *)subflow->get_private(i);
+				t->noise_std_dev_min = std_dev_min;
 			}
 		}
 		subflow->sync_point_post();
@@ -2383,7 +2367,7 @@ void FP_Demosaic::fuji_45_rotate(class SubFlow *subflow) {
 
 //------------------------------------------------------------------------------
 void FP_Demosaic::process_xtrans(class SubFlow *subflow) {
-	if(!subflow->is_master())
+	if(!subflow->is_main())
 		return;
 cerr << "process_xtrans...1" << endl;
 	task_t *task = (task_t *)subflow->get_private();

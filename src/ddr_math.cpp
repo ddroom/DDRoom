@@ -2,7 +2,7 @@
  * ddr_math.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -78,6 +78,38 @@ float TableFunction::function(float x) {
 	return x;
 }
 */
+//------------------------------------------------------------------------------
+GaussianKernel::GaussianKernel(float sigma, int _width, int _height)
+	: i_sigma(sigma), i_width(_width), i_height(_height)
+{
+	i_kernel = new float[i_width * i_height];
+	i_offset_x = -i_width / 2;
+	i_offset_y = -i_height / 2;
+	const float f_offset_x = i_offset_x;
+	const float f_offset_y = i_offset_y;
+	const float sigma_sq2 = sigma * sigma * 2.0f;
+	float w_sum = 0.0f;
+	for(int y = 0; y < i_height; ++y) {
+		for(int x = 0; x < i_width; ++x) {
+			const float fx = f_offset_x + x;
+			const float fy = f_offset_y + y;
+			const float z = sqrtf(fx * fx + fy * fy);
+			const float w = expf(-(z * z) / sigma_sq2);
+			i_kernel[y * i_width + x] = w;
+			w_sum += w;
+		}
+	}	
+	for(int y = 0; y < i_height; ++y) {
+		for(int x = 0; x < i_width; ++x) {
+			i_kernel[y * i_width + x] /= w_sum;
+		}
+	}
+}
+
+GaussianKernel::~GaussianKernel() {
+	delete[] i_kernel;
+}
+
 //------------------------------------------------------------------------------
 // used cubic polynomial spline
 Spline_Calc::~Spline_Calc() {

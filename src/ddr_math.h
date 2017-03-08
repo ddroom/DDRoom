@@ -30,14 +30,38 @@ public:
 
 protected:
 	TableFunction(void);
+	void _init(float _x_min, float _x_max, int table_size);
+	virtual float function(float x) = 0;
+
 	float x_min;
 	float x_max;
 	float scale;
 	float *table;
 	int table_size;
+};
 
-	void _init(float _x_min, float _x_max, int table_size);
-	virtual float function(float x) = 0;
+//------------------------------------------------------------------------------
+class GaussianKernel {
+public:
+	GaussianKernel(float sigma, int _width, int _height = 1);
+	virtual ~GaussianKernel();
+
+	float value(int x, int y = 0) const {return i_kernel[y * i_width + x];};
+
+	const float *kernel(void) const {return i_kernel;}
+	float sigma(void) const {return i_sigma;}
+	int width(void) const {return i_width;}
+	int height(void) const {return i_height;}
+	int offset_x(void) const {return i_offset_x;}
+	int offset_y(void) const {return i_offset_y;}
+
+protected:
+	float *i_kernel = nullptr;
+	const float i_sigma;
+	const int i_width;
+	const int i_height;
+	int i_offset_x;
+	int i_offset_y;
 };
 
 //------------------------------------------------------------------------------

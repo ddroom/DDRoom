@@ -21,6 +21,7 @@ NOTES:
 #include <iostream>
 #include <math.h>
 
+#include "ddr_math.h"
 #include "f_unsharp.h"
 #include "gui_slider.h"
 #include "cm.h"
@@ -689,22 +690,17 @@ class FP_Unsharp::task_t {
 public:
 	Area *area_in;
 	Area *area_out;
-	PS_Unsharp *ps;
+	int in_x_offset;
+	int in_y_offset;
 	std::atomic_int *y_flow_pass_1;
 	std::atomic_int *y_flow_pass_2;
 	Area *area_temp;
 
-	const float *kernel;
-	int kernel_length;
-	int kernel_offset;
+	GaussianKernel *kernel;
 	float amount;
 	float threshold;
-//	float radius;
 	bool lc_brighten;
 	bool lc_darken;
-
-	int in_x_offset;
-	int in_y_offset;
 };
 
 // requirements for caller:
@@ -747,7 +743,7 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 			d_out.position.y = tp.y;
 			d_out.size.w = tp.width;
 			d_out.size.h = tp.height;
-			d_out.edges = Area::t_edges();
+			d_out.edges.reset();
 			double px_scale_x = 1.0;
 			double px_scale_y = 1.0;
 			process_obj->mutators_multipass->get("px_scale_x", px_scale_x);
@@ -980,10 +976,10 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 			continue;
 		if(type == 1 && ps->enabled == false)    // type == 1 - sharpness, round blur
 			continue;
-		task_t **tasks = nullptr;
-		std::atomic_int *y_flow_pass_1 = nullptr;
-		std::atomic_int *y_flow_pass_2 = nullptr;
-		float *kernel = nullptr;
+		std::vector<std::unique_ptr<task_t>> tasks(0);
+		std::unique_ptr<std::atomic_int> y_flow_pass_1;
+		std::unique_ptr<std::atomic_int> y_flow_pass_2;
+		std::unique_ptr<GaussianKernel> kernel;
 		Area *area_temp = nullptr;
 
 		FP_params_t params;
@@ -994,9 +990,6 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 				area_in = area_out;
 			}
 			// non-destructive processing
-			const int threads_count = subflow->threads_count();
-			tasks = new task_t *[threads_count];
-
 			Area::t_dimensions d_out = *area_in->dimensions();
 			Tile_t::t_position &tp = process_obj->position;
 			// keep _x_max, _y_max, px_size the same
@@ -1004,7 +997,7 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 			d_out.position.y = tp.y;
 			d_out.size = Area::t_size(tp.width, tp.height);
 //			d_out.size.h = tp.height;
-			d_out.edges = Area::t_edges();
+			d_out.edges.reset();
 			double px_scale_x = 1.0;
 			double px_scale_y = 1.0;
 			process_obj->mutators_multipass->get("px_scale_x", px_scale_x);
@@ -1039,55 +1032,43 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 			float sigma_6 = params.radius * 2.0 + 1.0;
 			sigma_6 = (sigma_6 > 1.0) ? sigma_6 : 1.0;
 			const float sigma = sigma_6 / 6.0;
-			const float sigma_sq = sigma * sigma;
 			const int kernel_width = 2 * ceil(params.radius) + 1;
-			const int kernel_offset = -ceil(params.radius);
-			const float kernel_offset_f = -ceil(params.radius);
 			const int kernel_height = (type == 1) ? kernel_width : 1;
-//cerr << "kernel_width == " << kernel_width << ", kernel_offset == " << kernel_offset << ", kernel_height == " << kernel_height << endl;
-			kernel = new float[kernel_width * kernel_height];
-			for(int y = 0; y < kernel_height; ++y) {
-				for(int x = 0; x < kernel_width; ++x) {
-					const float fx = kernel_offset_f + x;
-					const float fy = kernel_offset_f + y;
-					const float z = sqrtf(fx * fx + fy * fy);
-					const float w = (1.0 / sqrtf(2.0 * M_PI * sigma_sq)) * expf(-(z * z) / (2.0 * sigma_sq));
-					kernel[y * kernel_width + x] = w;
-				}
-			}
-			//--
+			kernel = decltype(kernel)(new GaussianKernel(sigma, kernel_width, kernel_height));
+
 			area_out = new Area(&d_out);
 			process_obj->OOM |= !area_out->valid();
 			if(type == 0) {
 				area_temp = new Area(area_in->dimensions(), Area::type_t::type_float_p1);
 				process_obj->OOM |= !area_temp->valid();
 			}
-			//--
+
 			const int in_x_offset = (d_out.position.x - area_in->dimensions()->position.x) / px_size_x + 0.5 + area_in->dimensions()->edges.x1;
 			const int in_y_offset = (d_out.position.y - area_in->dimensions()->position.y) / px_size_y + 0.5 + area_in->dimensions()->edges.y1;
-			y_flow_pass_1 = new std::atomic_int(0);
-			y_flow_pass_2 = new std::atomic_int(0);
-			for(int i = 0; i < threads_count; ++i) {
-				tasks[i] = new task_t;
-				tasks[i]->area_in = area_in;
-				tasks[i]->area_out = area_out;
-				tasks[i]->ps = ps;
-				tasks[i]->y_flow_pass_1 = y_flow_pass_1;
-				tasks[i]->y_flow_pass_2 = y_flow_pass_2;
-				tasks[i]->area_temp = area_temp;
+			y_flow_pass_1 = decltype(y_flow_pass_1)(new std::atomic_int(0));
+			y_flow_pass_2 = decltype(y_flow_pass_2)(new std::atomic_int(0));
 
-				tasks[i]->kernel = kernel;
-				tasks[i]->kernel_length = kernel_width;
-				tasks[i]->kernel_offset = kernel_offset;
-				tasks[i]->amount = params.amount;
-				tasks[i]->threshold = params.threshold;
-				tasks[i]->lc_brighten = ps->lc_brighten;
-				tasks[i]->lc_darken = ps->lc_darken;
-//				tasks[i]->radius = params.radius;
-				tasks[i]->in_x_offset = in_x_offset;
-				tasks[i]->in_y_offset = in_y_offset;
+			const int threads_count = subflow->threads_count();
+			tasks.resize(threads_count);
+			for(int i = 0; i < threads_count; ++i) {
+				tasks[i] = std::unique_ptr<task_t>(new task_t);
+				task_t *task = tasks[i].get();
+				task->area_in = area_in;
+				task->area_out = area_out;
+				task->in_x_offset = in_x_offset;
+				task->in_y_offset = in_y_offset;
+				task->y_flow_pass_1 = y_flow_pass_1.get();
+				task->y_flow_pass_2 = y_flow_pass_2.get();
+				task->area_temp = area_temp;
+
+				task->kernel = kernel.get();
+				task->amount = params.amount;
+				task->threshold = params.threshold;
+				task->lc_brighten = ps->lc_brighten;
+				task->lc_darken = ps->lc_darken;
+
+				subflow->set_private(task, i);
 			}
-			subflow->set_private((void **)tasks);
 		}
 		subflow->sync_point_post();
 
@@ -1099,17 +1080,11 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 		}
 
 		subflow->sync_point();
-		if(subflow->is_master()) {
+		if(subflow->is_main()) {
 			if(area_to_delete != nullptr)
 				delete area_to_delete;
 			if(type == 0)
 				delete area_temp;
-			delete y_flow_pass_1;
-			delete y_flow_pass_2;
-			for(int i = 0; i < subflow->threads_count(); ++i)
-				delete tasks[i];
-			delete[] tasks;
-			delete[] kernel;
 		}
 	}
 	return area_out;
@@ -1139,9 +1114,13 @@ void FP_Unsharp::process_double_pass(class SubFlow *subflow) {
 	float *out = (float *)task->area_out->ptr();
 	float *temp = (float *)task->area_temp->ptr();
 
+/*
 	const float *kernel = task->kernel;
 	const int kernel_length = task->kernel_length;
 	const int kernel_offset = task->kernel_offset;
+*/
+	const int kernel_length = task->kernel->width();
+	const int kernel_offset = task->kernel->offset_x();
 
 	// horizontal pass - from input to temporal area
 	int j = 0;
@@ -1165,7 +1144,8 @@ void FP_Unsharp::process_double_pass(class SubFlow *subflow) {
 						float v_in = in[((j + t_y_offset) * in_width + in_x) * 4 + 0];
 						if(v_in < 0.0f)
 							v_in = 0.0f;
-						float kv = kernel[x];
+//						float kv = kernel[x];
+						float kv = task->kernel->value(x);
 						v_blur += v_in * kv;
 						v_blur_w += kv;
 					}
@@ -1208,7 +1188,8 @@ void FP_Unsharp::process_double_pass(class SubFlow *subflow) {
 					if(alpha > 0.05f) {
 						float v_temp = temp[in_y * in_width + i + in_x_offset];
 //						float v_temp = temp[temp_y * temp_width + i];
-						float kv = kernel[y];
+//						float kv = kernel[y];
+						float kv = task->kernel->value(y);
 						v_blur += v_temp * kv;
 						v_blur_w += kv;
 					}
@@ -1266,9 +1247,6 @@ void FP_Unsharp::process_single_pass(class SubFlow *subflow) {
 	const float kernel_offset = -floor(task->radius);
 	const int kl_off = kernel_offset;
 */
-	const float *kernel = task->kernel;
-	const int kernel_length = task->kernel_length;
-	const int kernel_offset = task->kernel_offset;
 
 	// float z = sqrtf(x * x + y * y);
 	// float w = (1.0 / sqrtf(2.0 * M_PI * sigma_sq)) * expf(-(z * z) / (2.0 * sigma_sq));
@@ -1289,17 +1267,25 @@ void FP_Unsharp::process_single_pass(class SubFlow *subflow) {
 			// calculate blurred value
 			float v_blur = 0.0f;
 			float v_blur_w = 0.0f;
+			const int kernel_length = task->kernel->width();
+			const int kernel_offset = task->kernel->offset_x();
 			for(int y = 0; y < kernel_length; ++y) {
 				for(int x = 0; x < kernel_length; ++x) {
 					const int in_x = i + x + kernel_offset + in_x_offset;
 					const int in_y = j + y + kernel_offset + in_y_offset;
+/*
+			for(int y = 0; y < kernel_length; ++y) {
+				for(int x = 0; x < kernel_length; ++x) {
+					const int in_x = i + x + kernel_offset + in_x_offset;
+					const int in_y = j + y + kernel_offset + in_y_offset;
+*/
 					if(in_x >= 0 && in_x < in_w && in_y >= 0 && in_y < in_h) {
 						const float alpha = in[(in_y * in_width + in_x) * 4 + 3];
 //						if(alpha == 1.0) {
 						if(alpha > 0.05f) {
 							const float v_in = in[(in_y * in_width + in_x) * 4 + 0];
-							const int kernel_index = y * kernel_length + x;
-							const float w = kernel[kernel_index];
+//							const float w = kernel[y * kernel_length + x];
+							const float w = task->kernel->value(x, y);
 							v_blur += v_in * w;
 							v_blur_w += w;
 						}

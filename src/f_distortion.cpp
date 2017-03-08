@@ -2,16 +2,14 @@
  * f_distortion.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
 
 /*
-
 TODO:
     - remove exiv2 <--> lensfun lens links to more global level, like tools->metadata page...
-
 */
 
 #include <iostream>
@@ -25,8 +23,6 @@ TODO:
 #include "db.h"
 
 using namespace std;
-
-#define FR_MIN_TILE_SIZE 24
 
 //------------------------------------------------------------------------------
 class FP_Distortion : public FilterProcess_GP {
@@ -120,8 +116,10 @@ FP_Distortion_Cache_t::FP_Distortion_Cache_t(void) {
 
 FP_Distortion_Cache_t::~FP_Distortion_Cache_t() {
 //cerr << "FP_Distortion_Cache_t::~FP_Distortion_Cache_t()" << endl;
-    if(tf_forward != nullptr) delete tf_forward;
-    if(tf_backward != nullptr) delete tf_backward;
+    if(tf_forward != nullptr)
+		delete tf_forward;
+    if(tf_backward != nullptr)
+		delete tf_backward;
 }
 
 FP_Cache_t *FP_Distortion::new_FP_Cache(void) {
@@ -159,7 +157,7 @@ FP_GP_Distortion::FP_GP_Distortion(const class Metadata *metadata, bool _flag_to
 //cerr << "return - 1!" << endl;
 		return;
 	}
-	cache->lock.lock();
+	std::unique_lock<std::mutex> lock(cache->lock);
 	if(cache->tf_forward != nullptr && cache->tf_backward != nullptr) {
 		bool flag = false;
 		flag |= (metadata->lensfun_lens_model != cache->lensfun_lens_ID);
@@ -173,7 +171,6 @@ FP_GP_Distortion::FP_GP_Distortion(const class Metadata *metadata, bool _flag_to
 			y_corrected_max = cache->y_corrected_max;
 			max_length_corrected = cache->max_length_corrected;
 			max_length_uncorrected = cache->max_length_uncorrected;
-			cache->lock.unlock();
 			enabled = true;
 //cerr << "FP_GP_Distortion(): used cache" << endl;
 			return;
@@ -184,7 +181,6 @@ FP_GP_Distortion::FP_GP_Distortion(const class Metadata *metadata, bool _flag_to
 	if(lenses == nullptr) {
 cerr << "return - 2!" << endl;
 		ldb->Destroy();
-		cache->lock.unlock();
 		return;
 	}
 	const lfLens *lens = lenses[0];
@@ -220,7 +216,6 @@ cerr << "return - 2!" << endl;
 	cache->lens_focal_length = metadata->lens_focal_length;
 	cache->lens_aperture = metadata->lens_aperture;
 	cache->sensor_crop = metadata->sensor_crop;
-	cache->lock.unlock();
 //cerr << "FP_GP_Distortion: created - OK!" << endl;
 }
 

@@ -9,7 +9,6 @@
  *
  */
 
-
 #include <atomic>
 #include <iostream>
 
@@ -95,7 +94,6 @@ public:
 	// noise analysis
 	float *noise_data; // 2 planes: 1. GREEN gaussian 5x5; 2. GREEN std_dev (real signal to gaussian, 5x5);
 	float noise_std_dev_min; // minimal GREEN std_dev of delta 'gaussian - ofiginal', considered as noise std_dev;
-	void *_tasks; // to synchronize noise_std_dev_min between threads;
 	float bayer_import_prescale[4];
 //	float black_offset;
 	float *gaussian; // 4 planes: red, green, blue, unused - gaussian filtered low-pass signal from bayer
@@ -114,8 +112,8 @@ public:
 	// DG
 	float *D; // 4 planes, with green reconstructed in 4 directions
 	float *sm_temp;
-	long *dd_hist;
-	long dd_hist_size;
+//	std::vector<std::atomic_int> dd_hist = std::vector<std::atomic_int>(0);
+	std::vector<long> dd_hist = std::vector<long>(0);
 	float dd_hist_scale;
 	float dd_limit;
 

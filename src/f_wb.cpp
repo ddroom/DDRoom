@@ -8,14 +8,11 @@
  */
 
 /*
-
- Used mutators:
-	"_p_thumb" -> bool
-	"_s_raw_colors" -> bool
-
- Notes:
- - the real colors scaling happens at "filter_gp" right now, before image sampling;
-
+ *	Notes:
+ *		- The real colors scaling happens at "filter_gp" right now, before image sampling.
+ *		- Used mutators: '_p_thumb', '_s_raw_colors'.
+ *
+ *  TODO: - fix 'audo black' - incorrect shift of the white point happens now (check with 'clip highlights').
 */
 
 #include <iostream>
@@ -86,19 +83,16 @@ public:
 };
 
 //------------------------------------------------------------------------------
-//class FP_WB : public FilterProcess_CP {
 class FP_WB : public FilterProcess_2D {
 public:
 	FP_WB(void);
 	FP_Cache_t *new_FP_Cache(void);
 	bool is_enabled(const PS_Base *ps_base);
-//	void filter_pre(fp_cp_args_t *args);
-//	void filter(float *pixel, void *data);
-//	void filter_post(fp_cp_args_t *args);
 	Area *process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj);
 	
 protected:
 	class task_t;
+	void process_wb(SubFlow *subflow);
 	void scale_histogram(QVector<float> &out, int out_1, uint32_t *in, int in_count, int in_1, float scale, float offset);
 };
 
@@ -192,7 +186,6 @@ F_WB::F_WB(int id) : Filter() {
 	ps = _ps;
 	ps_base = ps;
 	connect(this, SIGNAL(signal_load_temp_ui(QVector<double>)), this, SLOT(slot_load_temp_ui(QVector<double>)));
-//	connect(this, SIGNAL(signal_load_temp_ui(void)), this, SLOT(slot_load_temp_ui(void)));
 	reset();
 
 	wb_presets.push_back(f_wb_preset(WB_ID_CUSTOM, false, 0));
@@ -924,8 +917,8 @@ public:
 	std::atomic_int *y_flow;
 
 	// 256 elements, 3 planes - red, green, blue
-	long *hist_in;
-	long *hist_out;
+	std::vector<long> hist_in = std::vector<long>(0);
+	std::vector<long> hist_out = std::vector<long>(0);
 };
 
 //------------------------------------------------------------------------------
@@ -970,20 +963,21 @@ bool FP_WB::is_enabled(const PS_Base *ps_base) {
 }
 
 Area *FP_WB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj) {
-    SubFlow *subflow = mt_obj->subflow;
-    Area *area_in = process_obj->area_in;
-    PS_WB *ps = (PS_WB *)filter_obj->ps_base;
+    SubFlow *const subflow = mt_obj->subflow;
+    Area *const area_in = process_obj->area_in;
+    PS_WB *const ps = (PS_WB *)filter_obj->ps_base;
+	Metadata *const metadata = process_obj->metadata;
+	F_WB *const filter = (F_WB *)filter_obj->filter;
+	FP_WB_Cache_t *const fp_cache = (FP_WB_Cache_t *)process_obj->fp_cache;
     Area *area_out = nullptr;
-	Metadata *metadata = process_obj->metadata;
-	F_WB *filter = (F_WB *)filter_obj->filter;
-	FP_WB_Cache_t *fp_cache = (FP_WB_Cache_t *)process_obj->fp_cache;
-	std::atomic_int *y_flow;
-	task_t **tasks = nullptr;
+
+	std::unique_ptr<std::atomic_int> y_flow(nullptr);
+	std::vector<std::unique_ptr<task_t>> tasks(0);
+	
 /*
-if(subflow->is_master())
+if(subflow->is_main())
 	cerr << "FP_WB::process, size == " << area_in->dimensions()->width() << "x" << area_in->dimensions()->height() << endl;
 */
-
 	if(subflow->sync_point_pre()) {
 //		area_out = new Area(*area_in);
 		area_out = new Area(area_in->dimensions());
@@ -1098,15 +1092,15 @@ if(subflow->is_master())
 					offset = (float(i) / 2047) * scale[j];
 				}
 			}
-			//----
+
 			// manual exposure correction
 			if(ps->exposure_level != 0) {
-				float s = powf(2.0, ps->exposure_level);
+				const float s = powf(2.0, ps->exposure_level);
 				scale[0] *= s;
 				scale[1] *= s;
 				scale[2] *= s;
 			}
-			//--
+
 			for(int i = 0; i < 3; ++i)
 				fp_cache->scale[i] = scale[i];
 			fp_cache->offset = offset;
@@ -1145,127 +1139,41 @@ if(subflow->is_master())
 		}
 		if(limit < 1.0f)
 			hl_clip = false;
-		//--
-		y_flow = new std::atomic_int(0);
-		tasks = new task_t *[subflow->threads_count()];
-		for(int i = 0; i < subflow->threads_count(); ++i) {
-			tasks[i] = new task_t;
-			tasks[i]->area_in = area_in;
-			tasks[i]->area_out = area_out;
+//cerr << "hl_cip == " << hl_clip << endl;
+
+		y_flow = std::unique_ptr<std::atomic_int>(new std::atomic_int(0));
+		const int threads_count = subflow->threads_count();
+		tasks.resize(threads_count);
+		for(int i = 0; i < threads_count; ++i) {
+			tasks[i] = std::unique_ptr<task_t>(new task_t);
+			task_t *task = tasks[i].get();
+
+			task->area_in = area_in;
+			task->area_out = area_out;
 			for(int k = 0; k < 3; ++k) {
-				tasks[i]->c_scale[k] = metadata->c_scale_ref[k];
-				tasks[i]->scale[k] = fp_cache->scale[k];
-				tasks[i]->scale_a[k] = scale_a[k];
-				tasks[i]->scale_b[k] = scale_b[k];
-				tasks[i]->edge[k] = edge[k];
+				task->c_scale[k] = metadata->c_scale_ref[k];
+				task->scale[k] = fp_cache->scale[k];
+				task->scale_a[k] = scale_a[k];
+				task->scale_b[k] = scale_b[k];
+				task->edge[k] = edge[k];
 			}
-			tasks[i]->limit = limit;
+			task->limit = limit;
 			if(filter != nullptr) {
-				tasks[i]->hist_in = new long[256 * 3];
-				tasks[i]->hist_out = new long[256 * 3];
-				for(int k = 0; k < 256 * 3; ++k) {
-					tasks[i]->hist_in[k] = 0;
-					tasks[i]->hist_out[k] = 0;
-				}
-			} else {
-				tasks[i]->hist_in = nullptr;
-				tasks[i]->hist_out = nullptr;
+				task->hist_in.resize(256 * 3, 0);
+				task->hist_out.resize(256 * 3, 0);
 			}
-			tasks[i]->offset = fp_cache->offset;
-			tasks[i]->y_flow = y_flow;
-			tasks[i]->hl_clip = hl_clip;
+			task->offset = fp_cache->offset;
+			task->y_flow = y_flow.get();
+			task->hl_clip = hl_clip;
+
+			subflow->set_private(task, i);
 		}
-		subflow->set_private((void **)tasks);
 	}
 	subflow->sync_point_post();
 
-//cerr << "...2; process_obj->OOM == " << process_obj->OOM << "; subflow->is_master() == " << subflow->is_master() << "; process_obj == " << (unsigned long)process_obj << endl;
-	//-- process
-	if(!process_obj->OOM) {
-//cerr << "...3; process_obj->OOM == " << process_obj->OOM << "; subflow->is_master() == " << subflow->is_master() << endl;
-		task_t *task = (task_t *)subflow->get_private();
-		const float *in = (float *)task->area_in->ptr();
-		const int in_mem_w = task->area_in->mem_width();
-		const int in_off_x = task->area_in->dimensions()->edges.x1;
-		const int in_off_y = task->area_in->dimensions()->edges.y1;
-		const int in_w = task->area_in->dimensions()->width();
-		const int in_h = task->area_in->dimensions()->height();
-		float *out = (float *)task->area_out->ptr();
-		const int out_mem_w = task->area_out->mem_width();
-		const int out_off_x = task->area_out->dimensions()->edges.x1;
-		const int out_off_y = task->area_out->dimensions()->edges.y1;
-
-		int y = 0;
-		while((y = task->y_flow->fetch_add(1)) < in_h) {
-			for(int x = 0; x < in_w; ++x) {
-				const int index_in = (in_mem_w * (in_off_y + y) + in_off_x + x) * 4;
-				const int index_out = (out_mem_w * (out_off_y + y) + out_off_x + x) * 4;
-				float c_in[3];
-				float c[3];
-				for(int i = 0; i < 3; ++i) {
-					c_in[i] = in[index_in + i];// * task->c_scale[i];
-					c[i] = c_in[i] * task->scale_a[i] + task->scale_b[i];
-				}
-				if(task->hl_clip) {
-					const float limit = task->limit;
-					int indexes[3];
-					int counter = 0;
-					for(int k = 0; k < 3; ++k) {
-//						if(c[k] >= limit) {
-						if(c[k] > limit) {
-							indexes[counter++] = k;
-						}
-					}
-					if(counter == 3) {
-						c[0] = c[1] = c[2] = 1.0f;
-					}
-					if(counter == 1) {
-						int k = indexes[0];
-						float d = task->edge[k] - 1.0f;
-						float scale = (d <= 0.0f) ? 0.0f : ((c[k] - 1.0f) / d);
-						scale = (scale >= 0.0f) ? scale : -scale;
-						c[0] = c[0] + (1.0f - c[0]) * scale;
-						c[1] = c[1] + (1.0f - c[1]) * scale;
-						c[2] = c[2] + (1.0f - c[2]) * scale;
-						c[k] = 1.0f;
-					}
-					if(counter == 2) {
-						// make 'continuity' of color scaling for k with smallest edge, s oa new one would connect smoothly
-						// to case with 'counter == 1'
-						int k1 = indexes[0];
-						int k2 = indexes[1];
-						int k = 0;
-						while(k == k1 || k == k2)
-							++k;
-						const float d1 = task->edge[k1] - 1.0f;
-						float scale1 = (d1 <= 0.0f) ? 0.0f : ((c[k1] - 1.0f) / d1);
-						const float d2 = task->edge[k2] - 1.0f;
-						float scale2 = (d2 <= 0.0f) ? 0.0f : ((c[k2] - 1.0f) / d2);
-						ddr::clip(scale1);
-						ddr::clip(scale2);
-//						float scale = (scale1 + scale2) * 0.5;
-						float scale = ddr::max(scale1, scale2);
-						ddr::clip(scale);
-						c[k] += std::max((1.0f - c[k]) * scale, 0.0f);
-					}
-				}
-				for(int k = 0; k < 3; ++k)
-					out[index_out + k] = ddr::clip(c[k]);
-				// update histograms
-				if(task->hist_in && task->hist_out) {
-					for(int k = 0; k < 3; ++k) {
-						long i_in = c_in[k] * 200.0f;
-						if(i_in >= 0 && i_in < 256)
-							++task->hist_in[256 * k + i_in];
-						long i_out = c[k] * 200.0f;
-						if(i_out >= 0 && i_out < 256)
-							++task->hist_out[256 * k + i_out];
-					}
-				}
-				out[index_out + 3] = in[index_out + 3];
-			}
-		}
-	}
+//cerr << "...2; process_obj->OOM == " << process_obj->OOM << "; subflow->is_main() == " << subflow->is_main() << "; process_obj == " << (unsigned long)process_obj << endl;
+	if(!process_obj->OOM)
+		process_wb(subflow);
 
 	//-- clean-up
 	if(subflow->sync_point_pre()) {
@@ -1274,7 +1182,7 @@ if(subflow->is_master())
 			QVector<long> hist_in(256 * 3);
 			QVector<long> hist_out(256 * 3);
 			for(int i = 0; i < subflow->threads_count(); ++i) {
-				task_t *task = tasks[i];
+				task_t *task = tasks[i].get();
 				for(int k = 0; k < 256 * 3; ++k) {
 					if(i == 0) {
 						hist_in[k] = 0;
@@ -1283,22 +1191,110 @@ if(subflow->is_master())
 					hist_in[k]  += task->hist_in[k];
 					hist_out[k] += task->hist_out[k];
 				}
-				delete[] task->hist_in;
-				delete[] task->hist_out;
 			}
 			WB_Histogram_data *histogram_data = nullptr;
 			if(filter_obj->fs_base != nullptr)
 				histogram_data = &((FS_WB *)filter_obj->fs_base)->histogram_data;
 			filter->set_histograms(histogram_data, hist_in, hist_out);
 		}
-		delete tasks[0]->y_flow;
-		for(int i = 0; i < subflow->threads_count(); ++i) {
-			delete tasks[i];
-		}
-		delete tasks;
 	}
 	subflow->sync_point_post();
 	return area_out;
+}
+
+void FP_WB::process_wb(SubFlow *subflow) {
+	task_t *task = (task_t *)subflow->get_private();
+	const float *in = (float *)task->area_in->ptr();
+	const int in_mem_w = task->area_in->mem_width();
+	const int in_off_x = task->area_in->dimensions()->edges.x1;
+	const int in_off_y = task->area_in->dimensions()->edges.y1;
+	const int in_w = task->area_in->dimensions()->width();
+	const int in_h = task->area_in->dimensions()->height();
+	float *out = (float *)task->area_out->ptr();
+	const int out_mem_w = task->area_out->mem_width();
+	const int out_off_x = task->area_out->dimensions()->edges.x1;
+	const int out_off_y = task->area_out->dimensions()->edges.y1;
+
+	int y = 0;
+	while((y = task->y_flow->fetch_add(1)) < in_h) {
+		for(int x = 0; x < in_w; ++x) {
+			const int index_in = (in_mem_w * (in_off_y + y) + in_off_x + x) * 4;
+			const int index_out = (out_mem_w * (out_off_y + y) + out_off_x + x) * 4;
+//			float c_in[3];
+			const float *c_in = &in[index_in];
+			float c[3];
+			for(int i = 0; i < 3; ++i) {
+//				c_in[i] = in[index_in + i];// * task->c_scale[i];
+				c[i] = c_in[i] * task->scale_a[i] + task->scale_b[i];
+			}
+			if(task->hl_clip) {
+				const float limit = task->limit;
+				int indexes[3];
+				int counter = 0;
+				for(int k = 0; k < 3; ++k) {
+//					if(c[k] >= limit) {
+					if(c[k] > limit) {
+						indexes[counter++] = k;
+					}
+				}
+				if(counter == 3) {
+					c[0] = c[1] = c[2] = 1.0f;
+				}
+				if(counter == 1) {
+					int k = indexes[0];
+					float d = task->edge[k] - 1.0f;
+					float scale = (d <= 0.0f) ? 0.0f : ((c[k] - 1.0f) / d);
+					scale = (scale >= 0.0f) ? scale : -scale;
+					c[0] = c[0] + (1.0f - c[0]) * scale;
+					c[1] = c[1] + (1.0f - c[1]) * scale;
+					c[2] = c[2] + (1.0f - c[2]) * scale;
+					c[k] = 1.0f;
+				}
+				if(counter == 2) {
+					// make 'continuity' of color scaling for k with smallest edge, s oa new one would connect smoothly
+					// to case with 'counter == 1'
+					int k1 = indexes[0];
+					int k2 = indexes[1];
+					int k = 0;
+					while(k == k1 || k == k2)
+						++k;
+					const float d1 = task->edge[k1] - 1.0f;
+					float scale1 = (d1 <= 0.0f) ? 0.0f : ((c[k1] - 1.0f) / d1);
+					const float d2 = task->edge[k2] - 1.0f;
+					float scale2 = (d2 <= 0.0f) ? 0.0f : ((c[k2] - 1.0f) / d2);
+					ddr::clip(scale1);
+					ddr::clip(scale2);
+//					float scale = (scale1 + scale2) * 0.5;
+					float scale = ddr::max(scale1, scale2);
+					ddr::clip(scale);
+					c[k] += std::max((1.0f - c[k]) * scale, 0.0f);
+				}
+			}
+			for(int k = 0; k < 3; ++k)
+				out[index_out + k] = ddr::clip(c[k]);
+			// update histograms
+			if(!task->hist_in.empty() && !task->hist_out.empty()) {
+				for(int k = 0; k < 3; ++k) {
+					int i_in = static_cast<int>(c_in[k] * 200.0f);
+					ddr::clip(i_in, 0, 255);
+					++task->hist_in[256 * k + i_in];
+
+					int i_out = static_cast<int>(c[k] * 200.0f);
+					ddr::clip(i_out, 0, 255);
+					++task->hist_out[256 * k + i_out];
+/*
+					int i_in = c_in[k] * 200.0f;
+					if(i_in >= 0 && i_in < 256)
+						++task->hist_in[256 * k + i_in];
+					int i_out = c[k] * 200.0f;
+					if(i_out >= 0 && i_out < 256)
+						++task->hist_out[256 * k + i_out];
+*/
+				}
+			}
+			out[index_out + 3] = in[index_out + 3];
+		}
+	}
 }
 
 void FP_WB::scale_histogram(QVector<float> &out, int out_1, uint32_t *in, int in_count, int in_1, float v_scale, float v_offset) {

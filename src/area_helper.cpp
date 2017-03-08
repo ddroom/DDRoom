@@ -206,7 +206,7 @@ cerr << "convert, pos_x == " << pos_x << ", pos_y == " << pos_y << endl;
 		f_convert_mt(subflow);
 
 //	subflow->sync_point();
-//	if(subflow->is_master()) {
+//	if(subflow->is_main()) {
 	if(subflow->sync_point_pre()) {
 		for(int i = 0; i < subflow->threads_count(); ++i)
 			delete tasks[i];

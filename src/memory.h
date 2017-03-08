@@ -9,43 +9,43 @@
  *
  */
 
-
-#include <list>
-#include <map>
 #include <mutex>
 #include <set>
-#include <string>
-#include <vector>
+#include <memory>
 
 //------------------------------------------------------------------------------
 // aligned memory smart container
-// in the case of 'Out of Memory' 'ptr() == nullptr'
+
 class Mem {
 public:
 	Mem(void) = default;
-	Mem(int size);
-	~Mem(void);
-	void *ptr(void);
+	Mem(size_t size);
 	Mem(Mem const &other);
 	Mem & operator = (const Mem &other);
+	~Mem(void);
+	void *ptr(void);
+
 	static void state_reset(bool _silent = true);
 	static void state_print(void);
 	void ptr_dump(void);
 
 protected:
-	void free(void);
+	template <class T> friend class MemDeleter;
+	static void register_free(void *ptr, size_t size);
 
-	class mem_c_t;
+protected:
+
 	char *ptr_allocated = nullptr;
 	void *ptr_aligned = nullptr;
-	class Mem::mem_c_t *mem_c = nullptr;
-	long _mem_size = 0;
-	static long long mem_total;
-	static long long mem_start;
-	static long long mem_min;
-	static long long mem_max;
+	std::shared_ptr<char> mem_shared_ptr;
+	size_t _mem_size = 0;
+
+	static size_t mem_total;
+	static size_t mem_start;
+	static size_t mem_min;
+	static size_t mem_max;
 	static bool silent;
-	static void state_update(long mem_delta);
+	static void state_update(size_t mem_delta);
 	static std::mutex state_mutex;
 	static std::mutex ptr_set_lock;
 	static std::set<uintptr_t> ptr_set;

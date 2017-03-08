@@ -2,13 +2,13 @@
  * batch.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: GPL version 3.
  *
  */
 
 /*
-   TODO: change GUI update schema:
+   TODO: change GUI update scheme:
     - create an object of photos in task with more detailed info about photos (as icons etc);
     - use that object as mediator between (export thread) and (batch GUI - extended and simple);
     - add signals from Process::process to update partial status of photo processing;
@@ -64,25 +64,6 @@ Batch::~Batch() {
 		delete std_thread;
 		std_thread = nullptr;
 	}
-/*
-	if(was_run) {
-		to_leave = true;
-		task_wait.notify_all();
-//		wait();
-	}
-	// save destination dir
-	Config::instance()->set(CONFIG_SECTION_BATCH, "destination_dir", destination_dir);
-cerr << "~Batch ...1" << endl;
-	if(std_thread != nullptr) {
-cerr << "~Batch ...1.1" << endl;
-//		std_thread->join();
-cerr << "~Batch ...1.2" << endl;
-		delete std_thread;
-cerr << "~Batch ...1.3" << endl;
-//		std_thread = nullptr;
-	}
-cerr << "~Batch ...2" << endl;
-*/
 }
 
 void Batch::start(void) {
@@ -327,11 +308,6 @@ void Batch::run_batch(void) {
 	if(std_thread == nullptr) {
 		auto ptr = this;
 		std_thread = new std::thread( [ptr](void){ptr->run();} );
-/*
-	if(was_run == false) {
-		was_run = true;
-		start();
-*/
 	} else {
 		// wake up thread
 		task_wait.notify_all();
@@ -362,7 +338,6 @@ void Batch::task_add(list<Batch::task_t> &tasks, bool ASAP) {
 // TODO: change GUI update schema.
 void Batch::run(void) {
 	// run in background - so user can edit images in the same time
-//	setPriority(QThread::LowestPriority);
 	while(!to_leave) {
 		long _c_total = c_total;
 		// show "0 / total" at start
@@ -415,8 +390,6 @@ cerr << endl << "batch process: DONE" << endl << endl;
 }
 
 //------------------------------------------------------------------------------
-// Save As controls
-
 void Batch::load_default_ep(export_parameters_t *ep) {
 	Config::instance()->get(CONFIG_SECTION_BATCH, "process_asap", ep->process_asap);
 	Config::instance()->get(CONFIG_SECTION_BATCH, "type_jpeg_iq", ep->t_jpeg_iq);
@@ -508,7 +481,6 @@ void Batch::process_export(list<Photo_ID> _list) {
 				task_t task;
 				task.photo_id = *it;
 				ep->set_file_name((*it).get_export_file_name());
-//				ep->set_file_name(*it);
 				string rez_fn = ep->folder + separator + ep->get_file_name();
 				task.fname_export = rez_fn;
 				task.ep = *ep;

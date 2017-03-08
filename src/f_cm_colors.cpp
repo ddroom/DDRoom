@@ -140,12 +140,12 @@ public:
 
 	// FilterProcess_CP
 	void filter_pre(fp_cp_args_t *args);
-	void filter(float *pixel, void *data);
+	void filter(float *pixel, fp_cp_task_t *fp_cp_task);
 	void filter_post(fp_cp_args_t *args);
 
 	// FilterProcess_2D
-	//...
 	Area *process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj);
+	void process_2d(SubFlow *subflow);
 	
 protected:
 	class task_t;
@@ -368,7 +368,7 @@ FP_CM_Colors_Cache_t::~FP_CM_Colors_Cache_t() {
 		delete tf_js_spline;
 }
 
-class FP_CM_Colors::task_t {
+class FP_CM_Colors::task_t : public fp_cp_task_t {
 public:
 	// CP
 	float saturation;
@@ -378,9 +378,9 @@ public:
 	// 2D
 	Area *area_in;
 	Area *area_out;
-	std::atomic_int *flow_p1;
+	std::atomic_int *y_flow;
 	bool gamut_use;
-	Saturation_Gamut *sg;
+	std::shared_ptr<Saturation_Gamut> sg;
 };
 
 //------------------------------------------------------------------------------
@@ -453,7 +453,7 @@ void FP_CM_Colors::filter_pre(fp_cp_args_t *args) {
 	}
 */
 	fill_js_curve(fp_cache, ps);
-	Saturation_Gamut *sg = nullptr;
+	std::shared_ptr<Saturation_Gamut> sg;
 	if(ps->gamut_use) {
 		string cm_name;
 		args->mutators->get("CM", cm_name);
@@ -462,7 +462,8 @@ void FP_CM_Colors::filter_pre(fp_cp_args_t *args) {
 		args->mutators->get("CM_ocs", ocs_name);
 //cerr << endl;
 //cerr << "a new Saturation_Gamut(\"" << cm_name << "\", \"" << ocs_name << "\");" << endl;
-		sg = new Saturation_Gamut(cm_type, ocs_name);
+//		sg = new Saturation_Gamut(cm_type, ocs_name);
+		sg = std::shared_ptr<Saturation_Gamut>(new Saturation_Gamut(cm_type, ocs_name));
 	}
 
 	for(int i = 0; i < args->threads_count; ++i) {
@@ -472,22 +473,15 @@ void FP_CM_Colors::filter_pre(fp_cp_args_t *args) {
 		task->gamut_use = ps->gamut_use;
 		task->sg = sg;
 		task->fp_cache = fp_cache;
-		args->ptr_private[i] = (void *)task;
+		args->vector_private[i] = std::unique_ptr<fp_cp_task_t>(task);
 	}
 }
 
 void FP_CM_Colors::filter_post(fp_cp_args_t *args) {
-	FP_CM_Colors::task_t *t = (FP_CM_Colors::task_t *)args->ptr_private[0];
-	if(t->sg != nullptr)
-		delete t->sg;
-	for(int i = 0; i < args->threads_count; ++i) {
-		t = (FP_CM_Colors::task_t *)args->ptr_private[i];
-		delete t;
-	}
 }
 
-void FP_CM_Colors::filter(float *pixel, void *data) {
-	task_t *task = (task_t *)data;
+void FP_CM_Colors::filter(float *pixel, fp_cp_task_t *fp_cp_task) {
+	task_t *task = (task_t *)fp_cp_task;
 	// Jsh
 	float scale = task->saturation;
 	float J = pixel[0];
@@ -510,8 +504,8 @@ Area *FP_CM_Colors::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filt
 	FP_CM_Colors_Cache_t *fp_cache = (FP_CM_Colors_Cache_t *)process_obj->fp_cache;
 
 	Area *_area_out = nullptr;
-	task_t **tasks = nullptr;
-	std::atomic_int *_flow_p1 = nullptr;
+	std::vector<std::unique_ptr<task_t>> tasks(0);
+	std::unique_ptr<std::atomic_int> y_flow;
 
 //	long j_scale = 1000;	// use low-pass filter to draw distribution at gui_curve
 
@@ -523,7 +517,7 @@ Area *FP_CM_Colors::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filt
 //D_AREA_PTR(_area_out);
 
 		fill_js_curve(fp_cache, ps);
-		Saturation_Gamut *sg = nullptr;
+		std::shared_ptr<Saturation_Gamut> sg;
 		if(ps->gamut_use) {
 			string cm_name;
 			process_obj->mutators->get("CM", cm_name);
@@ -532,30 +526,39 @@ Area *FP_CM_Colors::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filt
 			process_obj->mutators->get("CM_ocs", ocs_name);
 //cerr << endl;
 //cerr << "a new Saturation_Gamut(\"" << cm_name << "\", \"" << ocs_name << "\");" << endl;
-			sg = new Saturation_Gamut(cm_type, ocs_name);
+			sg = std::shared_ptr<Saturation_Gamut>(new Saturation_Gamut(cm_type, ocs_name));
 		}
 		float saturation = ps->saturation;
 		if(!ps->enabled_saturation)
 			saturation = 1.0;
 
-		int threads_count = subflow->threads_count();
-		_flow_p1 = new std::atomic_int(0);
-		tasks = new task_t *[threads_count];
+		const int threads_count = subflow->threads_count();
+		y_flow = std::unique_ptr<std::atomic_int>(new std::atomic_int(0));
+		tasks.resize(threads_count);
 		for(int i = 0; i < threads_count; ++i) {
-			tasks[i] = new task_t;
-			tasks[i]->area_in = area_in;
-			tasks[i]->area_out = _area_out;
-			tasks[i]->saturation = saturation;
-			tasks[i]->flow_p1 = _flow_p1;
-			tasks[i]->js_curve = ps->enabled_js_curve;
-			tasks[i]->sg = sg;
-			tasks[i]->gamut_use = ps->gamut_use;
-			tasks[i]->fp_cache = fp_cache;
+			tasks[i] = std::unique_ptr<task_t>(new task_t);
+			task_t *task = tasks[i].get();
+			task->area_in = area_in;
+			task->area_out = _area_out;
+			task->saturation = saturation;
+			task->y_flow = y_flow.get();
+			task->js_curve = ps->enabled_js_curve;
+			task->sg = sg;
+			task->gamut_use = ps->gamut_use;
+			task->fp_cache = fp_cache;
+			subflow->set_private(task, i);
 		}
-		subflow->set_private((void **)tasks);
 	}
 	subflow->sync_point_post();
 
+	process_2d(subflow);
+	subflow->sync_point();
+
+	return _area_out;
+}
+
+//------------------------------------------------------------------------------
+void FP_CM_Colors::process_2d(SubFlow *subflow) {
 	// process
 	task_t *task = (task_t *)subflow->get_private();
 
@@ -578,7 +581,7 @@ Area *FP_CM_Colors::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filt
 //		ps_saturation = ps->saturation;
 		
 	int j;
-	while((j = task->flow_p1->fetch_add(1)) < y_max) {
+	while((j = task->y_flow->fetch_add(1)) < y_max) {
 		int in_index = ((j + in_my) * in_width + in_mx) * 4;
 		int out_index = ((j + out_my) * out_width + out_mx) * 4;
 		for(int i = 0; i < x_max; ++i) {
@@ -594,7 +597,7 @@ Area *FP_CM_Colors::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filt
 			pixel[0] = in[in_index + 0];
 			pixel[1] = in[in_index + 1];
 			pixel[2] = in[in_index + 2];
-			filter(pixel, (void *)task);
+			filter(pixel, task);
 			out[out_index + 1] = pixel[1];
 #else
 			float *pixel = &in[in_index];
@@ -615,26 +618,6 @@ Area *FP_CM_Colors::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filt
 			out_index += 4;
 		}
 	}
-
-	// first step - get mean (mean = sum(Xi)/n)
-	
-	// second step - get std_dev (std_dev = )
-	// and draw on graph as 'mean - 3 * std_dev', 'mean', 'mean + 3 * std_dev'
-	
-	// process CP - apply parameters on thumbnail
-
-	// clean up
-	if(subflow->sync_point_pre()) {
-		delete _flow_p1;
-		if(tasks[0]->sg != nullptr)
-			delete tasks[0]->sg;
-		for(int i = 0; i < subflow->threads_count(); ++i)
-			delete tasks[i];
-		delete[] tasks;
-	}
-	subflow->sync_point_post();
-
-	return _area_out;
 }
 
 //------------------------------------------------------------------------------

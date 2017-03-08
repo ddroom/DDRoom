@@ -66,7 +66,7 @@ public:
 	FP_cRGB_to_CM(void);
 	bool is_enabled(const PS_Base *ps_base);
 	void filter_pre(fp_cp_args_t *args);
-	void filter(float *pixel, void *data);
+	void filter(float *pixel, fp_cp_task_t *fp_cp_task);
 	void filter_post(fp_cp_args_t *args);
 	
 protected:
@@ -405,9 +405,9 @@ Filter::type_t F_cRGB_to_CM::type(void) {
 }
 
 //------------------------------------------------------------------------------
-class FP_cRGB_to_CM::task_t {
+class FP_cRGB_to_CM::task_t : public fp_cp_task_t {
 public:
-	CM *cm;
+	std::shared_ptr<CM> cm;
 	CM_Convert *cm_convert;
 	float cmatrix[9];
 };
@@ -454,7 +454,7 @@ void FP_cRGB_to_CM::filter_pre(fp_cp_args_t *args) {
 	float matrix[9];
 	for(int i = 0; i < 9; ++i)
 		matrix[i] = args->metadata->cRGB_to_XYZ[i];
-	CM *cm = CM::new_CM(ps->cm_type, CS_White(args->metadata->cRGB_illuminant_XYZ), CS_White("E"));;
+	std::shared_ptr<CM> cm(CM::new_CM(ps->cm_type, CS_White(args->metadata->cRGB_illuminant_XYZ), CS_White("E")));
 	CM_Convert *cm_convert = cm->get_convert_XYZ_to_Jsh();
 	for(int i = 0; i < args->threads_count; ++i) {
 		task_t *task = new task_t;
@@ -462,35 +462,19 @@ void FP_cRGB_to_CM::filter_pre(fp_cp_args_t *args) {
 			task->cmatrix[j] = matrix[j];
 		task->cm = cm;
 		task->cm_convert = cm_convert;
-		args->ptr_private[i] = (void *)task;
+		args->vector_private[i] = std::unique_ptr<fp_cp_task_t>(task);
 	}
 }
 
 void FP_cRGB_to_CM::filter_post(fp_cp_args_t *args) {
-	FP_cRGB_to_CM::task_t *t = (FP_cRGB_to_CM::task_t *)args->ptr_private[0];
-	for(int i = 0; i < args->threads_count; ++i) {
-		t = (FP_cRGB_to_CM::task_t *)args->ptr_private[i];
-		if(i == 0)
-			delete t->cm;
-		delete t;
-	}
 }
 
-void FP_cRGB_to_CM::filter(float *pixel, void *data) {
-	task_t *task = (task_t *)data;
+void FP_cRGB_to_CM::filter(float *pixel, fp_cp_task_t *fp_cp_task) {
+	task_t *task = (task_t *)fp_cp_task;
 
-	float XYZ[3];
 	ddr::clip(pixel[0]);
 	ddr::clip(pixel[1]);
 	ddr::clip(pixel[2]);
-/*
-	if(pixel[0] > 1.0)	pixel[0] = 1.0;
-	if(pixel[0] < 0.0)	pixel[0] = 0.0;
-	if(pixel[1] > 1.0)	pixel[1] = 1.0;
-	if(pixel[1] < 0.0)	pixel[1] = 0.0;
-	if(pixel[2] > 1.0)	pixel[2] = 1.0;
-	if(pixel[2] < 0.0)	pixel[2] = 0.0;
-*/
 	// convert cRGB to XYZ
 /*
 	const float *m = task->cmatrix;
@@ -498,6 +482,7 @@ void FP_cRGB_to_CM::filter(float *pixel, void *data) {
 	XYZ[1] = pixel[0] * m[1 * 3 + 0] + pixel[1] * m[1 * 3 + 1] + pixel[2] * m[1 * 3 + 2];
 	XYZ[2] = pixel[0] * m[2 * 3 + 0] + pixel[1] * m[2 * 3 + 1] + pixel[2] * m[2 * 3 + 2];
 */
+	float XYZ[3];
 	m3_v3_mult(XYZ, task->cmatrix, pixel);
 	task->cm_convert->convert(pixel, XYZ);
 

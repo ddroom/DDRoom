@@ -10,25 +10,31 @@
  */
 
 #include <memory>
+#include <vector>
+#include <iostream>
 
 #include "filter.h"
 
 //------------------------------------------------------------------------------
 // cp == color process 'per pixel'
 // per-pixel color filter initialization and processing
+class fp_cp_task_t {
+public:
+	virtual ~fp_cp_task_t() {}
+};
+
 class fp_cp_args_t {
 public:
 	class Metadata *metadata;
 	DataSet *mutators;			// <- , \|/ - rename to "mutators_ro" and "mutators_rw"
 	DataSet *mutators_multipass; // will keep data between thumb and scaled processing
-	class PS_Base *ps_base; // TODO: check necessity of sharepointer it
-	void **ptr_private;
+	class PS_Base *ps_base; // TODO: check shared_ptr with it
+	std::vector<std::unique_ptr<fp_cp_task_t>> vector_private = std::vector<std::unique_ptr<fp_cp_task_t>>(0);
 	int threads_count;
 	class FP_Cache_t *cache;
 	class Filter *filter;
 	class FS_Base *fs_base;
 };
-typedef fp_cp_args_t* fp_cp_args_t_ptr;
 
 class FilterProcess_CP : public virtual FilterProcess {
 public:
@@ -43,8 +49,8 @@ public:
 	virtual void filter_pre(class fp_cp_args_t *args);
 	// do per-pixel filtering; use prepared in cache tables, parameters etc; save histogram data to cache
 	//	pixel - float[4] - in and out pixel, rewritable
-	//	void *data - per-subflow data and cache
-	virtual void filter(float *pixel, void *data) {};
+	//	fp_cp_task_t *task - per-subflow data and cache
+	virtual void filter(float *pixel, fp_cp_task_t *task) {};
 	// reconstruct histogram, clear cache and delete private task_t objects; called only with master subflow
 	virtual void filter_post(class fp_cp_args_t *args);
 protected:

@@ -471,7 +471,7 @@ cerr << "---->>>> Area::scale(): -->> out x|y: " << area_out->dimensions()->posi
 	}
 	subflow->sync_point_post();
 
-//if(subflow->is_master())
+//if(subflow->is_main())
 //cerr << "area_scale - done" << endl;
 	return area_out;
 }

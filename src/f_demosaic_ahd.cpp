@@ -2,16 +2,15 @@
  * f_demosaic_ahd.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
 
 /*
  * Adaptive Homogeneity-Directed interpolation is based on
- * the work of Keigo Hirakawa, Thomas Parks, and Paul Lee.
- *
- * ported from dcraw.c as reference
+ * the work of Keigo Hirakawa, Thomas Parks, and Paul Lee..
+ * Based on implementation from 'dcraw'.
 */
 
 #include <algorithm>

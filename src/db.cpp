@@ -2,7 +2,7 @@
  * db.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -155,14 +155,11 @@ bool DB_lens_links::db_save(std::string file_name, const std::map<std::string, D
 
 bool DB_lens_links::get_lens_link(DB_lens_links_record_t &record, const std::string &exiv2_lens_footprint, const std::string &camera_maker, const std::string &camera_model) {
 	std::string key = exiv2_lens_footprint + camera_maker + camera_model;
-	db_lock.lock();
+	std::unique_lock<std::mutex> lock(db_lock);
 	map<std::string, DB_lens_links_record_t>::const_iterator it = map_db.find(key);
-	if(it == map_db.end()) {
-		db_lock.unlock();
+	if(it == map_db.end())
 		return false;
-	}
 	record = (*it).second;
-	db_lock.unlock();
 //cerr << "key: \"" << key << "\"; lens == \"" << record.lens_model << "\"" << endl;
 	return true;
 }

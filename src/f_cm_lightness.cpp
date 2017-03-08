@@ -160,7 +160,7 @@ public:
 	FP_Cache_t *new_FP_Cache(void);
 	bool is_enabled(const PS_Base *ps_base);
 	void filter_pre(fp_cp_args_t *args);
-	void filter(float *pixel, void *data);
+	void filter(float *pixel, fp_cp_task_t *fp_cp_task);
 	void filter_post(fp_cp_args_t *args);
 	
 protected:
@@ -672,20 +672,14 @@ FP_CM_Lightness_Cache_t::FP_CM_Lightness_Cache_t(void) {
 }
 
 FP_CM_Lightness_Cache_t::~FP_CM_Lightness_Cache_t() {
-//cerr << "~FP_CM_Lightness_Cache_t()" << endl;
 	if(tf_spline != nullptr)
 		delete tf_spline;
 	if(tf_gamma != nullptr)
 		delete tf_gamma;
 }
 
-class FP_CM_Lightness::task_t {
+class FP_CM_Lightness::task_t : public fp_cp_task_t {
 public:
-	QVector<long> hist_in;
-	QVector<long> hist_out;
-
-	class FP_CM_Lightness_Cache_t *fp_cache;
-
 	bool apply_curve;
 	bool levels;
 	float a;
@@ -694,7 +688,11 @@ public:
 	bool do_histograms;
 	bool apply_gamma;
 	double gamut_strength;
-	Saturation_Gamut *sg;
+	std::shared_ptr<Saturation_Gamut> sg;
+	std::vector<long> hist_in = std::vector<long>(0);
+	std::vector<long> hist_out = std::vector<long>(0);
+
+	class FP_CM_Lightness_Cache_t *fp_cache;
 };
 
 //------------------------------------------------------------------------------
@@ -735,7 +733,6 @@ void FP_CM_Lightness::filter_pre(fp_cp_args_t *args) {
 	}
 
 	bool do_histograms = false;
-	//----------------------------
 	if(filter != nullptr)
 		do_histograms = true;
 	bool is_thumb = false;
@@ -756,7 +753,6 @@ void FP_CM_Lightness::filter_pre(fp_cp_args_t *args) {
 		}
 	}
 
-	//--
 	bool apply_gamma = false;
 	if(ps->enabled_gamma && ps->gamma != 1.0) {
 		apply_gamma = true;
@@ -767,7 +763,6 @@ void FP_CM_Lightness::filter_pre(fp_cp_args_t *args) {
 		}
 	}
 
-	//--
 	string cm_name;
 	args->mutators->get("CM", cm_name);
 	if(filter != nullptr)
@@ -779,7 +774,7 @@ void FP_CM_Lightness::filter_pre(fp_cp_args_t *args) {
 	double gamut_strength = 0.0;
 	if(ps->gamut_use)
 		gamut_strength = ps->gamut_strength;
-	Saturation_Gamut *sg = nullptr;
+	std::shared_ptr<Saturation_Gamut> sg;
 	if(gamut_strength != 0.0) {
 		string cm_name;
 		args->mutators->get("CM", cm_name);
@@ -788,24 +783,16 @@ void FP_CM_Lightness::filter_pre(fp_cp_args_t *args) {
 		args->mutators->get("CM_ocs", ocs_name);
 //		cerr << endl;
 //		cerr << "a new Saturation_Gamut(\"" << cm_name << "\", \"" << ocs_name << "\");" << endl;
-		sg = new Saturation_Gamut(cm_type, ocs_name);
+		sg = std::shared_ptr<Saturation_Gamut>(new Saturation_Gamut(cm_type, ocs_name));
 	}
 
 	for(int i = 0; i < args->threads_count; ++i) {
 		task_t *task = new task_t;
 		task->fp_cache = fp_cache;
 		if(do_histograms) {
-			task->hist_in = QVector<long>(HIST_SIZE);
-			task->hist_out = QVector<long>(HIST_SIZE);
-		} else {
-			task->hist_in = QVector<long>(0);
-			task->hist_out = QVector<long>(0);
+			task->hist_in.resize(HIST_SIZE, 0);
+			task->hist_out.resize(HIST_SIZE, 0);
 		}
-		for(int j = 0; j < task->hist_in.size(); ++j)
-			task->hist_in[j] = 0;
-		for(int j = 0; j < task->hist_out.size(); ++j)
-			task->hist_out[j] = 0;
-
 		task->levels = levels;
 		task->a = a;
 		task->b = b;
@@ -814,15 +801,12 @@ void FP_CM_Lightness::filter_pre(fp_cp_args_t *args) {
 		task->apply_curve = ps->enabled;
 		task->gamut_strength = gamut_strength;
 		task->sg = sg;
-		args->ptr_private[i] = (void *)task;
+		args->vector_private[i] = std::unique_ptr<fp_cp_task_t>(task);
 	}
 }
 
 void FP_CM_Lightness::filter_post(fp_cp_args_t *args) {
-	task_t *task = (task_t *)args->ptr_private[0];
-	task_t **tasks = (task_t **)&args->ptr_private[0];
-	if(task->sg != nullptr)
-		delete task->sg;
+	task_t *task = (task_t *)args->vector_private[0].get();
 	if(task->do_histograms) {
 		QVector<long> hist_in = QVector<long>(HIST_SIZE);
 		QVector<long> hist_out = QVector<long>(HIST_SIZE);
@@ -830,8 +814,9 @@ void FP_CM_Lightness::filter_post(fp_cp_args_t *args) {
 			hist_in[i] = 0;
 			hist_out[i] = 0;
 			for(int k = 0; k < args->threads_count; ++k) {
-				hist_in[i] += tasks[k]->hist_in[i];
-				hist_out[i] += tasks[k]->hist_out[i];
+				task = (task_t *)args->vector_private[k].get();
+				hist_in[i] += task->hist_in[i];
+				hist_out[i] += task->hist_out[i];
 			}
 		}
 		if(args->filter != nullptr) {
@@ -842,47 +827,34 @@ void FP_CM_Lightness::filter_post(fp_cp_args_t *args) {
 //cerr << "args->fs_base == " << (unsigned long)args->fs_base << endl;
 			f->set_histograms(histogram_data, hist_in, hist_out);
 		}
-/*
-		if(args->fs_base == nullptr) {
-			((F_CM_Lightness *)args->filter)->set_histograms(hist_in, hist_out);
-		} else {
-			FS_CM_Lightness *fs = (FS_CM_Lightness *)args->fs_base;
-			fs->hist_before = hist_in;
-			fs->hist_after = hist_out;
-		}
-*/
-	}
-	for(int i = 0; i < args->threads_count; ++i) {
-		FP_CM_Lightness::task_t *t = (FP_CM_Lightness::task_t *)args->ptr_private[i];
-		delete t;
 	}
 }
 
-void FP_CM_Lightness::filter(float *pixel, void *data) {
-	task_t *task = (task_t *)data;
+void FP_CM_Lightness::filter(float *pixel, fp_cp_task_t *fp_cp_task) {
+	task_t *task = (task_t *)fp_cp_task;
 
 	bool func_table_J_is_one = task->fp_cache->func_table_J_is_one;
 
 	// here is no vectorization - so no profit from SSE2
 	float alpha = pixel[3];
 	float J = pixel[0];
-	float J_max = 1.0;
-	if(task->gamut_strength != 0.0 && task->sg != nullptr) {
+	float J_max = 1.0f;
+	if(task->gamut_strength != 0.0f && task->sg != nullptr) {
 		float j = task->sg->lightness_limit(pixel[1], pixel[2]);
-//		J_max = j + (1.0 - j) * (1.0 - task->gamut_strength);
-		J_max = 1.0 - task->gamut_strength + j * task->gamut_strength;
+//		J_max = j + (1.0f - j) * (1.0f - task->gamut_strength);
+		J_max = 1.0f - task->gamut_strength + j * task->gamut_strength;
 	}
 	pixel[0] /= J_max;
-	if(pixel[0] > 1.0)
-		pixel[0] = 1.0;
+	if(pixel[0] > 1.0f)
+		pixel[0] = 1.0f;
 	float original = pixel[0];
 	// apply curve on channel 'R' - i.e. J (CIECAm02) , L (CIELab)
 	if(task->apply_curve) {
 		if(task->levels) {
 			float value = pixel[0];
 			value = task->a * value + task->b;
-			if(value < 0.0)	value = 0.0;
-			if(value > 1.0)	value = 1.0;
+			if(value < 0.0f)	value = 0.0f;
+			if(value > 1.0f)	value = 1.0f;
 			pixel[0] = value;
 		}
 		if(!func_table_J_is_one) {
@@ -907,17 +879,17 @@ void FP_CM_Lightness::filter(float *pixel, void *data) {
 	if(J > J_max)
 		pixel[0] = J;
 	// Lightness histogram
-	if(task->hist_in.size() != 0 && alpha > 0.99) {
+	if(task->hist_in.size() != 0 && alpha > 0.99f) {
 //		long index = original * (HIST_SIZE - 1) + 0.05;
-		long index = h_in * (HIST_SIZE - 1) + 0.05;
+		long index = h_in * (HIST_SIZE - 1) + 0.05f;
 		ddr::clip(index, 0, HIST_SIZE - 1);
 //		if(index > HIST_SIZE - 1)	index = HIST_SIZE - 1;
 //		if(index < 0)		index = 0;
 		++task->hist_in[index];
 	}
-	if(task->hist_out.size() != 0 && alpha > 0.99) {
+	if(task->hist_out.size() != 0 && alpha > 0.99f) {
 //		long index = pixel[0] * (HIST_SIZE - 1) + 0.05;
-		long index = h_out * (HIST_SIZE - 1) + 0.05;
+		long index = h_out * (HIST_SIZE - 1) + 0.05f;
 		ddr::clip(index, 0, HIST_SIZE - 1);
 //		if(index > HIST_SIZE - 1)	index = HIST_SIZE - 1;
 //		if(index < 0)		index = 0;

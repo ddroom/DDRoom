@@ -9,11 +9,6 @@
  *
  */
 
-
-/*
- White and black balance and levels
- */
-
 #include <QtWidgets>
 
 #include "area.h"

@@ -746,7 +746,7 @@ void FP_Crop::size_backward(FP_size_t *fp_size, Area::t_dimensions *d_before, co
 Area *FP_Crop::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj) {
 	Area *area_out = nullptr;
 	SubFlow *subflow = mt_obj->subflow;
-	if(subflow->is_master()) {
+	if(subflow->is_main()) {
 		area_out = new Area(*process_obj->area_in);
 	}
 	return area_out;

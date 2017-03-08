@@ -94,7 +94,7 @@ public:
 	FP_Cache_t *new_FP_Cache(void);
 	bool is_enabled(const PS_Base *ps_base);
 	void filter_pre(fp_cp_args_t *args);
-	void filter(float *pixel, void *data);
+	void filter(float *pixel, fp_cp_task_t *fp_cp_task);
 	void filter_post(fp_cp_args_t *args);
 	
 protected:
@@ -296,14 +296,15 @@ FP_CM_Sepia_Cache_t::~FP_CM_Sepia_Cache_t() {
 //		delete tf_rainbow;
 }
 
-class FP_CM_Sepia::task_t {
+class FP_CM_Sepia::task_t : public fp_cp_task_t {
 public:
-//	class FP_CM_Sepia_Cache_t *fp_cache;
-//	bool apply_rainbow;
 	float sepia_hue;
 	float sepia_strength;
 	float sepia_saturation;
-	Saturation_Gamut *sg;
+	std::shared_ptr<Saturation_Gamut> sg;
+
+	task_t(void) {std::cerr << "FP_CM_Sepia :: task_t()" << std::endl;}
+	~task_t(void) {std::cerr << "FP_CM_Sepia ::~task_t()" << std::endl;}
 };
 
 //------------------------------------------------------------------------------
@@ -330,7 +331,7 @@ void FP_CM_Sepia::filter_pre(fp_cp_args_t *args) {
 	CM::cm_type_en cm_type = CM::get_type(cm_name);
 	string ocs_name = DEFAULT_OUTPUT_COLOR_SPACE;
 	args->mutators->get("CM_ocs", ocs_name);
-	Saturation_Gamut *sg = new Saturation_Gamut(cm_type, ocs_name);
+	std::shared_ptr<Saturation_Gamut> sg(new Saturation_Gamut(cm_type, ocs_name));
 	//--
 	for(int i = 0; i < args->threads_count; ++i) {
 		task_t *task = new task_t;
@@ -338,23 +339,15 @@ void FP_CM_Sepia::filter_pre(fp_cp_args_t *args) {
 		task->sepia_strength = ps->sepia_strength;
 		task->sepia_saturation = ps->sepia_saturation;
 		task->sg = sg;
-		args->ptr_private[i] = (void *)task;
+		args->vector_private[i] = std::unique_ptr<fp_cp_task_t>(task);
 	}
 }
 
 void FP_CM_Sepia::filter_post(fp_cp_args_t *args) {
-	task_t *task = (task_t *)args->ptr_private[0];
-	if(task->sg != nullptr)
-		delete task->sg;
-//	task_t **tasks = (task_t **)&args->ptr_private[0];
-	for(int i = 0; i < args->threads_count; ++i) {
-		FP_CM_Sepia::task_t *t = (FP_CM_Sepia::task_t *)args->ptr_private[i];
-		delete t;
-	}
 }
 
-void FP_CM_Sepia::filter(float *pixel, void *data) {
-	task_t *task = (task_t *)data;
+void FP_CM_Sepia::filter(float *pixel, fp_cp_task_t *fp_cp_task) {
+	task_t *task = (task_t *)fp_cp_task;
 	pixel[2] = task->sepia_hue;
 	if(task->sepia_strength > 0.0) {
 		float s_edge = task->sg->saturation_limit(pixel[0], pixel[2]);

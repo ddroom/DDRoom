@@ -9,7 +9,6 @@
  *
  */
 
-
 #include <QtWidgets>
 
 #include "browser.h"

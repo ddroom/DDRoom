@@ -9,6 +9,7 @@
 
 #include <iostream>
 
+#include "ddr_math.h"
 #include "f_soften.h"
 #include "system.h"
 #include "gui_slider.h"
@@ -243,16 +244,12 @@ class FP_Soften::task_t {
 public:
 	Area *area_in;
 	Area *area_out;
-	PS_Soften *ps;
-	std::atomic_int *y_flow;
-
-	const float *kernel;
-	int kernel_length;
-	int kernel_offset;
-	float strength;
-
 	int in_x_offset;
 	int in_y_offset;
+	std::atomic_int *y_flow;
+
+	GaussianKernel *kernel;
+	float strength;
 };
 
 FP_Soften::FP_Soften(void) : FilterProcess_2D() {
@@ -325,14 +322,13 @@ Area *FP_Soften::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_
 	Area *area_in = process_obj->area_in;
 	Area *area_out = nullptr;
 
-	task_t **tasks = nullptr;
-	std::atomic_int *y_flow = nullptr;
-	float *kernel = nullptr;
+	std::unique_ptr<std::atomic_int> y_flow;
+	std::unique_ptr<GaussianKernel> kernel;
+	std::vector<std::unique_ptr<task_t>> tasks(0);
 
 	if(subflow->sync_point_pre()) {
 		// non-destructive processing
-		int threads_count = subflow->threads_count();
-		tasks = new task_t *[threads_count];
+		const int threads_count = subflow->threads_count();
 
 		const double px_size_x = area_in->dimensions()->position.px_size_x;
 		const double px_size_y = area_in->dimensions()->position.px_size_y;
@@ -349,23 +345,8 @@ Area *FP_Soften::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_
 
 		// gaussian kernel
 		const float sigma = (radius * 2.0) / 6.0;
-		const float sigma_sq = sigma * sigma;
 		const int kernel_length = 2 * floor(radius) + 1;
-		const int kernel_offset = -floor(radius);
-		const float kernel_offset_f = -floor(radius);
-		kernel = new float[kernel_length * kernel_length];
-		for(int y = 0; y < kernel_length; ++y) {
-			for(int x = 0; x < kernel_length; ++x) {
-				float fx = kernel_offset_f + x;
-				float fy = kernel_offset_f + y;
-				float z = sqrtf(fx * fx + fy * fy);
-				float w = (1.0 / sqrtf(2.0 * M_PI * sigma_sq)) * expf(-(z * z) / (2.0 * sigma_sq));
-				int index = y * kernel_length + x;
-				kernel[index] = w;
-			}
-		}
-//		int kernel_length;
-//		kernel = GaussianKernel_2D::get_kernel(ps->radius, kernel_length);
+		kernel = decltype(kernel)(new GaussianKernel(sigma, kernel_length, kernel_length));
 
 		Area::t_dimensions d_out = *area_in->dimensions();
 		Tile_t::t_position &tp = process_obj->position;
@@ -378,42 +359,35 @@ Area *FP_Soften::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_
 		d_out.edges.x2 = 0;
 		d_out.edges.y1 = 0;
 		d_out.edges.y2 = 0;
-		int in_x_offset = (tp.x - area_in->dimensions()->position.x) / px_size_x + 0.5 + area_in->dimensions()->edges.x1;
-		int in_y_offset = (tp.y - area_in->dimensions()->position.y) / px_size_y + 0.5 + area_in->dimensions()->edges.y1;
+		const int in_x_offset = (tp.x - area_in->dimensions()->position.x) / px_size_x + 0.5 + area_in->dimensions()->edges.x1;
+		const int in_y_offset = (tp.y - area_in->dimensions()->position.y) / px_size_y + 0.5 + area_in->dimensions()->edges.y1;
+
 		area_out = new Area(&d_out);
 		process_obj->OOM |= !area_out->valid();
 
-		y_flow = new std::atomic_int(0);
+		y_flow = decltype(y_flow)(new std::atomic_int(0));
+		tasks.resize(threads_count);
 		for(int i = 0; i < threads_count; ++i) {
-			tasks[i] = new task_t;
-			tasks[i]->area_in = area_in;
-			tasks[i]->area_out = area_out;
-			tasks[i]->ps = ps;
-			tasks[i]->y_flow = y_flow;
+			tasks[i] = std::unique_ptr<task_t>(new task_t);
+			task_t *task = tasks[i].get();
+			task->area_in = area_in;
+			task->area_out = area_out;
+			task->in_x_offset = in_x_offset;
+			task->in_y_offset = in_y_offset;
+			task->y_flow = y_flow.get();
 
-			tasks[i]->kernel = kernel;
-			tasks[i]->kernel_length = kernel_length;
-			tasks[i]->kernel_offset = kernel_offset;
-			tasks[i]->strength = ps->strength;
+			task->kernel = kernel.get();
+			task->strength = ps->strength;
 
-			tasks[i]->in_x_offset = in_x_offset;
-			tasks[i]->in_y_offset = in_y_offset;
+			subflow->set_private(task, i);
 		}
-		subflow->set_private((void **)tasks);
 	}
 	subflow->sync_point_post();
 
 	if(!process_obj->OOM)
 		process(subflow);
 
-	if(subflow->sync_point_pre()) {
-		delete y_flow;
-		for(int i = 0; i < subflow->threads_count(); ++i)
-			delete tasks[i];
-		delete[] tasks;
-		delete[] kernel;
-	}
-	subflow->sync_point_post();
+	subflow->sync_point();
 	return area_out;
 }
 
@@ -436,9 +410,8 @@ void FP_Soften::process(class SubFlow *subflow) {
 	float *in = (float *)task->area_in->ptr();
 	float *out = (float *)task->area_out->ptr();
 
-	const float *kernel = task->kernel;
-	int kernel_length = task->kernel_length;
-	int kernel_offset = task->kernel_offset;
+	const int kernel_length = task->kernel->width();
+	const int kernel_offset = task->kernel->offset_x();
 	const float strength = task->strength;
 	float s_sharp = 1.0;
 	float s_blur = strength;
@@ -463,7 +436,7 @@ void FP_Soften::process(class SubFlow *subflow) {
 			}
 			for(int ci = 0; ci < 3; ++ci) {
 				float v_blur = 0.0;
-				float v_blur_w = 0.0;
+				float blur_w = 0.0;
 				for(int y = 0; y < kernel_length; ++y) {
 					for(int x = 0; x < kernel_length; ++x) {
 						const int in_x = i + x + kernel_offset + in_x_offset;
@@ -473,17 +446,18 @@ void FP_Soften::process(class SubFlow *subflow) {
 //							if(alpha == 1.0) {
 							if(alpha > 0.95) {
 								float v_in = in[(in_y * in_width + in_x) * 4 + ci];
-								float kv = kernel[y * kernel_length + x];
+								float kv = task->kernel->value(x, y);
 								v_blur += v_in * kv;
-								v_blur_w += kv;
+								blur_w += kv;
 							}
 						}
 					}
 				}
-				if(v_blur_w == 0.0) {
+				if(blur_w == 0.0) {
+					out[k + 0] = 0.0;
 					out[k + 3] = 0.0;
 				} else {
-					v_blur /= v_blur_w;
+					v_blur /= blur_w;
 					out[k + ci] = (in[l + ci] * s_sharp + v_blur * s_blur) / s_normalize;
 				}
 			}

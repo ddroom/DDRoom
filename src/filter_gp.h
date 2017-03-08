@@ -88,7 +88,6 @@ protected:
 	void size_backward_point(float out_x, float out_y, bool *flag_min_max, float *x_min_max, float *y_min_max);
 
 	bool is_enabled_v(const PS_Base *ps_base);
-	class task_t;
 	//--
 	class task_coordinates_prep_t;
 	class task_coordinates_t;

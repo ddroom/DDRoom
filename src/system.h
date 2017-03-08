@@ -9,13 +9,9 @@
  *
  */
 
-
-//#include <map>
 #include <vector>
 #include <string>
 #include <chrono>
-
-#include <QtWidgets>
 
 #define PROFILER_HIGH_RES_CLOCK
 
@@ -38,8 +34,9 @@ protected:
 };
 
 //------------------------------------------------------------------------------
-class System : public QObject {
-	Q_OBJECT
+//class System : public QObject {
+//	Q_OBJECT
+class System {
 
 public:
 	static System *instance() {
@@ -55,8 +52,8 @@ public:
 
 	struct lfDatabase *ldb(void);
 
-protected slots:
-	void slot_config_changed(void);
+	// update according to changed config
+	void update_to_config(void);
 
 protected:
 	static System *_this;

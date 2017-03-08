@@ -2,7 +2,7 @@
  * gui_curve_histogram.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -26,8 +26,15 @@ void GUI_Curve_Histogram::draw_histogram(QPainter *painter, int size_w, int size
 	QVector<long> *hist_ptr[2] = {nullptr, nullptr};
 	int hist_size = size_w;
 	data_lock.lock();
-	if(data != nullptr) {
+	bool data_not_ready_yet = (data == nullptr);
+	if(data_not_ready_yet == false) {
+		data_not_ready_yet |= data->hist_before.size() == 0;
+		data_not_ready_yet |= data->hist_after.size() == 0;
+	}
+	if(data_not_ready_yet == false) {
 		if(lightness_only) {
+//cerr << "data->hist_before.size() == " << data->hist_before.size() << endl;
+//cerr << "data->hist_after.size()  == " << data->hist_after.size() << endl;
 			if(data->hist_before_scaled.size() != size_w)
 				data->hist_before_scaled = GUI_Histogram::rescale_histogram(data->hist_before, size_w);
 			if(data->hist_after_scaled.size() != size_w)

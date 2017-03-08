@@ -2,7 +2,7 @@
  * dcraw.cpp
  *
  * Used modified 'dcraw.c' with corresponding credits.
- * Credits for 'ddroom' adaptation: (C) 2015 Mykhailo Malyshko a.k.a. Spectr.
+ * Credits for 'ddroom' adaptation: (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */

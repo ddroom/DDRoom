@@ -56,6 +56,7 @@ public:
 		int32_t y1 = 0;	// top offset
 		int32_t y2 = 0;	// bottom offset
 		t_edges() = default;
+		void reset(void) {x1 = 0; x2 = 0; y1 = 0; y2 = 0;}
 		t_edges(int32_t _x1, int32_t _x2, int32_t _y1, int32_t _y2) : x1(_x1), x2(_x2), y1(_y1), y2(_y2) {}
 	};
 

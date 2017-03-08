@@ -550,8 +550,8 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 //			if(C[0] < median_high && C[2] < median_high && C[0] > median_low && C[2] > median_low) {
 				float dd = ddr::abs(C[0] - C[2]);
 				_rgba[k + 1] = dd;
-				long dd_index = (dd * task->dd_hist_scale) * task->dd_hist_size;
-				if(dd_index > 0 && dd_index < task->dd_hist_size)
+				long dd_index = (dd * task->dd_hist_scale) * task->dd_hist.size();
+				if(dd_index >= 0 && dd_index < task->dd_hist.size())
 					++task->dd_hist[dd_index];
 //			}
 			}
@@ -589,10 +589,11 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 	//       and pprobably not a linear shift function (?)
 	// Looks like dd (direction delta) is not the same in dark and bright areas - measure it.
 	if(subflow->sync_point_pre()) {
-		long *dd_hist = task->dd_hist;
-		long dd_hist_size = task->dd_hist_size;
+		// TODO: try it with the single std::vector<std::atomic_int>
+		std::vector<long> &dd_hist = task->dd_hist;
+		long dd_hist_size = dd_hist.size();
 		for(int i = 1; i < subflow->threads_count(); ++i) {
-			task_t *_task = ((task_t **)task->_tasks)[i];
+			task_t *_task = (task_t *)subflow->get_private(i);
 			for(int k = 0; k < dd_hist_size; ++k)
 				dd_hist[k] += _task->dd_hist[k];
 		}
@@ -605,11 +606,11 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 				dd_limit = ((float(k + 1) / dd_hist_size) * task->dd_hist_scale) / 0.9f;
 				break;
 			}
-		dd_limit *= 9.0f;
-//		dd_limit *= 3.0f;
+//		dd_limit *= 9.0f;
+		dd_limit *= 3.0f;
 //		dd_limit = 0.06f;
 		for(int i = 0; i < subflow->threads_count(); ++i) {
-			task_t *_task = ((task_t **)task->_tasks)[i];
+			task_t *_task = (task_t *)subflow->get_private(i);
 			_task->dd_limit = dd_limit;
 		}
 //		cerr << "dd_limit for median == " << median << " == " << dd_limit << endl;

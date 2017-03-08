@@ -15,6 +15,7 @@
 #include "config.h"
 #include "dataset.h"
 #include "gui_slider.h"
+#include "system.h"
 
 #include <iostream>
 #include <fstream>
@@ -56,6 +57,7 @@ void Config::show_preferences_dialog(QWidget *parent_window) {
 	bool accepted = pref->exec();
 	if(accepted) {
 		Config::config_dataset = pref->dataset;
+		System::instance()->update_to_config();
 		emit changed();
 	}
 	delete pref;

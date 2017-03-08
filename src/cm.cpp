@@ -81,9 +81,9 @@ using namespace std;
 #define CIELAB_TABLES_SIZE	32768
 //------------------------------------------------------------------------------
 float h_to_H_quadrant(float h) {
-	h *= 360.0;
-	while(h < 20.14)	h += 360.0;
-	while(h >= 380.14)	h -= 360.0;
+	h *= 360.0f;
+	while(h < 20.14f)	h += 360.0f;
+	while(h >= 380.14f)	h -= 360.0f;
 	// red, yelow, green, blue, red
 	// ??? for CIELab - 24, 90, 162, 246 ???
 	const float hi[] = {20.14, 90.0, 164.25, 237.53, 380.14};
@@ -92,39 +92,39 @@ float h_to_H_quadrant(float h) {
 	float H = 0.0;
 	for(int i = 0; i < 4; ++i) {
 		if(h < hi[i + 1]) {
-			H = Hi[i] + (100 * (h - hi[i]) / ei[i]) / ((h - hi[i]) / ei[i] + (hi[i + 1] - h) / ei[i + 1]);
+			H = Hi[i] + (100.0f * (h - hi[i]) / ei[i]) / ((h - hi[i]) / ei[i] + (hi[i + 1] - h) / ei[i + 1]);
 			break;
 //			return Hi[i] + (100 * (h - hi[i]) / ei[i]) / ((h - hi[i]) / ei[i] + (hi[i + 1] - h) / ei[i + 1]);
 		}
 	}
-	while(H >= 400.0) H -= 400.0;
-	while(H < 0.0) H += 400.0;
-	H /= 400.0;
+	while(H >= 400.0f) H -= 400.0f;
+	while(H < 0.0f) H += 400.0f;
+	H /= 400.0f;
 	return H;
 }
 
 float H_quadrant_to_h(float H) {
-	H *= 400.0;
-	while(H < 0.0) H += 400.0;
-	while(H >= 400.0) H -= 400.0;
+	H *= 400.0f;
+	while(H < 0.0f) H += 400.0f;
+	while(H >= 400.0f) H -= 400.0f;
 	// H == [0.0, 400.0)
 	const float hi[] = {20.14, 90.0, 164.25, 237.53, 380.14};
 	const float ei[] = {0.8, 0.7, 1.0, 1.2, 0.8};
 	const float Hi[] = {0.0, 100.0, 200.0, 300.0, 400.0};
-	float h = 0.0;
+	float h = 0.0f;
 	for(int i = 0; i < 4; ++i) {
 		if(H >= Hi[i] && H < Hi[i + 1]) {
 			float A1 = (H - Hi[i]) / ei[i];
 			float A2 = (H - Hi[i]) / ei[i + 1];
-			float A3 = 100.0 / ei[i];
+			float A3 = 100.0f / ei[i];
 			h = ((A1 - A3) * hi[i] - A2 * hi[i + 1]) / (A1 - A2 - A3);
 			break;
 		}
 	}
-//	float h = (H / 400.0) * 360.0;
-	while(h < 0.0)	h += 360.0;
-	while(h >= 360.0)	h -= 360.0;
-	h /= 360.0;
+//	float h = (H / 400.0f) * 360.0f;
+	while(h < 0.0f)	h += 360.0f;
+	while(h >= 360.0f)	h -= 360.0f;
+	h /= 360.0f;
 	return h;
 }
 
@@ -190,7 +190,7 @@ float CIELab_Convert::get_C_from_Jsh(const float *Jsh) {
 }
 
 float CIELab_Convert::get_s_from_JCh(const float *JCh) {
-	if(JCh[0] > 0.00001)
+	if(JCh[0] > 0.00001f)
 		return JCh[1] / JCh[0];
 	return 0.0;
 }
@@ -199,17 +199,18 @@ float CIELab_Convert::get_s_from_JCh(const float *JCh) {
 class TF_CIELab : public TableFunction {
 public:
 	TF_CIELab(void) {
-		_init(0.0, 1.95, CIELAB_TABLES_SIZE);
+		_init(0.0f, 1.95f, CIELAB_TABLES_SIZE);
 	}
 protected:
 	float function(float x) {
 //		const static float _e = (6.0 / 29.0) * (6.0 / 29.0) * (6.0 / 29.0) / 100.0;
 //		const static float _f1 = ((1.0 / 3.0) * (29.0 / 6.0) * (29.0 / 6.0)) / 100.0;
 //		const static float _f2 = (4.0 / 29.0) / 100.0;
-		if(x < 0.0)	return 0.0;
-		if(x > 1.0)	return 1.0;
+		x = ddr::clip(x);
+//		if(x < 0.0)	return 0.0;
+//		if(x > 1.0)	return 1.0;
 //		if(x > _e)
-			return powf(x, 1.0 / 3.0);
+			return powf(x, 1.0f / 3.0f);
 //		else
 //			return _f1 * x + _f2;
 	}
@@ -238,18 +239,18 @@ void CIELab_XYZ_to_Jsh::convert(float *Jsh, const float *XYZ) {
 	float fY = (*tf_lab)(XYZa[1]);
 	float fZ = (*tf_lab)(XYZa[2]);
 	//--
-	Jsh[0] = (1.16 * fY - 0.16);
-	float a = 5.0 * (fX - fY);
-	float b = 2.0 * (fY - fZ);
+	Jsh[0] = (1.16f * fY - 0.16f);
+	float a = 5.0f * (fX - fY);
+	float b = 2.0f * (fY - fZ);
 	Jsh[1] = sqrtf(a * a + b * b);
-	Jsh[2] = ((180.0 / M_PI) * atan2f(b, a)) / 360.0;
-	if(Jsh[2] < 0.0)
-		Jsh[2] += 1.0;
-	if(Jsh[0] > 0.00001)
+	Jsh[2] = ((180.0f / M_PI) * atan2f(b, a)) / 360.0f;
+	if(Jsh[2] < 0.0f)
+		Jsh[2] += 1.0f;
+	if(Jsh[0] > 0.00001f)
 		Jsh[1] = sqrtf(Jsh[1] / (0.1 * sqrtf(Jsh[0])));
 //		Jsh[1] /= Jsh[0];
 	else
-		Jsh[1] = 0.0;
+		Jsh[1] = 0.0f;
 #ifdef USE_HUE_QUADRANT
 	Jsh[2] = h_to_H_quadrant(Jsh[2]);
 #endif
@@ -270,15 +271,15 @@ void CIELab_Jsh_to_XYZ::convert(float *XYZ, const float *Jsh) {
 #ifdef USE_HUE_QUADRANT
 	h = H_quadrant_to_h(h);
 #endif
-	h *= 2.0 * M_PI;
+	h *= 2.0f * M_PI;
 	float L = Jsh[0];
 //	if(L > 1.0)	L = 1.0;
 //	if(L < 0.0)	L = 0.0;
-	float C = Jsh[1] * Jsh[1] * 0.1 * sqrtf(L);
+	float C = Jsh[1] * Jsh[1] * 0.1f * sqrtf(L);
 
-	float Y = (L + 0.16) / 1.16;
-	float X = Y + C * cosf(h) / 5.0;
-	float Z = Y - C * sinf(h) / 2.0;
+	float Y = (L + 0.16f) / 1.16f;
+	float X = Y + C * cosf(h) / 5.0f;
+	float Z = Y - C * sinf(h) / 2.0f;
 
 	// convert to XYZ
 	float XYZa[3];
@@ -341,9 +342,9 @@ CIELab::~CIELab() {
 
 //==============================================================================
 #define CIECAM02_TABLES_SIZE 	16384
-#define CIECAM02_TF_T_L1_MAX	1.0
-#define CIECAM02_TF_T_L2_MAX	800.0
-#define CIECAM02_TF_T_L3_MAX	6000.0
+#define CIECAM02_TF_T_L1_MAX	1.0f
+#define CIECAM02_TF_T_L2_MAX	800.0f
+#define CIECAM02_TF_T_L3_MAX	6000.0f
 
 class TF_pow : public TableFunction {
 public:
@@ -357,33 +358,33 @@ protected:
 
 class TF_nonlinear_post_adaptation : public TableFunction {
 public:
-	TF_nonlinear_post_adaptation(float _c) : c(_c / 100.0) {
-		_init(0.0, 2.0, CIECAM02_TABLES_SIZE);
+	TF_nonlinear_post_adaptation(float _c) : c(_c / 100.0f) {
+		_init(0.0f, 2.0f, CIECAM02_TABLES_SIZE);
 	}
 protected:
 	const float c;
 	float function(float x) {
 		// fix brightness/purple problem -*1
-		if(x < 0.0)	x = 0.0;
-		x = powf(x * c, 0.42);
-		x = ((400.0 * x) / (27.13 + x)) + 0.1;
+		if(x < 0.0f)	x = 0.0f;
+		x = powf(x * c, 0.42f);
+		x = ((400.0f * x) / (27.13f + x)) + 0.1f;
 		return x;
 	}
 };
 
 class TF_inverse_nonlinear_post_adaptation : public TableFunction {
 public:
-	TF_inverse_nonlinear_post_adaptation(float _c) : c(100.0 / _c) {
-		_init(0.0, 2.0, CIECAM02_TABLES_SIZE);
+	TF_inverse_nonlinear_post_adaptation(float _c) : c(100.0f / _c) {
+		_init(0.0f, 2.0f, CIECAM02_TABLES_SIZE);
 	}
 protected:
 	const float c;
 	float function(float x) {
-//		if(x < 0.1)	x = 0.1;
-		x = (27.13 * (x - 0.1)) / (400.0 - (x - 0.1));
-		if(x <= 0.0)
-			return 0;
-		x = c * powf(x, 1.0 / 0.42);
+//		if(x < 0.1f)	x = 0.1f;
+		x = (27.13f * (x - 0.1f)) / (400.0f - (x - 0.1f));
+		if(x <= 0.0f)
+			return 0.0f;
+		x = c * powf(x, 1.0f / 0.42f);
 		return x;
 	}
 };
@@ -468,8 +469,8 @@ float CIECAM02_Convert::get_C_from_Jsh(const float *Jsh) {
 }
 
 float CIECAM02_Convert::get_s_from_JCh(const float *JCh) {
-	float s = 0.0;
-	if(JCh[0] > 0.0001)
+	float s = 0.0f;
+	if(JCh[0] > 0.0001f)
 		s = sqrtf(JCh[1] / (sqrtf(JCh[0]) * cat02_s_const));
 	return s;
 }
@@ -498,27 +499,27 @@ void CIECAM02_XYZ_to_Jsh::convert(float *Jsh, const float *XYZ) {
 	float Ra = (*tf_nonlinear_post_adaptation)(HPE[0]);
 	float Ga = (*tf_nonlinear_post_adaptation)(HPE[1]);
 	float Ba = (*tf_nonlinear_post_adaptation)(HPE[2]);
-	float a = Ra - Ga * (12.0 / 11.0) + Ba / 11.0;
-	float b = (1.0 / 9.0) * (Ra + Ga - 2.0 * Ba);
+	float a = Ra - Ga * (12.0f / 11.0f) + Ba / 11.0f;
+	float b = (1.0f / 9.0f) * (Ra + Ga - 2.0f * Ba);
 	Jsh[2] = atan2f(b, a);
-	float e = _e_mult_const * (cosf(Jsh[2] + 2.0) + 3.8);
-	float t_div = Ra + Ga + Ba * (21.0 / 20.0);
-	if(t_div < 0.000001)	t_div = 0.000001;
+	float e = _e_mult_const * (cosf(Jsh[2] + 2.0f) + 3.8f);
+	float t_div = Ra + Ga + Ba * (21.0f / 20.0f);
+	if(t_div < 0.000001f)	t_div = 0.000001f;
 	float t = (e * sqrtf((a * a) + (b * b))) / t_div;
-//	float A = (2.0 * Ra + Ga + 0.05 * Ba - 0.305) * _Nbb;
-	float A = (PERC_SCALE_R * Ra + PERC_SCALE_G * Ga + PERC_SCALE_B * Ba - 0.305) * _Nbb;
-	if(A < 0.0) A = 0.0;
+//	float A = (2.0f * Ra + Ga + 0.05f * Ba - 0.305f) * _Nbb;
+	float A = (PERC_SCALE_R * Ra + PERC_SCALE_G * Ga + PERC_SCALE_B * Ba - 0.305f) * _Nbb;
+	if(A < 0.0f) A = 0.0f;
 	Jsh[0] = (*tf_tJ)(A / cat02_Aw);
 	Jsh[1] = sqrtf((tf_tc(t) * _C_pow_const) / cat02_s_const);
-	if(Jsh[2] < 0.0)	Jsh[2] += M_PI * 2.0;
-	Jsh[2] /= (M_PI * 2.0);
+	if(Jsh[2] < 0.0f)	Jsh[2] += M_PI * 2.0f;
+	Jsh[2] /= (M_PI * 2.0f);
 #ifdef USE_HUE_QUADRANT
 	Jsh[2] = h_to_H_quadrant(Jsh[2]);
 #endif
 }
 
 float CIECAM02_XYZ_to_Jsh::tf_tc(float tx) {
-	if(tx >= 0.0 && tx < CIECAM02_TF_T_L3_MAX) {
+	if(tx >= 0.0f && tx < CIECAM02_TF_T_L3_MAX) {
 		if(tx < CIECAM02_TF_T_L1_MAX) {
 			return (*tf_tc_l1)(tx);
 		} else {
@@ -557,49 +558,49 @@ void CIECAM02_Jsh_to_XYZ::convert(float *XYZ, const float *_Jsh) {
 #ifdef USE_HUE_QUADRANT
 	h = H_quadrant_to_h(h);
 #endif
-	h *= 2.0 * M_PI;
-	if(J <= 0.0001) // 0.01 step in [0 - 100] scale
-		J = 0.0001;
-	float e = _e_mult_const * (cosf(h + 2.0) + 3.8);	// (18)
+	h *= 2.0f * M_PI;
+	if(J <= 0.0001f) // 0.01 step in [0 - 100] scale
+		J = 0.0001f;
+	float e = _e_mult_const * (cosf(h + 2.0f) + 3.8f);	// (18)
 	float A = (*tf_tf)(J) * cat02_Aw;	// (21)
 	float t = tf_t((s * s * cat02_s_const) / _t_pow_const);	// (23), (25)
 
 	// formulas - (R, G, B) = F(A, a, b)
-	float v_in[3] = {0, 0, (A / _Nbb) + float(0.305)};
+	float v_in[3] = {0, 0, (A / _Nbb) + 0.305f};
 	float m_forward[9];
 	m_forward[6] = PERC_SCALE_R;	// 2.0
 	m_forward[7] = PERC_SCALE_G;	// 1.0
 	m_forward[8] = PERC_SCALE_B;	// 0.05
-	float sign_a = 1.0;
-	if(h > M_PI * 0.5 && h < M_PI * 1.5) sign_a = -1.0;
-	float sign_b = 1.0;
+	float sign_a = 1.0f;
+	if(h > M_PI * 0.5f && h < M_PI * 1.5f) sign_a = -1.0f;
+	float sign_b = 1.0f;
 	if(h > M_PI) {
 		h -= M_PI;
-		sign_b = -1.0;
+		sign_b = -1.0f;
 	}
-	if(h < M_PI * 0.25 || h > M_PI * 0.75) {
+	if(h < M_PI * 0.25f || h > M_PI * 0.75f) {
 		float tn = tanf(h);
-		float Ct = sign_a * fabs((e / t) * sqrtf(1.0 + tn * tn));
-		float Ctn = sign_b * fabs((9.0 * tn) / Ct);
-		float Ct_r = 1.0 / Ct;
-		m_forward[0] = 1.0 - Ct_r;
-		m_forward[1] = -(12.0 / 11.0) - Ct_r;
-		m_forward[2] = 1.0 / 11.0 - Ct_r;
-		m_forward[3] = 1.0 - Ctn;
+		float Ct = sign_a * fabs((e / t) * sqrtf(1.0f + tn * tn));
+		float Ctn = sign_b * fabs((9.0f * tn) / Ct);
+		float Ct_r = 1.0f / Ct;
+		m_forward[0] = 1.0f - Ct_r;
+		m_forward[1] = -(12.0f / 11.0f) - Ct_r;
+		m_forward[2] = 1.0f / 11.0f - Ct_r;
+		m_forward[3] = 1.0f - Ctn;
 		m_forward[4] = m_forward[3];
-		m_forward[5] = -2.0 - (21.0 / 20.0) * Ctn;
+		m_forward[5] = -2.0f - (21.0f / 20.0f) * Ctn;
 	} else {
-		h = M_PI * 0.5 - h;
+		h = M_PI * 0.5f - h;
 		float tn = tanf(h);
-		float Ct = sign_b * fabs((e / t) * sqrtf(1.0 + tn * tn));
+		float Ct = sign_b * fabs((e / t) * sqrtf(1.0f + tn * tn));
 		float Ctn = sign_a * fabs(tn / Ct);
-		float Ct_r = 9.0 / Ct;
-		m_forward[0] = 1.0 - Ctn;
-		m_forward[1] = -(12.0 / 11.0) - Ctn;
-		m_forward[2] = 1.0 / 11.0 - Ctn;
-		m_forward[3] = 1.0 - Ct_r;
+		float Ct_r = 9.0f / Ct;
+		m_forward[0] = 1.0f - Ctn;
+		m_forward[1] = -(12.0f / 11.0f) - Ctn;
+		m_forward[2] = 1.0f / 11.0f - Ctn;
+		m_forward[3] = 1.0f - Ct_r;
 		m_forward[4] = m_forward[3];
-		m_forward[5] = -2.0 - (21.0 / 20.0) * Ct_r;
+		m_forward[5] = -2.0f - (21.0f / 20.0f) * Ct_r;
 	}
 	// solution
 	float m_backward[9];
@@ -616,14 +617,14 @@ void CIECAM02_Jsh_to_XYZ::convert(float *XYZ, const float *_Jsh) {
 }
 
 float CIECAM02_Jsh_to_XYZ::tf_t(float tx) {
-	if(tx >= 0.0 && tx <= CIECAM02_TF_T_L3_MAX) {
+	if(tx >= 0.0f && tx <= CIECAM02_TF_T_L3_MAX) {
 		if(tx < CIECAM02_TF_T_L1_MAX) {
 			return (*tf_t_l1)(tx);
 		} else {
 			return (*tf_t_l2)(tx);
 		}
 	} else {
-		return powf(tx, 10.0 / 9.0);
+		return powf(tx, 10.0f / 9.0f);
 	}
 }
 //------------------------------------------------------------------------------
@@ -701,16 +702,16 @@ cerr << "\tcs white out: " << cs_white_out.get_name() << endl;
 	double _CAT02w[3];
 	m3_v3_mult(_CAT02w, m_XYZ_to_CAT02, _XYZw);
 	for(int i = 0; i < 3; ++i)
-		cat02->scale[i] = (((_XYZw[1] * _D) / _CAT02w[i]) + (1.0 - _D));
-	cat02->_s_const = (4.0 / _vc_c) * (cat02->Aw + 4.0); 
+		cat02->scale[i] = (((_XYZw[1] * _D) / _CAT02w[i]) + (1.0f - _D));
+	cat02->_s_const = (4.0f / _vc_c) * (cat02->Aw + 4.0f); 
 	// CAT02 related matrices
 	double m1[9];
 	double m2[9];
 	double vk1[9];
 	double vk2[9];
 	for(int i = 0; i < 9; ++i) {
-		vk1[i] = 0.0;
-		vk2[i] = 0.0;
+		vk1[i] = 0.0f;
+		vk2[i] = 0.0f;
 	}
 	double V_in[3];
 	double V_out[3];
@@ -724,7 +725,7 @@ cerr << "\tcs white out: " << cs_white_out.get_name() << endl;
 		if(use_CAT == false) {
 			// CAT02 XYZ to HPE
 			for(int i = 0; i < 3; ++i) {
-				vk1[i * 3 + i] = 1.0 / V_in[i];
+				vk1[i * 3 + i] = 1.0f / V_in[i];
 				vk2[i * 3 + i] = V_out[i];
 			}
 			m3_m3_mult(m2, vk1, m_XYZ_to_CAT02);
@@ -755,7 +756,7 @@ cerr << "\tcs white out: " << cs_white_out.get_name() << endl;
 					m1[i * 3 + j] /= (double)cat02->scale[i];
 			for(int i = 0; i < 3; ++i) {
 				vk1[i * 3 + i] = V_in[i];
-				vk2[i * 3 + i] = 1.0 / V_out[i];
+				vk2[i * 3 + i] = 1.0f / V_out[i];
 			}
 			m3_invert(m2, vk1);
 			m3_m3_mult(vk1, m2, m1);
@@ -779,10 +780,10 @@ cerr << "\tcs white out: " << cs_white_out.get_name() << endl;
 }
 
 CIECAM02_priv::CIECAM02_priv(void) {
-	_vc_La = 16.0;
-	_vc_Yb = 0.2;	// XYZ are normalized to 0.0 - 1.0, so Yw will be 1.0 instead of 100.0, so Yb == 20.0
-//	_vc_La = 4.0;
-//	_vc_Yb = 0.00001;
+	_vc_La = 16.0f;
+	_vc_Yb = 0.2f;	// XYZ are normalized to 0.0 - 1.0, so Yw will be 1.0 instead of 100.0, so Yb == 20.0
+//	_vc_La = 4.0f;
+//	_vc_Yb = 0.00001f;
 
 	// surround  F    c      Nc
 	// condition
@@ -790,33 +791,33 @@ CIECAM02_priv::CIECAM02_priv(void) {
 	// dim       0.9  0.59   0.95
 	// dark      0.8  0.525  0.8
 	// use 'dim' for convenient 'ligtness' curve
-	_vc_F = 0.9;
-	_vc_c = 0.59;
-	_vc_Nc = 0.95;
+	_vc_F = 0.9f;
+	_vc_c = 0.59f;
+	_vc_Nc = 0.95f;
 	//--
 //	_n = _vc_Yb / _XYZw[1];
-	_n = _vc_Yb / 1.0;	// use constant Yw == 100.0, i.e. Yw == 1.0;
-	_Ncb = 0.725 * powf(1.0 / _n, 0.2);
+	_n = _vc_Yb / 1.0f;	// use constant Yw == 100.0, i.e. Yw == 1.0;
+	_Ncb = 0.725f * powf(1.0f / _n, 0.2f);
 	_Nbb = _Ncb;
-	_C_pow_const = powf(1.64 - powf(0.29, _n), 0.73);
-	_z = 1.48 + sqrtf(_n);
+	_C_pow_const = powf(1.64f - powf(0.29f, _n), 0.73f);
+	_z = 1.48f + sqrtf(_n);
 	_Fl = calculate_Fl_from_La(_vc_La);
 
 	// initialize tables
 	tf_nonlinear_post_adaptation = new TF_nonlinear_post_adaptation(_Fl);
-	tf_tJ = new TF_pow(0.0, 1.4, _vc_c * _z);
-	tf_tc_l1 = new TF_pow(0.0, CIECAM02_TF_T_L1_MAX, 0.9);
-	tf_tc_l2 = new TF_pow(CIECAM02_TF_T_L1_MAX, CIECAM02_TF_T_L2_MAX, 0.9);
-	tf_tc_l3 = new TF_pow(CIECAM02_TF_T_L2_MAX, CIECAM02_TF_T_L3_MAX, 0.9);
+	tf_tJ = new TF_pow(0.0f, 1.4f, _vc_c * _z);
+	tf_tc_l1 = new TF_pow(0.0f, CIECAM02_TF_T_L1_MAX, 0.9f);
+	tf_tc_l2 = new TF_pow(CIECAM02_TF_T_L1_MAX, CIECAM02_TF_T_L2_MAX, 0.9f);
+	tf_tc_l3 = new TF_pow(CIECAM02_TF_T_L2_MAX, CIECAM02_TF_T_L3_MAX, 0.9f);
 	//--
 	tf_inverse_nonlinear_post_adaptation = new TF_inverse_nonlinear_post_adaptation(_Fl);
-	tf_tf = new TF_pow(0.0, 1.0, 1.0 / (_vc_c * _z));
-	tf_t_l1 = new TF_pow(0.0, CIECAM02_TF_T_L1_MAX, 10.0 / 9.0);
-	tf_t_l2 = new TF_pow(CIECAM02_TF_T_L1_MAX, CIECAM02_TF_T_L2_MAX, 10.0 / 9.0);
-	tf_t_l3 = new TF_pow(CIECAM02_TF_T_L2_MAX, CIECAM02_TF_T_L3_MAX, 10.0 / 9.0);
+	tf_tf = new TF_pow(0.0f, 1.0f, 1.0f / (_vc_c * _z));
+	tf_t_l1 = new TF_pow(0.0f, CIECAM02_TF_T_L1_MAX, 10.0f / 9.0f);
+	tf_t_l2 = new TF_pow(CIECAM02_TF_T_L1_MAX, CIECAM02_TF_T_L2_MAX, 10.0f / 9.0f);
+	tf_t_l3 = new TF_pow(CIECAM02_TF_T_L2_MAX, CIECAM02_TF_T_L3_MAX, 10.0f / 9.0f);
 	// constants
-	_e_mult_const = (50000.0 / 13.0) * _vc_Nc * _Ncb;
-	_t_pow_const = powf(1.64 - powf(0.29, _n), 0.73);
+	_e_mult_const = (50000.0f / 13.0f) * _vc_Nc * _Ncb;
+	_t_pow_const = powf(1.64f - powf(0.29f, _n), 0.73f);
 
 	// matrices
 	// LMS cone responses
@@ -869,19 +870,19 @@ double CIECAM02_priv::achromatic_response_for_white(const float *XYZ, float D, f
 	HPE[1] = (*tf_nonlinear_post_adaptation)(HPE[1]);
 	HPE[2] = (*tf_nonlinear_post_adaptation)(HPE[2]);
 //	return (2.0 * HPE[0] + HPE[1] + 0.05 * HPE[2] - 0.305) * Nbb;
-	return (PERC_SCALE_R * HPE[0] + PERC_SCALE_G * HPE[1] + PERC_SCALE_B * HPE[2] - 0.305) * Nbb;
+	return (PERC_SCALE_R * HPE[0] + PERC_SCALE_G * HPE[1] + PERC_SCALE_B * HPE[2] - 0.305f) * Nbb;
 }
 
 float CIECAM02_priv::D_factor(float F, float La) {
-	return F * (1.0 - ((1.0 / 3.6) * exp((-La - 42.0) / 92.0)));
+	return F * (1.0f - ((1.0f / 3.6f) * exp((-La - 42.0f) / 92.0f)));
 }
 
 float CIECAM02_priv::calculate_Fl_from_La(const float &La) {
-	float La5 = La * 5.0;
-	float k = 1.0 / (La5 + 1.0);
+	float La5 = La * 5.0f;
+	float k = 1.0f / (La5 + 1.0f);
 	k = k * k;
 	k = k * k;
-	return (0.2 * k * La5) + (0.1 * (1.0 - k) * (1.0 - k) * powf(La5, 1.0 / 3.0));
+	return (0.2f * k * La5) + (0.1f * (1.0f - k) * (1.0f - k) * powf(La5, 1.0f / 3.0f));
 }
 
 //------------------------------------------------------------------------------
@@ -921,10 +922,13 @@ float CS_to_CM::get_s_from_JCh(const float *JCh) {
 void CS_to_CM::convert(float *Jsh, const float *RGB) {
 	float rgb[3];
 	for(int i = 0; i < 3; ++i) {
+		rgb[i] = (*inverse_gamma)(ddr::clip(RGB[i]));
+/*
 		rgb[i] = RGB[i];
-		if(rgb[i] < 0.0) rgb[i] = 0.0;
-		if(rgb[i] > 1.0) rgb[i] = 1.0;
+		if(rgb[i] < 0.0f) rgb[i] = 0.0f;
+		if(rgb[i] > 1.0f) rgb[i] = 1.0f;
 		rgb[i] = (*inverse_gamma)(rgb[i]);
+*/
 	}
 	float XYZ[3];
 	m3_v3_mult(XYZ, matrix_CS_to_XYZ, rgb);
@@ -969,9 +973,12 @@ void CM_to_CS::convert(float *RGB, const float *Jsh, bool clip) {
 	m3_v3_mult(RGB, matrix_XYZ_to_CS, XYZ);
 	if(clip) {
 		for(int i = 0; i < 3; ++i) {
+			RGB[i] = (*gamma)(ddr::clip(RGB[i]));
+/*
 			if(RGB[i] < 0.0) RGB[i] = 0.0;
 			if(RGB[i] > 1.0) RGB[i] = 1.0;
 			RGB[i] = (*gamma)(RGB[i]);
+*/
 		}
 	} else {
 		for(int i = 0; i < 3; ++i) {

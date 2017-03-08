@@ -137,7 +137,7 @@ public:
 	FP_Cache_t *new_FP_Cache(void);
 	bool is_enabled(const PS_Base *ps_base);
 	void filter_pre(fp_cp_args_t *args);
-	void filter(float *pixel, void *data);
+	void filter(float *pixel, fp_cp_task_t *fp_cp_task);
 	void filter_post(fp_cp_args_t *args);
 	
 protected:
@@ -514,7 +514,7 @@ FP_CM_Rainbow_Cache_t::~FP_CM_Rainbow_Cache_t() {
 		delete tf_rainbow;
 }
 
-class FP_CM_Rainbow::task_t {
+class FP_CM_Rainbow::task_t : public fp_cp_task_t {
 public:
 	class FP_CM_Rainbow_Cache_t *fp_cache;
 	bool apply_rainbow;
@@ -561,21 +561,15 @@ void FP_CM_Rainbow::filter_pre(fp_cp_args_t *args) {
 	for(int i = 0; i < args->threads_count; ++i) {
 		task_t *task = new task_t;
 		task->fp_cache = fp_cache;
-		args->ptr_private[i] = (void *)task;
+		args->vector_private[i] = std::unique_ptr<fp_cp_task_t>(task);
 	}
 }
 
 void FP_CM_Rainbow::filter_post(fp_cp_args_t *args) {
-//	task_t *task = (task_t *)args->ptr_private[0];
-//	task_t **tasks = (task_t **)&args->ptr_private[0];
-	for(int i = 0; i < args->threads_count; ++i) {
-		FP_CM_Rainbow::task_t *t = (FP_CM_Rainbow::task_t *)args->ptr_private[i];
-		delete t;
-	}
 }
 
-void FP_CM_Rainbow::filter(float *pixel, void *data) {
-	task_t *task = (task_t *)data;
+void FP_CM_Rainbow::filter(float *pixel, fp_cp_task_t *fp_cp_task) {
+	task_t *task = (task_t *)fp_cp_task;
 	bool tf_rainbow_is_one = task->fp_cache->tf_rainbow_is_one;
 	if(tf_rainbow_is_one == false) {
 		float scale = (*task->fp_cache->tf_rainbow)(pixel[2]);

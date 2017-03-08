@@ -2,7 +2,7 @@
  * f_shift.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -21,8 +21,6 @@
 #include "ddr_math.h"
 
 using namespace std;
-
-#define FR_MIN_TILE_SIZE 24
 
 //------------------------------------------------------------------------------
 class FP_Shift : public FilterProcess_GP {

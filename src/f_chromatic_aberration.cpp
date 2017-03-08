@@ -2,14 +2,11 @@
  * f_chromatic_aberration.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
 
-/*
- * NOTES:
-*/
 #include <iostream>
 
 #include "f_chromatic_aberration.h"

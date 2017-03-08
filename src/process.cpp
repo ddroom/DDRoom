@@ -2,7 +2,7 @@
  * process.cpp
  *
  * This source code is a part of 'DDRoom' project.
- * (C) 2015-2016 Mykhailo Malyshko a.k.a. Spectr.
+ * (C) 2015-2017 Mykhailo Malyshko a.k.a. Spectr.
  * License: LGPL version 3.
  *
  */
@@ -603,7 +603,7 @@ void Process::process_demosaic(SubFlow *subflow, void *data) {
 	ProcessCache_t *process_cache = (ProcessCache_t *)task->photo->cache_process;
 
 	Process_t *process_obj = nullptr;
-//	if(subflow->is_master()) {
+//	if(subflow->is_main()) {
 	if(subflow->sync_point_pre()) {
 		// offline, for thumbnail processing
 		if(process_cache->area_demosaic != nullptr)
@@ -658,7 +658,7 @@ void Process::process_demosaic(SubFlow *subflow, void *data) {
 //------------------------------------------------------------------------------
 void Process::run_mt(SubFlow *subflow, void *data) {
 	Process::task_run_t *task = (Process::task_run_t *)data;
-	const bool is_master = subflow->is_master();
+	const bool is_main = subflow->is_main();
 	const bool online = !task->is_offline;
 	const ProcessSource::process process_source = task->photo->process_source;
 	//--------------------------------------------------------------------------
@@ -680,7 +680,7 @@ void Process::run_mt(SubFlow *subflow, void *data) {
 		to_process_demosaic = true;
 	if(to_process_demosaic) {
 		// clean up demosaic and WB caches if any
-		if(is_master) {
+		if(is_main) {
 			if(process_cache->area_demosaic != nullptr) {
 				delete process_cache->area_demosaic;
 				process_cache->area_demosaic = nullptr;
@@ -691,12 +691,12 @@ void Process::run_mt(SubFlow *subflow, void *data) {
 			}
 		}
 		// process
-		if(is_master) {
+		if(is_main) {
 			prof->mark("Demosaic");
 			task->tiles_receiver->long_wait(true);
 		}
 		process_demosaic(subflow, data);
-		if(is_master) {
+		if(is_main) {
 			task->tiles_receiver->long_wait(false);
 		}			
 	}
@@ -705,7 +705,7 @@ void Process::run_mt(SubFlow *subflow, void *data) {
 	bool process_wb = (process_source == ProcessSource::s_wb);
 	process_wb |= to_process_demosaic;
 	process_wb |= task->is_offline;
-	if(is_master && process_wb && process_cache->area_wb != nullptr) {
+	if(is_main && process_wb && process_cache->area_wb != nullptr) {
 		delete process_cache->area_wb;
 		process_cache->area_wb = nullptr;
 	}
@@ -779,7 +779,7 @@ void Process::run_mt(SubFlow *subflow, void *data) {
 	//  second pass - process requested tiles
 	int iteration = (process_view_tiles) ? 1 : 0;
 	for(; iteration < 2; ++iteration) {
-//		if(is_master) cerr << "iteration == " << iteration << endl;
+//		if(is_main) cerr << "iteration == " << iteration << endl;
 		// NOTE: some ideas about possible tiles cache: useless for geometry filters, useful - for colors
 		if(subflow->sync_point_pre()) {
 			task->mutators = new DataSet();
@@ -821,7 +821,7 @@ cerr << "     size is: " << target_dimensions.width() << " x " << target_dimensi
 			// 
 		}
 		subflow->sync_point_post();
-//		if(is_master)
+//		if(is_main)
 //			cerr << "process_filters - start" << endl;
 		if(subflow->sync_point_pre()) {
 			quit_lock.unlock();
@@ -829,13 +829,13 @@ cerr << "     size is: " << target_dimensions.width() << " x " << target_dimensi
 		}
 		subflow->sync_point_post();
 		process_filters(subflow, task, pl_filters[iteration], (iteration == 0), prof);
-//		if(is_master)
+//		if(is_main)
 //			cerr << "process_filters - done, now clean up" << endl;
-		if(is_master)
+		if(is_main)
 			quit_lock.lock();
 		// clean
 		subflow->sync_point();
-		if(is_master) {
+		if(is_main) {
 			delete task->mutators;
 			task->mutators = nullptr;
 			// TODO: handle that to tiles_receiver (?)
@@ -843,7 +843,7 @@ cerr << "     size is: " << target_dimensions.width() << " x " << target_dimensi
 		}
 //		if(*task->to_abort) {
 		if(task->to_abort) {
-			if(is_master)
+			if(is_main)
 				ID_remove(task->request_ID);
 			break;
 		}
@@ -857,7 +857,7 @@ cerr << "     size is: " << target_dimensions.width() << " x " << target_dimensi
 		quit_lock.unlock();
 		prof->mark("");
 		delete prof;
-		Mem::state_print();
+//		Mem::state_print();
 		Mem::state_reset(false);
 		delete task->mutators_multipass;
 	}
@@ -986,7 +986,7 @@ cerr << "  position: " << d_out.position.x << ", " << d_out.position.y << endl;
 //------------------------------------------------------------------------------
 void Process::process_filters(SubFlow *subflow, Process::task_run_t *task, std::list<class filter_record_t> &pl_filters, bool is_thumb, Profiler *prof) {
 	TilesDescriptor_t *tiles_request = task->tiles_request;
-	const bool is_master = subflow->is_master();
+	const bool is_main = subflow->is_main();
 	ProcessCache_t *process_cache = (ProcessCache_t *)task->photo->cache_process;
 	Area *area_original = task->area_transfer;
 	const bool allow_destructive = true;
@@ -999,7 +999,7 @@ void Process::process_filters(SubFlow *subflow, Process::task_run_t *task, std::
 		//   when we at last are in processing request;
 		// otherwise there could be a long cycle of discarded requests
 		//   without any visible interaction with user.
-		if(is_master) {
+		if(is_main) {
 			if(Process::ID_to_abort(task->request_ID) && !is_thumb)
 				task->to_abort = true;
 			quit_lock.lock();
@@ -1049,7 +1049,7 @@ void Process::process_filters(SubFlow *subflow, Process::task_run_t *task, std::
 			// process current tile with each FilterProcess_2D
 			Filter *filter = (*it).filter;
 			PS_Base *ps = (*it).ps_base.get();
-			if(is_master)
+			if(is_main)
 				prof->mark((*it).fp->name());
 			MT_t mt_obj;
 			mt_obj.subflow = subflow;
@@ -1078,7 +1078,7 @@ void Process::process_filters(SubFlow *subflow, Process::task_run_t *task, std::
 			filter_obj.filter = task->is_offline ? nullptr : filter;
 			filter_obj.is_offline = task->is_offline;
 			filter_obj.fs_base = task->photo->map_fs_base[filter];
-//			if(is_master)
+//			if(is_main)
 //				cerr << "process filter: \"" << (*it).fp_2d->name() << "\"" << endl;
 			Area *area_rez = (*it).fp_2d->process(&mt_obj, task->process_obj, &filter_obj);
 			if(subflow->sync_point_pre()) {
@@ -1103,14 +1103,14 @@ void Process::process_filters(SubFlow *subflow, Process::task_run_t *task, std::
 				break;
 		}
 		// convert to asked format
-		if(is_master)
+		if(is_main)
 			prof->mark("convert tiles");
 		Area *area_out = nullptr;
 		if(!task->OOM) {
 			Area *tiled_area = nullptr;
 			int insert_pos_x = 0;
 			int insert_pos_y = 0;
-			if(!is_thumb && is_master)
+			if(!is_thumb && is_main)
 				tiled_area = task->tiles_request->receiver->get_area_to_insert_tile_into(insert_pos_x, insert_pos_y, tile);
 //			area_out = AreaHelper::convert_mt(subflow, area_in, task->out_format, task->photo->cw_rotation);
 			if(tiled_area != nullptr)
@@ -1149,7 +1149,7 @@ void Process::process_filters(SubFlow *subflow, Process::task_run_t *task, std::
 		}
 		subflow->sync_point_post();
 	}
-	if(is_master && !was_abortion)
+	if(is_main && !was_abortion)
 		tiles_request->receiver->process_done(is_thumb);
 }
 
