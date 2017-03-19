@@ -33,13 +33,15 @@ public:
 	void set_PS_and_FS(class PS_Base *new_ps, class FS_Base *new_fs, PS_and_FS_args_t args);
 
 	FilterProcess *getFP(void);
+
 public slots:
+#if 0
 	void slot_checkbox_hot_pixels(int state);
 	void slot_checkbox_luma(int state);
 	void slot_checkbox_chroma(int state);
 	void slot_changed_luma(double value);
 	void slot_changed_chroma(double value);
-
+#endif
 	void slot_checkbox_CA(int state);
 	void slot_checkbox_RC(int state);
 	void slot_checkbox_BY(int state);
@@ -57,11 +59,13 @@ protected:
 	QWidget *widget;
 	// Bayer UI
 	QWidget *widget_bayer;
+#if 0
 	QCheckBox *checkbox_hot_pixels;
 	QCheckBox *checkbox_luma;
 	class GuiSlider *slider_luma;
 	QCheckBox *checkbox_chroma;
 	class GuiSlider *slider_chroma;
+#endif
 	QCheckBox *checkbox_CA;
 	QCheckBox *checkbox_RC;
 	QCheckBox *checkbox_BY;

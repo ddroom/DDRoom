@@ -820,12 +820,14 @@ void View::update_rotation(bool clockwise) {
 	// rotate pixmaps
 	image->lock.lock();
 	*image->thumb_pixmap = rotate_pixmap(image->thumb_pixmap, angle);
+//	image->thumb_pixmap->swap(rotate_pixmap(image->thumb_pixmap, angle));
 	image->thumb_scaled = QPixmap();
 	// if 'image->scale == false' - rotate tiles and update center position;
 	// reset tiles and emit update as whith resize otherwise.
 	for(int i = 0; i < image->tiles_pixmaps.size(); ++i) {
 		if(image->tiles_pixmaps[i] != nullptr) {
 			*image->tiles_pixmaps[i] = rotate_pixmap(image->tiles_pixmaps[i], angle);
+//			image->tiles_pixmaps[i]->swap(rotate_pixmap(image->tiles_pixmaps[i], angle));
 		}
 	}
 	double im_x, im_y;
@@ -1958,55 +1960,8 @@ cerr << "dimensions.size.h   == " << t->tiles[0].dimensions_post.size.h << endl;
 }
 //------------------------------------------------------------------------------
 QPixmap View::rotate_pixmap(QPixmap *pixmap, int angle) {
-	if(angle == 270)	angle = -90;
-	if(angle == -270)	angle = 90;
-	if(angle == -180)	angle = 180;
-	int w = pixmap->width();
-	int h = pixmap->height();
-	int out_w = w;
-	int out_h = h;
-	if(angle == 90 || angle == -90) {
-		out_w = h;
-		out_h = w;
-	}
-	QImage image_in = pixmap->toImage();
-	if(image_in.format() != QImage::Format_ARGB32 && image_in.format() != QImage::Format_RGB32 && image_in.format() != QImage::Format_ARGB32_Premultiplied)
-		return QPixmap(*pixmap);
-
-	int i_w = image_in.bytesPerLine() / 4;
-	uint32_t *p_in = (uint32_t *)image_in.bits();
-	Area out(out_w, out_h, Area::type_t::type_uint8_p4);
-	uint32_t *p_out = (uint32_t *)out.ptr();
-	if(angle == -90)
-		for(int y = 0; y < h; ++y)
-			for(int x = 0; x < w; ++x)
-				p_out[out_w * (w - x - 1) + y] = p_in[i_w * y + x];
-	if(angle == 90)
-		for(int y = 0; y < h; ++y)
-			for(int x = 0; x < w; ++x)
-				p_out[out_w * x + h - y - 1] = p_in[i_w * y + x];
-	if(angle == 180)
-		for(int y = 0; y < h; ++y)
-			for(int x = 0; x < w; ++x)
-				p_out[out_w * (h - y - 1) + w - x - 1] = p_in[i_w * y + x];
-	QPixmap px = QPixmap(QPixmap::fromImage(QImage((uchar *)out.ptr(), out_w, out_h, out_w * 4, QImage::Format_ARGB32)));
-	return px;
-
-/*
-	QImage image_out(out_w, out_h, image_in.format());
-	if(angle == 90)
-		for(int y = 0; y < h; ++y)
-			for(int x = 0; x < w; ++x)
-				image_out.setPixel(h - y - 1, x, image_in.pixel(x, y));
-	if(angle == -90)
-		for(int y = 0; y < h; ++y)
-			for(int x = 0; x < w; ++x)
-				image_out.setPixel(y, w - x - 1, image_in.pixel(x, y));
-	if(angle == 180)
-		for(int y = 0; y < h; ++y)
-			for(int x = 0; x < w; ++x)
-				image_out.setPixel(w - x - 1, h - y - 1, image_in.pixel(x, y));
-	return QPixmap::fromImage(image_out);
-*/
+	QTransform transform;
+	transform.rotate(angle);
+	return pixmap->transformed(transform, Qt::FastTransformation);
 }
 //------------------------------------------------------------------------------

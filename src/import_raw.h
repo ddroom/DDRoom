@@ -9,7 +9,7 @@
  *
  */
 
-//#include <mutex>
+#include <memory>
 #include <string>
 
 #include "import.h"
@@ -20,16 +20,16 @@ public:
 	static QList<QString> extensions(void);
 	Import_Raw(std::string file_name);
 	QImage thumb(Metadata *metadata, int thumb_width, int thumb_height);
-	class Area *image(class Metadata *metadata);
+	std::unique_ptr<Area> image(class Metadata *metadata);
 
 	void load_metadata(class Metadata *metadata);
-	static class Area *demosaic_xtrans(const uint16_t *_image, int _width, int _height, const class Metadata *metadata, int passes, class Area *area_out = nullptr);
+	static std::unique_ptr<Area> demosaic_xtrans(const uint16_t *_image, int _width, int _height, const class Metadata *metadata, int passes, class Area *area_out = nullptr);
 
 protected:
 //	static std::mutex dcraw_lock;
-	class Area *dcraw_to_area(class DCRaw *dcraw, class Metadata *metadata, const uint16_t *dcraw_raw);
-	class Area *load_foveon(class DCRaw *dcraw, class Metadata *metadata, const uint16_t *dcraw_raw);
-	class Area *load_xtrans(class DCRaw *dcraw, class Metadata *metadata, const uint16_t *dcraw_raw);
+	std::unique_ptr<Area> dcraw_to_area(class DCRaw *dcraw, class Metadata *metadata, const uint16_t *dcraw_raw);
+	std::unique_ptr<Area> load_foveon(class DCRaw *dcraw, class Metadata *metadata, const uint16_t *dcraw_raw);
+	std::unique_ptr<Area> load_xtrans(class DCRaw *dcraw, class Metadata *metadata, const uint16_t *dcraw_raw);
 	void auto_wb(DCRaw *dcraw, Metadata *metadata, const uint16_t *dcraw_raw);
 
 	std::string file_name;

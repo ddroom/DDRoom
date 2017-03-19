@@ -15,8 +15,8 @@
 
 //------------------------------------------------------------------------------
 // aligned memory smart container
-
 class Mem {
+
 public:
 	Mem(void) = default;
 	Mem(size_t size);
@@ -30,11 +30,6 @@ public:
 	void ptr_dump(void);
 
 protected:
-	template <class T> friend class MemDeleter;
-	static void register_free(void *ptr, size_t size);
-
-protected:
-
 	char *ptr_allocated = nullptr;
 	void *ptr_aligned = nullptr;
 	std::shared_ptr<char> mem_shared_ptr;
@@ -45,6 +40,7 @@ protected:
 	static size_t mem_min;
 	static size_t mem_max;
 	static bool silent;
+	static void register_free(void *ptr, size_t size);
 	static void state_update(size_t mem_delta);
 	static std::mutex state_mutex;
 	static std::mutex ptr_set_lock;

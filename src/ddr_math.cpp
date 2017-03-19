@@ -106,6 +106,30 @@ GaussianKernel::GaussianKernel(float sigma, int _width, int _height)
 	}
 }
 
+GaussianKernel::GaussianKernel(const GaussianKernel &other) :
+	i_sigma(other.i_sigma), i_width(other.i_width), i_height(other.i_height),
+	i_offset_x(other.i_offset_x), i_offset_y(other.i_offset_y)
+{
+	const int s = i_width * i_height;
+	i_kernel = new float[s];
+	for(int i = 0; i < s; ++i)
+		i_kernel[i] = other.i_kernel[i];
+}
+
+GaussianKernel & GaussianKernel::operator=(const GaussianKernel &other) {
+	*(const_cast<float *>(&i_sigma)) = other.i_sigma;
+	*(const_cast<int *>(&i_width)) = other.i_width;
+	*(const_cast<int *>(&i_height)) = other.i_height;
+	i_offset_x = other.i_offset_x;
+	i_offset_y = other.i_offset_y;
+
+	const int s = i_width * i_height;
+	i_kernel = new float[s];
+	for(int i = 0; i < s; ++i)
+		i_kernel[i] = other.i_kernel[i];
+	return *this;
+}
+
 GaussianKernel::~GaussianKernel() {
 	delete[] i_kernel;
 }
@@ -120,36 +144,36 @@ Spline_Calc::~Spline_Calc() {
 	}
 }
 
-Spline_Calc::Spline_Calc(const QVector<QPointF> &_points, float scale, bool linear_2, int type_left, float df_left, int type_right, float df_right) {
+Spline_Calc::Spline_Calc(const std::vector<std::pair<float, float>> &_points, float scale, bool linear_2, int type_left, float df_left, int type_right, float df_right) {
 	if(_points.size() < 2) {
 		throw("wrong points vector in Spline_Calc constructor");
 	}
 	// normalize points - use middle Y for all points with the same X
 	for(int i = 0; i < _points.size(); ++i) {
 		int c = 1;
-		float x = _points[i].x();
-		float y = _points[i].y();
+		float x = _points[i].first;
+		float y = _points[i].second;
 		for(int j = i + 1; j < _points.size(); ++j) {
-			if(_points[i].x() != _points[j].x()) {
+			if(_points[i].first != _points[j].first) {
 				break;
 			} else {
 				i = j;
-				y += _points[i].y();
+				y += _points[i].second;
 				++c;
 			}
 		}
 		if(c != 1)
 			y /= c;
-		points.push_back(QPointF(x / scale, y / scale));
+		points.push_back(std::pair<float, float>(x / scale, y / scale));
 	}
 //	points = _points;
 	int size = points.size();
 	is_spline = false;
 
-	x_left = points[0].x();
-	y_left = points[0].y();
-	x_right = points[size - 1].x();
-	y_right = points[size - 1].y();
+	x_left = points[0].first;
+	y_left = points[0].second;
+	x_right = points[size - 1].first;
+	y_right = points[size - 1].second;
 	normalize(x_left);
 	normalize(y_left);
 	normalize(x_right);
@@ -163,8 +187,8 @@ Spline_Calc::Spline_Calc(const QVector<QPointF> &_points, float scale, bool line
 		px = new float[size];
 		py = new float[size];
 		for(int i = 0; i < size; ++i) {
-			px[i] = points[i].x();
-			py[i] = points[i].y();
+			px[i] = points[i].first;
+			py[i] = points[i].second;
 		}
 		spline_cubic_set(size, px, py, type_left, df_left, type_right, df_right);
 
@@ -323,57 +347,57 @@ float compression_function(float x, float x_max) {
 }
 
 float compression_function_spline(float x, float x_max) {
-	if(x_max <= 1.0)
-		return (x < 1.0) ? x : 1.0;
-	if(x_max > 3.0)
-		x_max = 3.0;
+	if(x_max <= 1.0f)
+		return (x < 1.0f) ? x : 1.0f;
+	if(x_max > 3.0f)
+		x_max = 3.0f;
 	if(x >= x_max)
-		return 1.0;
+		return 1.0f;
 	//
 	static Spline_Calc *spline = nullptr;
 	if(spline == nullptr) {
-		QVector<QPointF> points;
-		points.push_back(QPointF(0.0, 0.0));
-		points.push_back(QPointF(1.0, 1.0 / 3.0));
-		spline = new Spline_Calc(points, 1.0, false, 1, 1.0, 1, 0.0);
+		std::vector<std::pair<float, float>> points(2);
+		points[0] = std::pair<float, float>(0.0f, 0.0f);
+		points[1] = std::pair<float, float>(1.0f, 1.0f / 3.0f);
+		spline = new Spline_Calc(points, 1.0f, false, 1, 1.0f, 1, 0.0f);
 	}
-	float OB = (x_max - 1.0) * 0.5;
+	float OB = (x_max - 1.0f) * 0.5f;
 	float edge = 1.0 - OB;
 	if(x <= edge)
 		return x;
 	float y = spline->f((x - edge) / (x_max - edge));
-	return y * 3.0 * OB + edge;
+	return y * 3.0f * OB + edge;
 }
 
 float compression_function_sqrt(float x, float x_max) {
-	if(x_max <= 1.0)
-		x_max = 1.0;
-	if(x_max >= 3.0)
-		x_max = 3.0;
+	if(x_max <= 1.0f)
+		x_max = 1.0f;
+	if(x_max >= 3.0f)
+		x_max = 3.0f;
 	//
-	if(x < 0.0)
-		return 0.0;
+	if(x < 0.0f)
+		return 0.0f;
 	if(x >= x_max)
-		return 1.0;
+		return 1.0f;
 	//--
-	const float px = 0.375 / cosf(M_PI / 4.0);
+	const float px = 0.375f / cosf(M_PI / 4.0f);
 	const float py = compression_function_sqrt_F(px);
-	const float c_aspect = px / py - 1.0;
+	const float c_aspect = px / py - 1.0f;
 	//--
-	float AB = (x_max - 1.0) / c_aspect;
-	float x_linear = 1.0 - AB;
+	float AB = (x_max - 1.0f) / c_aspect;
+	float x_linear = 1.0f - AB;
 	if(x <= x_linear)
 		return x;
 	return x_linear + (compression_function_sqrt_F((x - x_linear) * px / (x_max - x_linear)) / py) * AB;
 }
 
 float compression_function_sqrt_F(float x) {
-	const float cos_angle = cosf(M_PI / 4.0);
+	const float cos_angle = cosf(M_PI / 4.0f);
 	float l = x;
 	float Ax = l * cos_angle;
 	float Ay = Ax;
-	float k = 2.0 * Ax;
-	float Bx = (2.0 * k + 1.0 - sqrtf(4.0 * k + 1.0)) / 2.0;
+	float k = 2.0f * Ax;
+	float Bx = (2.0f * k + 1.0f - sqrtf(4.0f * k + 1.0f)) / 2.0f;
 	float By = sqrtf(Bx);
 	float dx = Ax - Bx;
 	float dy = By - Ay;

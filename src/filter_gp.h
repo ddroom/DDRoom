@@ -73,7 +73,7 @@ class FilterProcess_GP_Wrapper : public FilterProcess_2D {
 public:
 	FilterProcess_GP_Wrapper(const std::vector<class FP_GP_Wrapper_record_t> &);
 	virtual ~FilterProcess_GP_Wrapper(void);
-	Area *process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj);
+	std::unique_ptr<Area> process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj);
 	bool is_enabled(const PS_Base *ps_base);
 
 	void size_forward(FP_size_t *fp_size, const Area::t_dimensions *d_before, Area::t_dimensions *d_after);
@@ -92,14 +92,14 @@ protected:
 	class task_coordinates_prep_t;
 	class task_coordinates_t;
 	class task_sampling_t;
-	Area *process_sampling(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj);
+	std::unique_ptr<Area> process_sampling(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj);
 	void prepare_coordinates(SubFlow *subflow);
 	void process_coordinates(SubFlow *subflow);
 	void process_sampling(SubFlow *subflow);
 	void process_sampling_sinc2(SubFlow *subflow);
 	//--
 	class task_copy_t;
-	Area *process_copy(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj);
+	std::unique_ptr<Area> process_copy(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj);
 	void process_copy(SubFlow *subflow);
 };
 //------------------------------------------------------------------------------

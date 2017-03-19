@@ -22,8 +22,6 @@
 // SubFlow::
 //------------------------------------------------------------------------------
 class Flow {
-//	friend class SubFlow;
-
 public:
 	Flow(void (*f_ptr)(void *obj, class SubFlow *subflow, void *data), void *f_object, void *f_data, int _threads_count = 0);
 	virtual ~Flow(void);

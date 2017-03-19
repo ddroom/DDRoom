@@ -20,7 +20,7 @@ public:
 	static QList<QString> extensions(void);
 	Import_J2K(std::string fname);
 	QImage thumb(Metadata *metadata, int thumb_width, int thumb_height);
-	class Area *image(class Metadata *metadata);
+	std::unique_ptr<Area> image(class Metadata *metadata);
 
 protected:
 	std::string file_name;
@@ -28,7 +28,7 @@ protected:
 	static void callback_warning(const char *, void *);
 	static void callback_info(const char *, void *);
 	bool was_callback_error;
-	class Area *load_image(class Metadata *metadata, int reduce, bool is_thumb, bool load_size_only = false);
+	std::unique_ptr<Area> load_image(class Metadata *metadata, int reduce, bool is_thumb, bool load_size_only = false);
 };
 //------------------------------------------------------------------------------
 

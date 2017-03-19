@@ -141,7 +141,7 @@ inline float f_backward(const float &y, const float &focal_length_px, const floa
 	const float r_real = focal_length_px / 2.0f;
 	const float Beta_radians = fabsf(y) * radians_per_pixel;
 	const float cos_Beta = cosf(Beta_radians);
-#if 0
+#if 1
 	const float sin_Beta = sinf(Beta_radians);
 	const float AB = (2.0f * sin_Beta) / (1.0f + cos_Beta);
 #else
@@ -209,8 +209,8 @@ float FP_Projection_Stereographic::backward(const float &y) {
 }
 
 float FP_Projection_Stereographic::backward_tf(const float &y) {
-	return FP_Projection_Stereographic_ns::f_backward(y, focal_length_px, radians_per_pixel);
-//	return (*backward_tf_obj)(y);
+//	return FP_Projection_Stereographic_ns::f_backward(y, focal_length_px, radians_per_pixel);
+	return (*backward_tf_obj)(y);
 }
 
 //------------------------------------------------------------------------------

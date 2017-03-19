@@ -34,7 +34,6 @@ HEADERS	= \
 	src/import_j2k.h \
 	src/import_png.h \
 	src/import_tiff.h \
-	src/import_test.h \
 \
 	src/f_process.h \
 	src/f_demosaic.h \
@@ -118,10 +117,10 @@ SOURCES	= \
 	src/import_j2k.cpp \
 	src/import_tiff.cpp \
 	src/import_png.cpp \
-	src/import_test.cpp \
 \
 	src/f_process.cpp \
 	src/f_demosaic.cpp \
+	src/f_demosaic_ca.cpp \
 	src/f_demosaic_dg.cpp \
 	src/f_demosaic_ahd.cpp \
 	src/f_chromatic_aberration.cpp \
@@ -137,9 +136,9 @@ SOURCES	= \
 	src/f_cm_rainbow.cpp \
 	src/f_cm_sepia.cpp \
 	src/f_cm_colors.cpp \
-	src/f_unsharp.cpp \
 	src/f_cm_to_cs.cpp \
 \
+	src/f_unsharp.cpp \
 	src/f_soften.cpp \
 \
 	src/metadata.cpp \

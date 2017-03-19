@@ -20,10 +20,12 @@
 
 using namespace std;
 
+#define THUMB_DEFAULT_SIZE 128
+
 //------------------------------------------------------------------------------
 ThumbnailLoader::ThumbnailLoader() {
 	is_run_flag = false;
-	_thumb_size = QSize(128, 128);
+	_thumb_size = QSize(THUMB_DEFAULT_SIZE, THUMB_DEFAULT_SIZE);
 
 	// list_whole - complete list of the thumbnails
 	// list_view - thumbnails that are visible now
@@ -74,11 +76,8 @@ void ThumbnailLoader::_start(string _folder, list<thumbnail_record_t> *vlist, Ph
 		std_thread->join();
 		delete std_thread;
 	}
-	auto obj = this;
-//std::cerr << "..... 1" << std::endl;
-//cerr << " obj == " << (unsigned long)obj << endl;
-	std_thread = new std::thread( [obj](void){obj->run();} );
-//std::cerr << "..... 2" << std::endl;
+
+	std_thread = new std::thread( [this] { run();} );
 }
 
 void ThumbnailLoader::wait(void) {

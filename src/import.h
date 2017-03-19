@@ -11,6 +11,8 @@
 
 
 #include <string>
+#include <memory>
+
 #include <QImage>
 #include <QList>
 #include <QString>
@@ -25,7 +27,7 @@ public:
 	//	- probably using 'void *load_thumb()' and 'Area *generate_thumb()'
 	static class QImage *thumb(Photo_ID photo_id, class Metadata *metadata, int &thumb_rotation, int thumb_width, int thumb_height);
 	// fill Metadata and return decoded image
-	static class Area *image(std::string file_name, class Metadata *metadata);
+	static std::unique_ptr<Area> image(std::string file_name, class Metadata *metadata);
 	static bool load_metadata(std::string file_name, class Metadata *metadata);
 
 protected:
@@ -39,7 +41,7 @@ class Import_Performer {
 public:
 	virtual ~Import_Performer(void){};
 	virtual QImage thumb(class Metadata *metadata, int thumb_width, int thumb_height);
-	virtual class Area *image(class Metadata *metadata);
+	virtual std::unique_ptr<Area> image(class Metadata *metadata);
 };
 
 //------------------------------------------------------------------------------

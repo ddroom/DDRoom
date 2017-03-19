@@ -68,7 +68,7 @@ class GuiSlider : public QWidget {
 	Q_OBJECT
 
 public:
-	GuiSlider(double val_min = -1.0, double val_max = 1.0, double value = 0.0, int spin_step = 100, int slider_step = 10, int slider_ticks = 0, QWidget *parent = 0);
+	GuiSlider(double val_min = -1.0, double val_max = 1.0, double value = 0.0, int spin_step = 100, int slider_step = 10, int slider_ticks = 0, QWidget *parent = nullptr);
 	~GuiSlider();
 	void setLimits(double limit_min, double limit_max);
 	void setMappingFunction(MappingFunction *);
@@ -122,7 +122,7 @@ class GuiSliderLog2 : public GuiSlider {
 	Q_OBJECT
 
 public:
-	GuiSliderLog2(double min = 0.0, double max = 32.0, double value = 1.0, int _spin_step = 100, int _slider_step = 10, int slider_ticks = 10, QWidget *parent = 0);
+	GuiSliderLog2(double min = 0.0, double max = 32.0, double value = 1.0, int _spin_step = 100, int _slider_step = 10, int slider_ticks = 10, QWidget *parent = nullptr);
 
 protected:
 	virtual int value_to_slider(double value);

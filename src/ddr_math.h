@@ -9,12 +9,9 @@
  *
  */
 
-
 #include <map>
-
-//#include <mutex>
-#include <QVector>
-#include <QPointF>
+#include <vector>
+#include <utility>
 
 #include <iostream>
 
@@ -44,6 +41,8 @@ protected:
 class GaussianKernel {
 public:
 	GaussianKernel(float sigma, int _width, int _height = 1);
+	GaussianKernel(const GaussianKernel &other);
+	GaussianKernel & operator =(const GaussianKernel &other);
 	virtual ~GaussianKernel();
 
 	float value(int x, int y = 0) const {return i_kernel[y * i_width + x];};
@@ -68,13 +67,13 @@ protected:
 // Spline - curves
 class Spline_Calc {
 public:
-	Spline_Calc(const QVector<QPointF> &_points, float scale = 1.0, bool linear_2 = true, int type_left = 2, float df_left = 1.0, int type_right = 2, float df_right = 1.0);
+	Spline_Calc(const std::vector<std::pair<float, float>> &_points, float scale = 1.0f, bool linear_2 = true, int type_left = 2, float df_left = 1.0f, int type_right = 2, float df_right = 1.0f);
 	virtual ~Spline_Calc();
 
 	float f(float x);
 
 protected:
-	QVector<QPointF> points;
+	std::vector<std::pair<float, float>> points;
 	bool is_spline;
 	// spline
 	float *spline_data;

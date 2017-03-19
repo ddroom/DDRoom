@@ -17,6 +17,7 @@
 #define _GNU_SOURCE
 #endif
 */
+#include <memory>
 #define _USE_MATH_DEFINES
 #include <ctype.h>
 #include <errno.h>
@@ -426,7 +427,7 @@ int CLASS _main (int argc, const char **argv);
 	void *_load_raw(std::string fname, long &length);
 	void _load_metadata(std::string fname);
 	static void free_raw(void *ptr);
-	class Area *demosaic_xtrans(const uint16_t *_image, int _width, int _height, const class Metadata *metadata, int passes, class Area *area_out = nullptr);
+	std::unique_ptr<Area> demosaic_xtrans(const uint16_t *_image, int _width, int _height, const class Metadata *metadata, int passes, class Area *area_out = nullptr);
 
 	enum load_type_t {
 		load_type_metadata,

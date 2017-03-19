@@ -15,8 +15,8 @@
 #include <atomic>
 #include <iostream>
 
-#include <math.h>
-#include <string.h>
+#include <cmath>
+#include <cstring>
 
 #include "area.h"
 #include "ddr_math.h"
@@ -120,8 +120,11 @@ Area::Area(void) {
 Area::Area(int32_t width, int32_t height, Area::type_t type) {
 	_type = type;
 	mem = Mem(width * height * type_to_sizeof(_type));
+	if(mem.ptr() == nullptr)
+		throw Area::bad_alloc();
 	_dimensions.size.w = width;
 	_dimensions.size.h = height;
+
 	// initialize positions
 	Area::t_position &p = _dimensions.position;
 	p.px_size_x = 1.0;
@@ -136,6 +139,8 @@ Area::Area(const t_dimensions *_dims, Area::type_t type) {
 	_dimensions = *_dims;
 	_type = type;
 	mem = Mem(_dimensions.size.w * _dimensions.size.h * type_to_sizeof(_type));
+	if(mem.ptr() == nullptr)
+		throw Area::bad_alloc();
 }
 
 Area::Area(Area const &other) {
@@ -159,100 +164,91 @@ Area::~Area() {
 
 void *Area::ptr(void) {
 	return (void *)mem.ptr();
-/*
-	void *ptr = mem.ptr();
-	if(ptr == nullptr) {
-cerr << "FATAL: Area: access to empty Area object" << endl;
-//		throw("Area: access to empty Area object");
-	}
-	return ptr;
-*/
 }
 
-Area *Area::real_copy(Area *other) {
+Area *Area::deep_copy(Area *other) {
 	Area *copy = new Area(other->_dimensions.size.w, other->_dimensions.size.h, other->_type);
-	if(!copy->valid())
-		return copy;
-	D_AREA_PTR(copy);
-	memcpy(copy->ptr(), other->ptr(), copy->_dimensions.size.w * copy->_dimensions.size.h * type_to_sizeof(copy->_type));
+	size_t size_to_copy = copy->_dimensions.size.w * copy->_dimensions.size.h * type_to_sizeof(copy->_type);
+	std::memcpy(copy->ptr(), other->ptr(), size_to_copy);
 	copy->_dimensions = other->_dimensions;
 	return copy;
 }
 
 int16_t Area::type_to_sizeof(Area::type_t t) {
-	if(t == type_t::type_float_p4)
+	if(t == Area::type_t::float_p4)
 		return sizeof(float) * 4;
-	else if(t == type_t::type_float_p3)
+	else if(t == Area::type_t::float_p3)
 		return sizeof(float) * 3;
-	else if(t == type_t::type_float_p2)
+	else if(t == Area::type_t::float_p2)
 		return sizeof(float) * 2;
-	else if(t == type_t::type_float_p1)
+	else if(t == Area::type_t::float_p1)
 		return sizeof(float);
-	else if(t == type_t::type_float_p6)
+	else if(t == Area::type_t::float_p6)
 		return sizeof(float) * 6;
-	else if(t == type_t::type_int16_p4)
+	else if(t == Area::type_t::int16_p4)
 		return sizeof(int16_t) * 4;
-	else if(t == type_t::type_int16_p3)
+	else if(t == Area::type_t::int16_p3)
 		return sizeof(int16_t) * 3;
-	else if(t == type_t::type_uint16_p4)
+	else if(t == Area::type_t::uint16_p4)
 		return sizeof(uint16_t) * 4;
-	else if(t == type_t::type_uint8_p4)
+	else if(t == Area::type_t::uint8_p4)
 		return sizeof(uint8_t) * 4;
-	else if(t == type_t::type_uint8_p3)
+	else if(t == Area::type_t::uint8_p3)
 		return sizeof(uint8_t) * 3;
 	return 0;
 }
 
 std::string Area::type_to_name(Area::type_t t) {
-	if(t == type_t::type_float_p4)
+	if(t == Area::type_t::float_p4)
 		return "type_float_p4";
-	else if(t == type_t::type_float_p3)
+	else if(t == Area::type_t::float_p3)
 		return "type_float_p3";
-	else if(t == type_t::type_float_p2)
+	else if(t == Area::type_t::float_p2)
 		return "type_float_p2";
-	else if(t == type_t::type_float_p6)
+	else if(t == Area::type_t::float_p6)
 		return "type_float_p6";
-	else if(t == type_t::type_int16_p4)
+	else if(t == Area::type_t::int16_p4)
 		return "type_int16_p4";
-	else if(t == type_t::type_int16_p3)
+	else if(t == Area::type_t::int16_p3)
 		return "type_int16_p3";
-	else if(t == type_t::type_uint16_p4)
+	else if(t == Area::type_t::uint16_p4)
 		return "type_uint16_p4";
-	else if(t == type_t::type_uint8_p4)
+	else if(t == Area::type_t::uint8_p4)
 		return "type_uint8_p4";
-	else if(t == type_t::type_uint8_p3)
+	else if(t == Area::type_t::uint8_p3)
 		return "type_uint8_p3";
-	if(t == type_t::type_float_p1)
+	if(t == Area::type_t::float_p1)
 		return "type_float_p1";
 	return "unknown";
 }
 
 Area::type_t Area::type_for_format(Area::format_t format) {
-	if(format == format_t::format_rgba_32)
-		return type_t::type_float_p4;
-	else if(format == format_t::format_rgba_16)
-		return type_t::type_int16_p4;
-	else if(format == format_t::format_rgb_16)
-		return type_t::type_int16_p3;
-	else if(format == format_t::format_rgba_8 || format == format_t::format_bgra_8)
-		return type_t::type_uint8_p4;
-	else if(format == format_t::format_rgb_8)
-		return type_t::type_uint8_p3;
-	return type_t::type_float_p4;
+	if(format == Area::format_t::rgba_32)
+		return Area::type_t::float_p4;
+	else if(format == Area::format_t::rgba_16)
+		return Area::type_t::int16_p4;
+	else if(format == Area::format_t::rgb_16)
+		return Area::type_t::int16_p3;
+	else if(format == Area::format_t::rgba_8 || format == Area::format_t::bgra_8)
+		return Area::type_t::uint8_p4;
+	else if(format == Area::format_t::rgb_8)
+		return Area::type_t::uint8_p3;
+	return Area::type_t::float_p4;
 }
+
 //==============================================================================
 QImage Area::to_qimage(void) {
 	int w = dimensions()->width();
 	int h = dimensions()->height();
-	if(_type == type_t::type_uint8_p4)
+	if(_type == Area::type_t::uint8_p4)
 		return QImage((uchar *)ptr(), w, h, w * 4, QImage::Format_ARGB32);
-	if(_type == type_t::type_uint8_p3)
+	if(_type == Area::type_t::uint8_p3)
 		return QImage((uchar *)ptr(), w, h, w * 3, QImage::Format_RGB888);
 	return QImage();
 }
 
 QPixmap Area::to_qpixmap(void) {
-	if(_type != type_t::type_uint8_p4)
+	if(_type != Area::type_t::uint8_p4)
 		return QPixmap();
 	int w = dimensions()->width();
 	int h = dimensions()->height();
@@ -372,21 +368,22 @@ class Area::scale_task_t {
 public:
 	Area *area_in;
 	Area *area_out;
+	std::atomic_int *y_flow;
+
 	float scale_x;
 	float scale_y;
-	std::atomic_int *y_flow;
 	float in_x_off;
 	float in_y_off;
 };
 
-//Area *Area::scale(SubFlow *subflow, int out_w, int out_h, float out_x, float out_y, float out_scale) {
-Area *Area::scale(SubFlow *subflow, int out_w, int out_h, float out_scale_x, float out_scale_y) {
+std::unique_ptr<Area> Area::scale(SubFlow *subflow, int out_w, int out_h, float out_scale_x, float out_scale_y) {
 // TODO: check original 'px_size' asked by View and 'out_scale'
 	// TODO: utilize t_dimensions::position, support of scaling with tiles
 //cerr << "Area:scale(...) : " << (unsigned long)this << endl;
-	scale_task_t **tasks = nullptr;
-	Area *area_out = nullptr;
-	std::atomic_int *y_flow = nullptr;
+	std::unique_ptr<Area> area_out;
+	std::vector<std::unique_ptr<scale_task_t>> tasks(0);
+	std::unique_ptr<std::atomic_int> y_flow;
+
 	if(subflow->sync_point_pre()) {
 		Area::t_dimensions *d_in = this->dimensions();
 ///*
@@ -410,10 +407,10 @@ cerr << "in_y_off == " << in_y_off << endl;
 //cerr << "in_y_off == " << in_y_off << endl;
 cerr << "out size == " << out_w << "x" << out_h << endl;
 
-		if(type() == Area::type_t::type_uint8_p4)
-			area_out = new Area(out_w, out_h, Area::type_t::type_uint8_p4);
+		if(type() == Area::type_t::uint8_p4)
+			area_out = std::unique_ptr<Area>(new Area(out_w, out_h, Area::type_t::uint8_p4));
 		else
-			area_out = new Area(out_w, out_h);
+			area_out = std::unique_ptr<Area>(new Area(out_w, out_h));
 		area_out->dimensions()->position.x = d_in->position.x - d_in->position.px_size_x * 0.5 + out_scale_x * 0.5;
 		area_out->dimensions()->position.y = d_in->position.y - d_in->position.px_size_y * 0.5 + out_scale_y * 0.5;
 		area_out->dimensions()->position.px_size_x = out_scale_x;
@@ -421,20 +418,24 @@ cerr << "out size == " << out_w << "x" << out_h << endl;
 
 		// TODO: apply correct offsets/px_size to area_out
 		D_AREA_PTR(area_out);
-		int threads_count = subflow->threads_count();
-		tasks = new scale_task_t *[threads_count];
-		y_flow = new std::atomic_int(0);
+		const int threads_count = subflow->threads_count();
+//		tasks = new scale_task_t *[threads_count];
+		tasks.resize(threads_count);
+		y_flow = std::unique_ptr<std::atomic_int>(new std::atomic_int(0));
 		for(int i = 0; i < threads_count; ++i) {
-			tasks[i] = new scale_task_t;
-			tasks[i]->area_in = this;
-			tasks[i]->area_out = area_out;
-			tasks[i]->scale_x = out_scale_x;
-			tasks[i]->scale_y = out_scale_y;
-			tasks[i]->y_flow = y_flow;
-			tasks[i]->in_x_off = in_x_off;
-			tasks[i]->in_y_off = in_y_off;
+			tasks[i] = std::unique_ptr<scale_task_t>(new scale_task_t);
+			scale_task_t *task = tasks[i].get();
+
+			task->area_in = this;
+			task->area_out = area_out.get();
+			task->scale_x = out_scale_x;
+			task->scale_y = out_scale_y;
+			task->y_flow = y_flow.get();
+			task->in_x_off = in_x_off;
+			task->in_y_off = in_y_off;
+
+			subflow->set_private(task, i);
 		}
-		subflow->set_private((void **)tasks);
 	}
 	subflow->sync_point_post();
 
@@ -454,23 +455,16 @@ cerr << "out size == " << out_w << "x" << out_h << endl;
 		}
 	}
 
+	subflow->sync_point_post();
+/*
 	if(subflow->sync_point_pre()) {
 		for(int i = 0; i < subflow->threads_count(); ++i)
 			delete tasks[i];
 		delete[] tasks;
 		delete y_flow;
-/*
-		area_out->dimensions()->position.x = position_x;
-		area_out->dimensions()->position.y = position_y;
-//		area_out->dimensions()->position.x = out_x;
-//		area_out->dimensions()->position.y = out_y;
-		area_out->dimensions()->position.px_size = out_scale;
-cerr << "---->>>> Area::scale(): -->> out x|y: " << area_out->dimensions()->position.x << " - " << area_out->dimensions()->position.y << endl;
-cerr << "---->>>> Area::scale(): -->> out x|y: " << area_out->dimensions()->position.x << " - " << area_out->dimensions()->position.y << endl;
-*/
 	}
 	subflow->sync_point_post();
-
+*/
 //if(subflow->is_main())
 //cerr << "area_scale - done" << endl;
 	return area_out;
@@ -489,7 +483,7 @@ void Area::scale_process_copy(SubFlow *subflow) {
 	float *_out = (float *)area_out->ptr();
 	uint8_t *u_in = (uint8_t *)area_in->ptr();
 	uint8_t *u_out = (uint8_t *)area_out->ptr();
-	bool flag_8b = (area_in->type() == Area::type_t::type_uint8_p4);
+	bool flag_8b = (area_in->type() == Area::type_t::uint8_p4);
 
 	int out_x_offset = area_out->dimensions()->edges.x1;
 	int out_y_offset = area_out->dimensions()->edges.y1;
@@ -581,7 +575,7 @@ void Area::scale_process_downscale(SubFlow *subflow) {
 	 *  out[1] = (in[2] * 0.5 + in[3] * 1.0 + in[4] * 1.0) / 2.5
 	 *	- for scale == 2.5; and so on
 	 */
-	bool flag_8b = (area_in->type() == Area::type_t::type_uint8_p4);
+	bool flag_8b = (area_in->type() == Area::type_t::uint8_p4);
 	const float scale_x = task->scale_x;
 	const float scale_y = task->scale_y;
 	const float w_div = scale_x * scale_y;
@@ -701,7 +695,7 @@ cerr << "	f_offset_y == " << f_offset_y << endl;
 	int j_max = out_h;
 	int i_max = out_w;
 
-	bool flag_8b = (area_in->type() == Area::type_t::type_uint8_p4);
+	bool flag_8b = (area_in->type() == Area::type_t::uint8_p4);
 	const float scale_x = task->scale_x;
 	const float scale_y = task->scale_y;
 	int j = 0;
@@ -777,8 +771,8 @@ cerr << "	f_offset_y == " << f_offset_y << endl;
 
 //------------------------------------------------------------------------------
 // one thread smooth downscale with kept aspect ration, for thumbnails
-Area *Area::scale(int scale_width, int scale_height, bool to_fit) {
-	Area *area_out = nullptr;
+std::unique_ptr<Area> Area::scale(int scale_width, int scale_height, bool to_fit) {
+	std::unique_ptr<Area> area_out;
 	Area::t_dimensions d_out = this->_dimensions;
 	float scale = 1.0;
 	if(to_fit)
@@ -786,11 +780,9 @@ Area *Area::scale(int scale_width, int scale_height, bool to_fit) {
 	else
 		scale = scale_dimensions_to_size_fill(&d_out, scale_width, scale_height);
 	if(scale <= 1.0f) // upscale
-		return new Area(*this);
+		return std::unique_ptr<Area>(new Area(*this));
 
-	area_out = new Area(&d_out, this->_type);
-	if(!area_out->valid())
-		return area_out;
+	area_out = std::unique_ptr<Area>(new Area(&d_out, this->_type));
 
 	// perform downscale
 	float *_in = (float *)this->ptr();
@@ -831,7 +823,7 @@ Area *Area::scale(int scale_width, int scale_height, bool to_fit) {
 	 *  out[1] = (in[2] * 0.5 + in[3] * 1.0 + in[4] * 1.0) / 2.5
 	 *	- for scale == 2.5; and so on
 	 */
-	bool flag_8b = (this->type() == Area::type_t::type_uint8_p4);
+	bool flag_8b = (this->type() == Area::type_t::uint8_p4);
 	const float scale_x = out_scale_x;
 	const float scale_y = out_scale_y;
 	const float w_div = scale_x * scale_y;

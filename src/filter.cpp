@@ -7,16 +7,6 @@
  *
  */
 
-/*
-
-TODO:
-	- do refactoring of class hierarchy/interfaces;
-	- add plugins mechanism
-	- check OpenCL features
-
- */
-
-
 #include <iostream>
 
 #include "filter.h"
@@ -31,9 +21,6 @@ TODO:
 #include "f_rotation.h"
 #include "f_crop.h"
 #include "f_soften.h"
-/*
-#include "f_scale.h"
-*/
 #include "f_wb.h"
 #include "f_crgb_to_cm.h"
 #include "f_cm_lightness.h"
@@ -42,10 +29,6 @@ TODO:
 #include "f_cm_colors.h"
 #include "f_unsharp.h"
 #include "f_cm_to_cs.h"
-/*
-#include "f_curve.h"
-#include "f_invert.h"
-*/
 
 using namespace std;
 
@@ -196,7 +179,6 @@ Process_t::Process_t(void) {
 	mutators_multipass = nullptr;
 	area_in = nullptr;
 	allow_destructive = false;
-	OOM = false;
 }
 
 //------------------------------------------------------------------------------
@@ -253,7 +235,13 @@ void Filter_Control::get_mutators(class DataSet *dataset, class DataSet *ps_data
 }
 
 //------------------------------------------------------------------------------
-Filter_Store *Filter_Store::_this = nullptr;
+std::unique_ptr<Filter_Store> Filter_Store::_this;
+
+Filter_Store *Filter_Store::instance(void) {
+	if(!_this)
+		_this = std::move(std::unique_ptr<Filter_Store>(new Filter_Store()));
+	return _this.get();
+}
 
 Filter_Store::Filter_Store(void) {
 	// filters
@@ -301,11 +289,11 @@ Filter_Store::Filter_Store(void) {
 	// colors
 //	filters_list_offline.push_back(f_wb);
 	filters_list_offline.push_back(f_crgb_to_cm);
+	filters_list_offline.push_back(f_unsharp);
 	filters_list_offline.push_back(f_cm_lightness);
 	filters_list_offline.push_back(f_cm_colors);
 	filters_list_offline.push_back(f_cm_rainbow);
 	filters_list_offline.push_back(f_cm_sepia);
-	filters_list_offline.push_back(f_unsharp);
 	filters_list_offline.push_back(f_cm_to_cs);
 	//--
 	// online list
@@ -341,7 +329,7 @@ Filter_Store::Filter_Store(void) {
 	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_crop, f_crop));
 }
 
-QList<class Filter *> Filter_Store::get_filters_list(bool is_online) {
+std::list<class Filter *> Filter_Store::get_filters_list(bool is_online) {
 	if(is_online)
 		return filters_list_online;
 	else

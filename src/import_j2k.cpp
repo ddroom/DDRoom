@@ -72,7 +72,7 @@ QImage Import_J2K::thumb(Metadata *metadata, int thumb_width, int thumb_height) 
 	reduce--;
 //reduce=6;
 //cerr << "reduce == " << reduce << endl;
-	Area *area = nullptr;
+	std::unique_ptr<Area> area;
 	int try_count = 0;
 	while(try_count < 8 && reduce > 0) {
 		area = load_image(metadata, reduce, true);
@@ -84,9 +84,7 @@ QImage Import_J2K::thumb(Metadata *metadata, int thumb_width, int thumb_height) 
 	}
 	if(area != nullptr) {
 //		qimage = QImage((uchar *)area->ptr(), area->mem_width(), area->mem_height(), area->mem_width() * 4, QImage::Format_ARGB32);
-		if(area->valid())
-			qimage = QImage((uchar *)area->ptr(), area->mem_width(), area->mem_height(), QImage::Format_RGB32).copy();
-		delete area;
+		qimage = QImage((uchar *)area->ptr(), area->mem_width(), area->mem_height(), QImage::Format_RGB32).copy();
 	}
 	return qimage;
 }
@@ -104,13 +102,13 @@ void Import_J2K::callback_info(const char *msg, void *_this) {
 //	cerr << "callback_info()" << msg << endl;
 }
 
-Area *Import_J2K::image(Metadata *metadata) {
+std::unique_ptr<Area> Import_J2K::image(Metadata *metadata) {
 	return load_image(metadata, 0, false);
 }
 
-Area *Import_J2K::load_image(Metadata *metadata, int reduce, bool is_thumb, bool load_size_only) {
+std::unique_ptr<Area> Import_J2K::load_image(Metadata *metadata, int reduce, bool is_thumb, bool load_size_only) {
 //cerr << "Import_J2K::load_image(); file_name == \"" << file_name << "\"" << endl;
-	Area *area = nullptr;
+	std::unique_ptr<Area> area;
 	was_callback_error = false;
 	// determine codec
 	int j2k_codec = -1;
@@ -187,10 +185,9 @@ Area *Import_J2K::load_image(Metadata *metadata, int reduce, bool is_thumb, bool
 	float scale = 1 << image->comps[0].prec;
 	bool bw = (image->numcomps == 1);
 	if(!is_thumb)
-		area = new Area(width, height);	// RGBA float
+		area = std::unique_ptr<Area>(new Area(width, height));	// RGBA float
 	else
-		area = new Area(width, height, Area::type_t::type_uint8_p4);	// ARGB 32bit
-if(area->valid()) {
+		area = std::unique_ptr<Area>(new Area(width, height, Area::type_t::uint8_p4));	// ARGB 32bit
 //cerr << "Area size: " << width << "x" << height << endl;
 	float *out_f = (float *)area->ptr();
 	uint8_t *out_u = (uint8_t *)area->ptr();
@@ -227,7 +224,6 @@ if(area->valid()) {
 			out_u[i * 4 + 3] = 0xFF;
 		}
 	}
-}
 //	if(!is_thumb)
 //		metadata->c_histogram_count = metadata->width * metadata->height;
 	opj_image_destroy(image);

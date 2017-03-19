@@ -179,12 +179,11 @@ FP_GP_Distortion::FP_GP_Distortion(const class Metadata *metadata, bool _flag_to
 	lfDatabase *ldb = System::instance()->ldb();
 	const lfLens **lenses = ldb->FindLenses(nullptr, nullptr, metadata->lensfun_lens_model.c_str());
 	if(lenses == nullptr) {
-cerr << "return - 2!" << endl;
-		ldb->Destroy();
+//cerr << "LensFun: lens \"" << metadata->lensfun_lens_model << "\" not found" << endl;
 		return;
 	}
 	const lfLens *lens = lenses[0];
-	lf_free(lenses);
+
 	// create forward modifier, create TF_Distortion_Forward, and get maximum (x,y) as arguments for TF_Distortion_Backward
 	// TODO: use a real crop factor
 	lfModifier *mod_forward = lfModifier::Create(lens, metadata->sensor_crop, metadata->width, metadata->height);
@@ -198,13 +197,14 @@ cerr << "return - 2!" << endl;
 	tf_forward = new TF_Distortion(mod_forward, x_corrected_max, y_corrected_max);
 	max_length_corrected = sqrtf(x_corrected_max * x_corrected_max + y_corrected_max * y_corrected_max);
 	mod_forward->Destroy();
+
 	// create TF_Distortion_Backward
 	lfModifier *mod_backward = lfModifier::Create(lens, metadata->sensor_crop, ceilf(x_corrected_max) * 2.0, ceilf(y_corrected_max) * 2.0);
 	mod_backward->Initialize(lens, LF_PF_U8, metadata->lens_focal_length, metadata->lens_aperture, metadata->lens_distance, 1.0, LF_RECTILINEAR, LF_MODIFY_DISTORTION, false);
 	tf_backward = new TF_Distortion(mod_backward, x_corrected_max, y_corrected_max);
 	mod_backward->Destroy();
-	//--
-//	ldb->Destroy();
+	lf_free(lenses);
+
 	enabled = true;
 	cache->tf_forward = tf_forward;
 	cache->tf_backward = tf_backward;

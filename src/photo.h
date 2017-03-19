@@ -79,9 +79,8 @@ public:
 	long filter_flags; // Filter::flags() return if any, else == 0
 	int cw_rotation;
 	class Metadata *metadata;
-	class Area *area_raw;		// should be keeped in here (?)
-
-	class Area *thumbnail;
+	std::unique_ptr<class Area> area_raw;
+	std::unique_ptr<class Area> thumbnail;
 
 	// cache for filters will be stored at 'cache_process' by 'Process' class
 	// once created cache object used by filters at all process iterations

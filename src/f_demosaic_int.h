@@ -38,7 +38,7 @@ public:
 	~FP_Demosaic();
 
 	bool is_enabled(const PS_Base *);
-	Area *process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj);
+	std::unique_ptr<Area> process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj);
 
 	void size_forward(FP_size_t *fp_size, const Area::t_dimensions *d_before, Area::t_dimensions *d_after);
 	
@@ -53,18 +53,12 @@ protected:
 	void process_bilinear(class SubFlow *);
 	void process_DG(class SubFlow *);
 	void process_AHD(class SubFlow *);
-	void process_denoise_wrapper(class SubFlow *);
-	float *process_denoise_(class SubFlow *);
-	float *process_denoise(class SubFlow *);
-	void process_gaussian(class SubFlow *);
 	void fuji_45_rotate(class SubFlow *);
 	void process_xtrans(class SubFlow *);
 
 	static class TF_CIELab tf_cielab;
 
 	void _init(void);
-	static float *kernel_g5x5;
-	static float *kernel_rb5x5;
 };
 
 //------------------------------------------------------------------------------
@@ -84,13 +78,13 @@ public:
 
 	class PS_Demosaic *ps;
 
-	float noise_std_dev[4];
-//	float black_level[4];
+//	float noise_std_dev[4];
 
 	float c_scale[3];
 	float cRGB_to_XYZ[9]; // 3x3 matrix
 	float *v_signal;
 
+/*
 	// noise analysis
 	float *noise_data; // 2 planes: 1. GREEN gaussian 5x5; 2. GREEN std_dev (real signal to gaussian, 5x5);
 	float noise_std_dev_min; // minimal GREEN std_dev of delta 'gaussian - ofiginal', considered as noise std_dev;
@@ -102,6 +96,7 @@ public:
 	float max_blue;
 	float *dn1; // for hot / cold pixels suspension
 	float *dn2; // for denoise reduction
+*/
 
 	// X-Trans
 	class Area *area_in;
@@ -111,11 +106,13 @@ public:
 
 	// DG
 	float *D; // 4 planes, with green reconstructed in 4 directions
-	float *sm_temp;
+	float *sm_temp; // for smooth directions
 //	std::vector<std::atomic_int> dd_hist = std::vector<std::atomic_int>(0);
 	std::vector<long> dd_hist = std::vector<long>(0);
 	float dd_hist_scale;
 	float dd_limit;
+	std::atomic_int *y_flow;
+	int in_height;
 
 	// AHD
 	float *fH;
@@ -128,6 +125,29 @@ public:
 	class Fuji_45 *fuji_45;
 //	int fuji_45_width;
 	std::atomic_int *fuji_45_flow;
+};
+
+//------------------------------------------------------------------------------
+class task_ca_t {
+public:
+	Area *area_in;
+	Area *bayer_ca;
+	int bayer_pattern;
+	std::atomic_int *y_flow;
+	double start_in_x;
+	double start_in_y;
+	double start_in_x_red;
+	double start_in_y_red;
+	double start_in_x_blue;
+	double start_in_y_blue;
+	double delta_in_red;
+	double delta_in_blue;
+	bool skip_red;
+	bool skip_blue;
+	class TableFunction *tf_sinc1;
+	class TableFunction *tf_sinc2;
+	int edge_x;
+	int edge_y;
 };
 
 //------------------------------------------------------------------------------

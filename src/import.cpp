@@ -21,7 +21,6 @@
 #include "import_j2k.h"
 #include "import_png.h"
 #include "import_tiff.h"
-#include "import_test.h"
 #include "import_exiv2.h"
 #include "photo.h"
 #include "photo_storage.h"
@@ -35,10 +34,12 @@
 
 #include <QImage>
 
+#define THUMBNAIL_SIZE 384
+
 using namespace std;
 //------------------------------------------------------------------------------
-Area *Import_Performer::image(class Metadata *metadata) {
-	return nullptr;
+std::unique_ptr<Area> Import_Performer::image(class Metadata *metadata) {
+	return std::unique_ptr<Area>(nullptr);
 }
 
 QImage Import_Performer::thumb(class Metadata *metadata, int thumb_width, int thumb_height) {
@@ -53,7 +54,6 @@ QList<QString> Import::extensions(void) {
 	l += Import_J2K::extensions();
 	l += Import_PNG::extensions();
 	l += Import_TIFF::extensions();
-	l += Import_Test::extensions();
 	return l;
 }
 
@@ -79,14 +79,12 @@ Import_Performer *Import::import_performer(std::string file_name) {
 		performer = new Import_PNG(file_name);
 	} else if(Import_TIFF::extensions().contains(ext)) {
 		performer = new Import_TIFF(file_name);
-	} else if(Import_Test::extensions().contains(ext)) {
-		performer = new Import_Test(file_name);
 	}
 	return performer;
 }
 
-class Area *Import::image(std::string file_name, class Metadata *metadata) {
-	Area *area = nullptr;
+std::unique_ptr<Area> Import::image(std::string file_name, class Metadata *metadata) {
+	std::unique_ptr<Area> area;
 	Import_Performer *performer = import_performer(file_name);
 	if(performer != nullptr) {
 		area = performer->image(metadata);
@@ -166,8 +164,9 @@ class QImage *Import::thumb(Photo_ID photo_id, class Metadata *metadata, int &th
 			thumb_rotation = metadata->rotation;
 		if(thumbnail == nullptr && qi.isNull() == false) {
 			// downscale thumbnail if necessary
-			if(qi.width() > 384 * 2 && qi.height() > 384 * 2)
-				thumbnail = new QImage(qi.scaled(384, 384, Qt::KeepAspectRatio, Qt::SmoothTransformation).copy());
+			const int thumbnail_size = THUMBNAIL_SIZE;
+			if(qi.width() > thumbnail_size * 2 && qi.height() > thumbnail_size * 2)
+				thumbnail = new QImage(qi.scaled(thumbnail_size, thumbnail_size, Qt::KeepAspectRatio, Qt::SmoothTransformation).copy());
 			else
 				thumbnail = new QImage(qi);
 		}

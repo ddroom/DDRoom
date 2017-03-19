@@ -114,11 +114,10 @@ void SubFlow::thread_wrapper(void) {
 	} catch(SubFlow::abort_exception abort) {
 		// normal 'abort' case
 		return;
-/*
 	} catch(...) {
+		// any other exception should be handled in the thread function
 //		std::cerr << "fatal: thread with id == " << i_id " throws an unhandled exception !" << std::endl;
 		std::terminate();
-*/
 	}
 }
 

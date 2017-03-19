@@ -10135,41 +10135,38 @@ void *DCRaw::_load_raw(string fname, long &length) {
 	return __load(length, DCRaw::load_type_raw, fname);
 }
 
-Area *DCRaw::demosaic_xtrans(const uint16_t *_image, int _width, int _height, const class Metadata *metadata, int passes, class Area *area_out) {
+std::unique_ptr<Area> DCRaw::demosaic_xtrans(const uint16_t *_image, int _width, int _height, const class Metadata *metadata, int passes, class Area *area_out_ptr) {
 	colors = 3;
 	verbose = 0;
 	filters = 9;
 	width = _width;
 	height = _height;
+
 	for(int j = 0; j < 6; j++)
 		for(int i = 0; i < 6; i++)
 			xtrans[j][i] = metadata->sensor_xtrans_pattern[j][i];
-	Area area_image(width, height, Area::type_t::type_uint16_p4);
-	uint16_t *image_ptr = (uint16_t *)area_image.ptr();
+
 	float c_scale[3];
 	for(int i = 0; i < 3; i++)
 		c_scale[i] = metadata->c_scale_ref[i];
 	for(int j = 0; j < 3; j++)
 		for(int i = 0; i < 4; i++)
 			rgb_cam[j][i] = metadata->rgb_cam[j][i];
+
+	auto area_image = std::unique_ptr<Area>(new Area(width, height, Area::type_t::uint16_p4));
+	uint16_t *image_ptr = (uint16_t *)area_image->ptr();
 	memcpy(image_ptr, _image, width * height * sizeof(uint16_t) * 4);
-/*
-	for(int y = 0; y < height, y++) {
-		for(int x = 0; x < width; x++) {
-			for(int k = 0; k < 4; k++)
-				image_ptr[(y * width + x) * 4 + k] = _image[(y * width + x) * 4 + k];
-		}
-	}	
-*/
 	image = (ushort (*)[4])image_ptr;
 	xtrans_interpolate(passes);
+
 	// convert and return result
-	if(area_out == nullptr) {
-		area_out = new Area(width, height, Area::type_t::type_float_p4);
-		if(!area_out->valid())
-			return area_out;
+	std::unique_ptr<Area> area_out;
+	if(area_out_ptr == nullptr) {
+		area_out = std::unique_ptr<Area>(new Area(width, height, Area::type_t::float_p4));
+		area_out_ptr = area_out.get();
 	}
-	float *out = (float *)area_out->ptr();
+
+	float *out = (float *)area_out_ptr->ptr();
 	for(int y = 0; y < height; y++) {
 		for(int x = 0; x < width; x++) {
 			const int index = (y * width + x) * 4;

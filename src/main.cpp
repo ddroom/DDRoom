@@ -20,6 +20,7 @@
 #include "system.h"
 #include "window.h"
 #include "photo.h"
+#include "filter.h"
 
 #include <exiv2/xmp.hpp>
 #include <exiv2/error.hpp>
@@ -33,6 +34,7 @@ void Exiv2_emptyHandler(int level, const char* s) {
 }
 
 void init_libraries(void) {
+	Filter_Store::instance();
 	// init Exiv2 XMP parser
 	Exiv2::XmpParser::initialize();
 	Exiv2::LogMsg::setHandler(Exiv2_emptyHandler);

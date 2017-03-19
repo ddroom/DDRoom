@@ -59,7 +59,7 @@ public:
 	void filter_post(fp_cp_args_t *args);
 
 	// FilterProcess_2D
-	Area *process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj);
+	std::unique_ptr<Area> process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj);
 
 };
 
@@ -287,6 +287,9 @@ void FP_CM_to_CS::filter(float *pixel, fp_cp_task_t *fp_cp_task) {
 	if(pixel[2] < 0.0)	pixel[2] += 1.0;
 	// TODO: add two-pass thumbnail processing - first one to determine maximum saturation level, second - to apply it;
 	// TODO: use real 'x_max' value;
+
+	float const compress_strength = task->compress_strength;
+
 	if(task->sg != nullptr) {
 		// compress saturation
 		// should we check brightness of that pixel or not
@@ -303,13 +306,13 @@ void FP_CM_to_CS::filter(float *pixel, fp_cp_task_t *fp_cp_task) {
 		float s_limit = s1 + (s2 - s1) * (1.0 - task->desaturation_strength);
 		if(s_limit > 0.001) {
 			float s = compression_function(pixel[1] / s_limit, task->compress_saturation_factor) * s_limit;
-			pixel[1] = s + (pixel[1] - s) * (1.0 - task->compress_strength);
+			pixel[1] = s + (pixel[1] - s) * (1.0 - compress_strength);
 		} else {
 			pixel[1] = 0.0;
 		}
 		float J_max = task->sg->lightness_limit(pixel[1], pixel[2]);
 		if(pixel[0] > J_max)
-			pixel[0] = J_max + (pixel[0] - J_max) * (1.0 - task->compress_strength);
+			pixel[0] = J_max + (pixel[0] - J_max) * (1.0 - compress_strength);
 	}
 	float XYZ[3];
 	task->cm_convert->convert(XYZ, pixel);
@@ -322,15 +325,15 @@ void FP_CM_to_CS::filter(float *pixel, fp_cp_task_t *fp_cp_task) {
 }
 
 //------------------------------------------------------------------------------
-Area *FP_CM_to_CS::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj) {
+std::unique_ptr<Area> FP_CM_to_CS::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj) {
 	SubFlow *subflow = mt_obj->subflow;
-	Area *area_in = process_obj->area_in;
+
 	DataSet *mutators = process_obj->mutators;
 	DataSet *mutators_multipass = process_obj->mutators_multipass;
 //	PS_CM_to_CS *ps = (PS_CM_to_CS *)(filter_obj->ps_base);
 	FP_CM_to_CS_Cache_t *fp_cache = (FP_CM_to_CS_Cache_t *)process_obj->fp_cache;
 
-	Area *_area_out = nullptr;
+	std::unique_ptr<Area> area_out;
 	task_t *task = nullptr;
 	std::vector<std::unique_ptr<task_t>> tasks(0);
 	std::unique_ptr<std::atomic_int> y_flow_p1;
@@ -338,10 +341,11 @@ Area *FP_CM_to_CS::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filte
 	const int threads_count = subflow->threads_count();
 
 	if(subflow->sync_point_pre()) {
+		Area *area_in = process_obj->area_in;
+
 		std::vector<class task_t *> v_tasks = task_prepare(threads_count, mutators, mutators_multipass, true, fp_cache);
 		// TODO: check here destructive processing
-		_area_out = new Area(*area_in);
-D_AREA_PTR(_area_out)
+		area_out = std::unique_ptr<Area>(new Area(*area_in));
 		y_flow_p1 = std::unique_ptr<std::atomic_int>(new std::atomic_int(0));
 		y_flow_p2 = std::unique_ptr<std::atomic_int>(new std::atomic_int(0));
 		tasks.resize(threads_count);
@@ -350,7 +354,7 @@ D_AREA_PTR(_area_out)
 			tasks[i] = std::unique_ptr<task_t>(task);
 
 			task->area_in = area_in;
-			task->area_out = _area_out;
+			task->area_out = area_out.get();
 			task->y_flow_p1 = y_flow_p1.get();
 			task->y_flow_p2 = y_flow_p2.get();
 			subflow->set_private(task, i);
@@ -420,6 +424,8 @@ D_AREA_PTR(_area_out)
 
 	// master thread: analyze information, determine compression factor
 	if(subflow->sync_point_pre()) {
+		Area *area_in = process_obj->area_in;
+
 		std::vector<task_t *> v_tasks(threads_count);
 		for(int i = 0; i < threads_count; ++i)
 			v_tasks[i] = (task_t *)tasks[i].get();
@@ -431,7 +437,7 @@ D_AREA_PTR(_area_out)
 			tasks[i] = std::unique_ptr<task_t>(task);
 
 			task->area_in = area_in;
-			task->area_out = _area_out;
+			task->area_out = area_out.get();
 			task->y_flow_p1 = y_flow_p1.get();
 			task->y_flow_p2 = y_flow_p2.get();
 			subflow->set_private(task, i);
@@ -466,6 +472,6 @@ D_AREA_PTR(_area_out)
 	}
 	subflow->sync_point_post();
 
-	return _area_out;
+	return area_out;
 }
 //------------------------------------------------------------------------------

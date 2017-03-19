@@ -84,7 +84,7 @@ protected:
 	void allocate_process_caches(std::list<class filter_record_t> &filters, std::shared_ptr<class Photo_t> photo_ptr);
 
 protected:
-	static class Filter_Store *fstore;
+	class Filter_Store *fstore;
 };
 
 //------------------------------------------------------------------------------

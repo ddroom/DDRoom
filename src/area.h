@@ -18,12 +18,13 @@
 #include "memory.h"
 
 //------------------------------------------------------------------------------
-// in the case 'Out Of Memory' 'ptr() == nullptrptr', or 'valid() == false';
 // Container to manage in memory rectangular area of the whole photo/image (or part of it, i.e. 'tile').
 // Holds an actual pixels or 2D coordinates for geometry transformations.
 // Keeps coordinates of the upper left pixel corresponding to the original photo coordinates; and rescaling factor as well.
 class Area {
 public:
+	class bad_alloc {};
+
 	struct t_position {
 	//	position of tile in image_center-based coordinates:
 	//	x axis from left to right;
@@ -85,59 +86,57 @@ public:
 	};
 
 	enum class type_t {
-		type_float_p4,	// float RGBA
-		type_float_p3,	// float RGB
-		type_float_p2,	// float 2D coordinates
-		type_float_p6,	// float 2D coordinates separate for 3 colors
-		type_int16_p4,	// I16	RGBA
-		type_int16_p3,	// I16	RGB
-		type_uint16_p4, // raw
-		type_uint8_p4,	// U8	BGRA (QT format)
-		type_uint8_p3,	// U8	RGB (JPEG export)
-		type_float_p1,	// float V
+		float_p4,	// float RGBA
+		float_p3,	// float RGB
+		float_p2,	// float 2D coordinates
+		float_p6,	// float 2D coordinates separate for 3 colors
+		int16_p4,	// I16	RGBA
+		int16_p3,	// I16	RGB
+		uint16_p4, // raw
+		uint8_p4,	// U8	BGRA (QT format)
+		uint8_p3,	// U8	RGB (JPEG export)
+		float_p1,	// float V
 	};
 	enum class format_t {
-		format_rgba_32,	// 'original' RGBA 'float'
-		format_rgba_16,	// RGBA 16bit
-		format_rgb_16,	// RGB 16bit
-		format_rgba_8,	// RGBA 8bit
-		format_bgra_8,	// BGRA 8bit (QT format)
-		format_rgb_8,	// for JPEG export etc...
+		rgba_32,// 'original' RGBA 'float'
+		rgba_16,// RGBA 16bit
+		rgb_16,	// RGB 16bit
+		rgba_8,	// RGBA 8bit
+		bgra_8,	// BGRA 8bit (QT format)
+		rgb_8,	// for JPEG export etc...
 	};
 	Area(void);
 	virtual ~Area();
-	Area(int32_t width, int32_t height, Area::type_t type = type_t::type_float_p4);
-	Area(const t_dimensions *_dims, Area::type_t type = type_t::type_float_p4);
+	Area(int32_t width, int32_t height, Area::type_t type = Area::type_t::float_p4);
+	Area(const t_dimensions *_dims, Area::type_t type = Area::type_t::float_p4);
 	Area(Area const &copy);
 	Area & operator = (const Area &other);
-	static Area *real_copy(Area *other);
+	static Area *deep_copy(Area *other);
 
 	void *ptr(void);
-	bool valid(void) {return ptr() != nullptr;} // check for 'Out Of Memory'
 	inline int32_t mem_width(void) { return _dimensions.size.w; }
 	inline int32_t mem_height(void) { return _dimensions.size.h; }
 
-	type_t type(void) const { return _type;}
+	Area::type_t type(void) const { return _type;}
 	int16_t type_to_sizeof(void) { return type_to_sizeof(this->_type);}
-	static int16_t type_to_sizeof(type_t t);
-	static std::string type_to_name(type_t t);
-	static type_t type_for_format(format_t format);
+	static int16_t type_to_sizeof(Area::type_t t);
+	static std::string type_to_name(Area::type_t t);
+	static Area::type_t type_for_format(Area::format_t format);
 
-//	const t_dimensions *dimensions(void) {return &_dimensions;}
 	t_dimensions *dimensions(void) {return &_dimensions;}
 	static float scale_dimensions_to_factor(class Area::t_dimensions *d, float scaling_factor);
 	static float scale_dimensions_to_size_fit(class Area::t_dimensions *d, int limit_w, int limit_h);
 	static float scale_dimensions_to_size_fill(class Area::t_dimensions *d, int limit_w, int limit_h);
 
-	Area *scale(class SubFlow *subflow, int width, int height, float scale_factor_x, float scale_factor_y);
-	Area *scale(int width, int height, bool to_fit = true);
+	std::unique_ptr<Area> scale(class SubFlow *subflow, int width, int height, float scale_factor_x, float scale_factor_y);
+	std::unique_ptr<Area> scale(int width, int height, bool to_fit = true);
 
 	QImage to_qimage(void);
 	QPixmap to_qpixmap(void);
 	void dump_ptr(const char *file, int line);
 
 protected:
-	type_t _type;
+	Area::type_t _type;
 
 	static float scale_dimensions_to_size(class Area::t_dimensions *d, float scaling_factor, int limit_w, int limit_h, bool to_fit);
 

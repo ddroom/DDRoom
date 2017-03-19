@@ -65,28 +65,25 @@ public:
 	std::vector<std::unique_ptr<fp_cp_args_t>> *filter_args;
 };
 
-Area *FilterProcess_CP_Wrapper::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj) {
+std::unique_ptr<Area> FilterProcess_CP_Wrapper::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj) {
 	SubFlow *subflow = mt_obj->subflow;
-	Area *area_in = process_obj->area_in;
-	Area *area_out = nullptr;
 
 	const int filters_count = fp_cp_vector.size();
 	const int threads_count = subflow->threads_count();
 
+	std::unique_ptr<Area> area_out;
 	std::vector<std::unique_ptr<fp_cp_args_t>> args(0);
-
 	std::unique_ptr<std::atomic_int> y_flow;
 	std::vector<std::unique_ptr<task_t>> tasks(0);
 
 	if(subflow->sync_point_pre()) {
+		Area *area_in = process_obj->area_in;
+
 		bool destructive = process_obj->allow_destructive && allow_destructive;
-		if(destructive) {
-			area_out = new Area(*area_in);
-		} else {
-			area_out = new Area(area_in->dimensions());
-			process_obj->OOM |= !area_out->valid();
-		}
-		D_AREA_PTR(area_out);
+		if(destructive)
+			area_out = std::unique_ptr<Area>(new Area(*area_in));
+		else
+			area_out = std::unique_ptr<Area>(new Area(area_in->dimensions()));
 
 		args.resize(filters_count);
 		// prepare post-pixel filters
@@ -118,7 +115,7 @@ Area *FilterProcess_CP_Wrapper::process(MT_t *mt_obj, Process_t *process_obj, Fi
 
 			task->flow_index = i;
 			task->area_in = area_in;
-			task->area_out = area_out;
+			task->area_out = area_out.get();
 			task->y_flow = y_flow.get();
 			task->destructive = destructive;
 			task->filter_args = &args;
@@ -128,9 +125,7 @@ Area *FilterProcess_CP_Wrapper::process(MT_t *mt_obj, Process_t *process_obj, Fi
 	}
 	subflow->sync_point_post();
 
-	// run fp_cp_list FP_CP::filter()
-	if(!process_obj->OOM)
-		process(subflow);
+	process(subflow);
 
 	if(subflow->sync_point_pre()) {
 		for(int i = 0; i < filters_count; ++i) {
@@ -138,56 +133,58 @@ Area *FilterProcess_CP_Wrapper::process(MT_t *mt_obj, Process_t *process_obj, Fi
 		}
 	}
 	subflow->sync_point_post();
-//	if(subflow->is_main())
-//		cerr << "wrapper process: done" << endl;
+
 	return area_out;
 }
 
 void FilterProcess_CP_Wrapper::process(class SubFlow *subflow) {
 	task_t *task = (task_t *)subflow->get_private();
 
-	int in_width = task->area_in->mem_width();
-	int out_width = task->area_out->mem_width();
+	const int in_width = task->area_in->mem_width();
+	const int out_width = task->area_out->mem_width();
 
-	int in_mx1 = task->area_in->dimensions()->edges.x1;
-	int in_my1 = task->area_in->dimensions()->edges.y1;
-	int out_mx1 = task->area_out->dimensions()->edges.x1;
-	int out_my1 = task->area_out->dimensions()->edges.y1;
-	int x_max = task->area_out->dimensions()->width();
-	int y_max = task->area_out->dimensions()->height();
+	const int in_mx1 = task->area_in->dimensions()->edges.x1;
+	const int in_my1 = task->area_in->dimensions()->edges.y1;
+	const int out_mx1 = task->area_out->dimensions()->edges.x1;
+	const int out_my1 = task->area_out->dimensions()->edges.y1;
+	const int x_max = task->area_out->dimensions()->width();
+	const int y_max = task->area_out->dimensions()->height();
 
 	float *in = (float *)task->area_in->ptr();
 	float *out = (float *)task->area_out->ptr();
 
-	int j = 0;
-	int filters_count = fp_cp_vector.size();
-	Mem m_mt(4 * sizeof(float));
-	float *mt = (float *)m_mt.ptr();
-	while((j = task->y_flow->fetch_add(1)) < y_max) {
-		int it_in = ((j + in_my1) * in_width + in_mx1) * 4;
-		if(task->destructive) {
+	const int filters_count = fp_cp_vector.size();
+	float mt[4];
+	const int flow_index = task->flow_index;
+	const bool destructive = task->destructive;
+	int j;
+	auto y_flow = task->y_flow;
+	while((j = y_flow->fetch_add(1)) < y_max) {
+		int i_in = ((j + in_my1) * in_width + in_mx1) * 4;
+		if(destructive) {
 			for(int i = 0; i < x_max; ++i) {
-				if(in[it_in + 3] > 0.0)
+				if(in[i_in + 3] > 0.0)
 					for(int fi = 0; fi < filters_count; ++fi)
-						fp_cp_vector[fi].fp_cp->filter(&in[it_in], (*(task->filter_args))[fi]->vector_private[task->flow_index].get());
-				it_in += 4;
+						fp_cp_vector[fi].fp_cp->filter(&in[i_in], (*(task->filter_args))[fi]->vector_private[flow_index].get());
+				i_in += 4;
 			}
 		} else {
-			int it_out = ((j + out_my1) * out_width + out_mx1) * 4;
+			int i_out = ((j + out_my1) * out_width + out_mx1) * 4;
 			for(int i = 0; i < x_max; ++i) {
-				mt[0] = in[it_in + 0];
-				mt[1] = in[it_in + 1];
-				mt[2] = in[it_in + 2];
-				mt[3] = in[it_in + 3];
-				if(mt[3] > 0.0)
+				if(in[i_in + 3] > 0.0) {
+					mt[0] = in[i_in + 0];
+					mt[1] = in[i_in + 1];
+					mt[2] = in[i_in + 2];
+					mt[3] = in[i_in + 3];
 					for(int fi = 0; fi < filters_count; ++fi)
-						fp_cp_vector[fi].fp_cp->filter(mt, ((*(task->filter_args))[fi]->vector_private[task->flow_index].get()));
-				out[it_out + 0] = mt[0];
-				out[it_out + 1] = mt[1];
-				out[it_out + 2] = mt[2];
-				out[it_out + 3] = mt[3];
-				it_in += 4;
-				it_out += 4;
+						fp_cp_vector[fi].fp_cp->filter(mt, ((*(task->filter_args))[fi]->vector_private[flow_index].get()));
+					out[i_out + 0] = mt[0];
+					out[i_out + 1] = mt[1];
+					out[i_out + 2] = mt[2];
+					out[i_out + 3] = mt[3];
+				}
+				i_in += 4;
+				i_out += 4;
 			}
 		}
 	}

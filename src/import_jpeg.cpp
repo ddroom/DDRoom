@@ -45,12 +45,9 @@ QImage Import_Jpeg::thumb(Metadata *metadata, int thumb_width, int thumb_height)
 	}
 	if(qimage.isNull() == true) {
 		// decompress image
-		Area *area = load_image(metadata, true);
-		if(area != nullptr) {
-			if(area->valid())
-				qimage = QImage((uchar *)area->ptr(), area->mem_width(), area->mem_height(), QImage::Format_RGB32).copy();
-			delete area;
-		}
+		auto area = load_image(metadata, true);
+		if(area != nullptr)
+			qimage = QImage((uchar *)area->ptr(), area->mem_width(), area->mem_height(), QImage::Format_RGB32).copy();
 	}
 	return qimage;
 }
@@ -69,15 +66,15 @@ METHODDEF(void) j_error_exit(j_common_ptr cinfo) {
 	longjmp(mgr->setjmp_buffer, 1);
 }
 
-Area *Import_Jpeg::image(Metadata *metadata) {
+std::unique_ptr<Area> Import_Jpeg::image(Metadata *metadata) {
 	return load_image(metadata, false);
 }
 
-Area *Import_Jpeg::load_image(Metadata *metadata, bool is_thumb) {
+std::unique_ptr<Area> Import_Jpeg::load_image(Metadata *metadata, bool is_thumb) {
 	// --==--
 	// load image - as in libjpeg's example.c
 	metadata->rotation = 0;	// get real rotation with Exiv2
-	Area *area = nullptr;
+	std::unique_ptr<Area> area;
 
 	struct jpeg_decompress_struct cinfo;
 	struct j_error_mgr mgr;
@@ -109,72 +106,69 @@ Area *Import_Jpeg::load_image(Metadata *metadata, bool is_thumb) {
 		metadata->width = cinfo.output_width;
 		metadata->height = cinfo.output_height;
 		if(!is_thumb)
-			area = new Area(metadata->width, metadata->height); // RGBA float
+			area = std::unique_ptr<Area>(new Area(metadata->width, metadata->height)); // RGBA float
 		else
-			area = new Area(metadata->width, metadata->height, Area::type_t::type_uint8_p4);	// ARGB 32bit
-		if(area->valid()) {
-			D_AREA_PTR(area);
-			float *ptr = (float *)area->ptr();
-			uint8_t *ptr_u = (uint8_t *)area->ptr();
-			// get gamma inverse table
-			// TODO: add Exiv2 metadata loading, fill colorspace etc from here...
-//			string color_space = "sRGB";
-			string color_space = "HDTV";
-//			int32_t table_size = 0;
-			CMS_Matrix *cms_matrix = CMS_Matrix::instance();
-			cms_matrix->get_matrix_CS_to_XYZ(color_space, metadata->cRGB_to_XYZ);
-//			float *table = cms_matrix->get_inverse_gamma_table(color_space, table_size);
-			TableFunction *gamma = cms_matrix->get_inverse_gamma(color_space);
-//			float scale = MAXJSAMPLE + 1;
-			float scale = MAXJSAMPLE;
+			area = std::unique_ptr<Area>(new Area(metadata->width, metadata->height, Area::type_t::uint8_p4));	// ARGB 32bit
+		float *ptr = (float *)area->ptr();
+		uint8_t *ptr_u = (uint8_t *)area->ptr();
+		// get gamma inverse table
+		// TODO: add Exiv2 metadata loading, fill colorspace etc from here...
+//		string color_space = "sRGB";
+		string color_space = "HDTV";
+//		int32_t table_size = 0;
+		CMS_Matrix *cms_matrix = CMS_Matrix::instance();
+		cms_matrix->get_matrix_CS_to_XYZ(color_space, metadata->cRGB_to_XYZ);
+//		float *table = cms_matrix->get_inverse_gamma_table(color_space, table_size);
+		TableFunction *gamma = cms_matrix->get_inverse_gamma(color_space);
+//		float scale = MAXJSAMPLE + 1;
+		float scale = MAXJSAMPLE;
 //cerr << "MAXJSAMPLE == " << MAXJSAMPLE << endl;
-			// load and convert image
-			int pos = 0;
+		// load and convert image
+		int pos = 0;
 /*
-			int32_t jpeg_max = MAXJSAMPLE
-			int scale = table_size / (MAXJSAMPLE + 1);
-			unsigned scale_mask = 0;
-			bool smooth = false;
-			if(table_size < (MAXJSAMPLE + 1)) {
-				smooth = true;
-				scale = (MAXJSAMPLE + 1) / table_size;
-				scale_mask = scale - 1;
-			}
-*/
-			JSAMPLE *sample_ptr = nullptr;
-			for(int i = 0; i < 3; ++i)
-				metadata->c_max[i] = 0.0;
-			int width = cinfo.output_width;
-			while(cinfo.output_scanline < cinfo.output_height) {
-				jpeg_read_scanlines(&cinfo, buffer, 1);
-				//put_scanline_someplace(buffer[0], row_stride);
-				sample_ptr = buffer[0];
-				for(int i = 0; i < width; ++i) {
-					for(int j = 0; j < 3; ++j) {
-						int in_channel = (channels == 3) ? j : 0;
-						float v = float(GETJSAMPLE(sample_ptr[i * channels + in_channel])) / scale;
-						if(!is_thumb) {
-							ptr[pos + j] = (*gamma)(v);
-							if(metadata->c_max[j] < ptr[pos + j])
-								metadata->c_max[j] = ptr[pos + j];
-							uint32_t index = ptr[pos + j] * 2047;
-							if(index > 2047)	index = 2047;
-//							if(index < 0)		index = 0;
-							(metadata->c_histogram[index + 4096 * j])++;
-							metadata->c_histogram_count[j]++;
-						} else {
-							ptr_u[pos + 2 - j] = (uint8_t)(v * 0xFF); // Qt ARGB32 wich is really 'B', 'G', 'R', 'A'
-						}
-					}
-					if(!is_thumb)
-						ptr[pos + 3] = 1.0;	// alpha
-					else
-						ptr_u[pos + 3] = 0xFF;
-					pos += 4;
-				}
-			}
-//			metadata->c_histogram_count = metadata->width * metadata->height;
+		int32_t jpeg_max = MAXJSAMPLE
+		int scale = table_size / (MAXJSAMPLE + 1);
+		unsigned scale_mask = 0;
+		bool smooth = false;
+		if(table_size < (MAXJSAMPLE + 1)) {
+			smooth = true;
+			scale = (MAXJSAMPLE + 1) / table_size;
+			scale_mask = scale - 1;
 		}
+*/
+		JSAMPLE *sample_ptr = nullptr;
+		for(int i = 0; i < 3; ++i)
+			metadata->c_max[i] = 0.0;
+		int width = cinfo.output_width;
+		while(cinfo.output_scanline < cinfo.output_height) {
+			jpeg_read_scanlines(&cinfo, buffer, 1);
+			//put_scanline_someplace(buffer[0], row_stride);
+			sample_ptr = buffer[0];
+			for(int i = 0; i < width; ++i) {
+				for(int j = 0; j < 3; ++j) {
+					int in_channel = (channels == 3) ? j : 0;
+					float v = float(GETJSAMPLE(sample_ptr[i * channels + in_channel])) / scale;
+					if(!is_thumb) {
+						ptr[pos + j] = (*gamma)(v);
+						if(metadata->c_max[j] < ptr[pos + j])
+							metadata->c_max[j] = ptr[pos + j];
+						uint32_t index = ptr[pos + j] * 2047;
+						if(index > 2047)	index = 2047;
+//						if(index < 0)		index = 0;
+						(metadata->c_histogram[index + 4096 * j])++;
+						metadata->c_histogram_count[j]++;
+					} else {
+						ptr_u[pos + 2 - j] = (uint8_t)(v * 0xFF); // Qt ARGB32 wich is really 'B', 'G', 'R', 'A'
+					}
+				}
+				if(!is_thumb)
+					ptr[pos + 3] = 1.0;	// alpha
+				else
+					ptr_u[pos + 3] = 0xFF;
+				pos += 4;
+			}
+		}
+//		metadata->c_histogram_count = metadata->width * metadata->height;
 		jpeg_finish_decompress(&cinfo);
 	}
 	jpeg_destroy_decompress(&cinfo);

@@ -775,7 +775,10 @@ void GUI_Curve::draw(QPainter *_painter) {
 			}
 			painter->setPen(pen);
 			// spline
-			Spline_Calc spline(cpoints, 1.0, true, left_type, left_df, right_type, right_df);
+			std::vector<std::pair<float, float>> points(cpoints.size());
+			for(int i = 0; i < points.size(); ++i)
+				points[i] = std::pair<float, float>{cpoints[i].x(), cpoints[i].y()};
+			Spline_Calc spline(points, 1.0, true, left_type, left_df, right_type, right_df);
 			float _px = cpoints[0].x();
 			float _py = cpoints[0].y();
 			for(int i = 0; i < x_max; ++i) {

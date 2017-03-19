@@ -14,14 +14,8 @@
 //------------------------------------------------------------------------------
 class AreaHelper {
 public:
-	static class Area *convert(class Area *in, Area::format_t out_format, int rotation);
-	static class Area *convert_mt(class SubFlow *subflow, class Area *in, Area::format_t out_format, int rotation, class Area *tiled_area = nullptr, int pos_x = 0, int pos_y = 0);
-
-	static class Area *crop(class Area *in, class Area::t_dimensions crop);
-	static class Area *rotate(class Area *in, int rotation);
-	// Insert area 'tile' into 'insert_into' from position (pos_x,pos_y) of the actual data (i.e. w/o edges);
-	// returns 'true' if there was cropping issues. Areas should be 'RGBA float'.
-	static bool insert(class Area *insert_into, class Area *tile, int pos_x, int pos_y);
+	static std::unique_ptr<Area> convert(class Area *in, Area::format_t out_format, int rotation);
+	static std::unique_ptr<Area> convert_mt(class SubFlow *subflow, class Area *in, Area::format_t out_format, int rotation, class Area *tiled_area = nullptr, int pos_x = 0, int pos_y = 0);
 
 protected:
 	class mt_task_t;

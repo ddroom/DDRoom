@@ -194,7 +194,7 @@ public:
 	FP_Unsharp(void);
 	virtual ~FP_Unsharp();
 	bool is_enabled(const PS_Base *ps_base);
-	Area *process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj);
+	std::unique_ptr<Area> process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj);
 
 	void size_forward(FP_size_t *fp_size, const Area::t_dimensions *d_before, Area::t_dimensions *d_after);
 	void size_backward(FP_size_t *fp_size, Area::t_dimensions *d_before, const Area::t_dimensions *d_after);
@@ -229,7 +229,7 @@ void PS_Unsharp::reset(void) {
 	enabled = true;
 	amount = 2.5f;
 	radius = 1.5f; // 3x3
-	threshold = 0.000f;
+	threshold = 0.010f;
 	scaled = true;
 	// local contrast
 	lc_enabled = false;
@@ -244,7 +244,7 @@ bool PS_Unsharp::load(DataSet *dataset) {
 	dataset->get("enabled", enabled);
 	dataset->get("amount", amount);
 	dataset->get("radius", radius);
-	dataset->get("threshold", threshold);
+	dataset->get("smoothness", threshold);
 	dataset->get("scaled", scaled);
 	// local contrast
 	dataset->get("local_contrast_enabled", lc_enabled);
@@ -259,7 +259,7 @@ bool PS_Unsharp::save(DataSet *dataset) {
 	dataset->set("enabled", enabled);
 	dataset->set("amount", amount);
 	dataset->set("radius", radius);
-	dataset->set("threshold", threshold);
+	dataset->set("smoothness", threshold);
 	dataset->set("scaled", scaled);
 	// local contrast
 	dataset->set("local_contrast_enabled", lc_enabled);
@@ -399,15 +399,16 @@ QWidget *F_Unsharp::controls(QWidget *parent) {
 	slider_radius = new GuiSlider(0.0, 8.0, 1.0, 10, 10, 10);
 	lw->addWidget(slider_radius, 1, 1);
 
-	QLabel *l_threshold = new QLabel(tr("Threshold"));
+	QLabel *l_threshold = new QLabel(tr("Smoothness"));
 	lw->addWidget(l_threshold, 2, 0);
 	QHBoxLayout *hb_l_threshold = new QHBoxLayout();
 	hb_l_threshold->setSpacing(0);
 	hb_l_threshold->setContentsMargins(0, 0, 0, 0);
 	hb_l_threshold->setSizeConstraint(QLayout::SetMinimumSize);
-	slider_threshold = new GuiSlider(0.0, 8.0, 0.0, 10, 10, 10);
+//	slider_threshold = new GuiSlider(0.0, 8.0, 0.0, 10, 10, 10);
+	slider_threshold = new GuiSlider(0.0, 10.0, 0.0, 10, 10, 10);
 	hb_l_threshold->addWidget(slider_threshold);
-	QLabel *l_threshold_percent = new QLabel(tr("%"));
+	QLabel *l_threshold_percent = new QLabel(tr("pt"));
 	hb_l_threshold->addWidget(l_threshold_percent);
 	lw->addLayout(hb_l_threshold, 2, 1);
 
@@ -706,16 +707,17 @@ public:
 // requirements for caller:
 // - should be skipped call for 'is_enabled() == false' filters
 // - if OpenCL is enabled, should be called only for 'master' thread - i.e. subflow/::task_t will be ignored
-Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj) {
+std::unique_ptr<Area> FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj) {
 	SubFlow *subflow = mt_obj->subflow;
-	Area *area_in = process_obj->area_in;
-	PS_Unsharp *ps = (PS_Unsharp *)filter_obj->ps_base;
-	Area *area_out = nullptr;
-	Area *area_to_delete = nullptr;
+	std::unique_ptr<Area> area_out;
+	std::unique_ptr<Area> area_prev;
 
 	// OpenCL code
 #if 0
 	if(subflow->sync_point_pre()) {
+		PS_Unsharp *ps = (PS_Unsharp *)filter_obj->ps_base;
+		Area *area_in = process_obj->area_in;
+
 		enum class type {
 			lc,
 			sharpness,
@@ -971,7 +973,10 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 #endif
 
 	// CPU
-	for(int type = 0; type < 2 && !process_obj->OOM; ++type) {
+	for(int type = 0; type < 2; ++type) {
+		PS_Unsharp *ps = (PS_Unsharp *)filter_obj->ps_base;
+		Area *area_in = process_obj->area_in;
+
 		if(type == 0 && ps->lc_enabled == false) // type == 0 - local contrast, square blur
 			continue;
 		if(type == 1 && ps->enabled == false)    // type == 1 - sharpness, round blur
@@ -980,14 +985,15 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 		std::unique_ptr<std::atomic_int> y_flow_pass_1;
 		std::unique_ptr<std::atomic_int> y_flow_pass_2;
 		std::unique_ptr<GaussianKernel> kernel;
-		Area *area_temp = nullptr;
+//		Area *area_temp = nullptr;
+		std::unique_ptr<Area> area_temp;
 
 		FP_params_t params;
 		if(subflow->sync_point_pre()) {
 //cerr << "FP_UNSHARP::PROCESS" << endl;
 			if(area_out != nullptr) {
-				area_to_delete = area_out;
-				area_in = area_out;
+				area_prev = std::move(area_out);
+				area_in = area_prev.get();
 			}
 			// non-destructive processing
 			Area::t_dimensions d_out = *area_in->dimensions();
@@ -1036,12 +1042,9 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 			const int kernel_height = (type == 1) ? kernel_width : 1;
 			kernel = decltype(kernel)(new GaussianKernel(sigma, kernel_width, kernel_height));
 
-			area_out = new Area(&d_out);
-			process_obj->OOM |= !area_out->valid();
-			if(type == 0) {
-				area_temp = new Area(area_in->dimensions(), Area::type_t::type_float_p1);
-				process_obj->OOM |= !area_temp->valid();
-			}
+			area_out = std::unique_ptr<Area>(new Area(&d_out));
+			if(type == 0)
+				area_temp = std::unique_ptr<Area>(new Area(area_in->dimensions(), Area::type_t::float_p1));
 
 			const int in_x_offset = (d_out.position.x - area_in->dimensions()->position.x) / px_size_x + 0.5 + area_in->dimensions()->edges.x1;
 			const int in_y_offset = (d_out.position.y - area_in->dimensions()->position.y) / px_size_y + 0.5 + area_in->dimensions()->edges.y1;
@@ -1054,12 +1057,12 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 				tasks[i] = std::unique_ptr<task_t>(new task_t);
 				task_t *task = tasks[i].get();
 				task->area_in = area_in;
-				task->area_out = area_out;
+				task->area_out = area_out.get();
 				task->in_x_offset = in_x_offset;
 				task->in_y_offset = in_y_offset;
 				task->y_flow_pass_1 = y_flow_pass_1.get();
 				task->y_flow_pass_2 = y_flow_pass_2.get();
-				task->area_temp = area_temp;
+				task->area_temp = area_temp.get();
 
 				task->kernel = kernel.get();
 				task->amount = params.amount;
@@ -1072,20 +1075,20 @@ Area *FP_Unsharp::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter
 		}
 		subflow->sync_point_post();
 
-		if(!process_obj->OOM) {
-			if(type == 0)
-				process_double_pass(subflow);
-			else
-				process_single_pass(subflow);
-		}
+		if(type == 0)
+			process_double_pass(subflow);
+		else
+			process_single_pass(subflow);
 
 		subflow->sync_point();
+/*
 		if(subflow->is_main()) {
 			if(area_to_delete != nullptr)
 				delete area_to_delete;
 			if(type == 0)
 				delete area_temp;
 		}
+*/
 	}
 	return area_out;
 }
@@ -1114,22 +1117,18 @@ void FP_Unsharp::process_double_pass(class SubFlow *subflow) {
 	float *out = (float *)task->area_out->ptr();
 	float *temp = (float *)task->area_temp->ptr();
 
-/*
-	const float *kernel = task->kernel;
-	const int kernel_length = task->kernel_length;
-	const int kernel_offset = task->kernel_offset;
-*/
 	const int kernel_length = task->kernel->width();
 	const int kernel_offset = task->kernel->offset_x();
+	const GaussianKernel *kernel = task->kernel;
+//	GaussianKernel k = *task->kernel;
+//	const GaussianKernel *kernel = &k;
 
 	// horizontal pass - from input to temporal area
 	int j = 0;
-	while((j = task->y_flow_pass_1->fetch_add(1)) < t_y_max) {
+	auto y_flow_pass_1 = task->y_flow_pass_1;
+	while((j = y_flow_pass_1->fetch_add(1)) < t_y_max) {
 		for(int i = 0; i < t_x_max; ++i) {
-//			const int i_in = ((j + t_y_offset) * in_width + (i + t_x_offset)) * 4;
 			const int i_temp = ((j + t_y_offset) * in_width + (i + t_x_offset));
-//			const int i_out = ((j + out_y_offset) * out_width + (i + out_x_offset)) * 4;
-//			const int i_temp = j * temp_width + i;
 //			if(in[i_in + 3] <= 0.0)
 //				continue;
 			float v_blur = 0.0f;
@@ -1144,8 +1143,7 @@ void FP_Unsharp::process_double_pass(class SubFlow *subflow) {
 						float v_in = in[((j + t_y_offset) * in_width + in_x) * 4 + 0];
 						if(v_in < 0.0f)
 							v_in = 0.0f;
-//						float kv = kernel[x];
-						float kv = task->kernel->value(x);
+						float kv = kernel->value(x);
 						v_blur += v_in * kv;
 						v_blur_w += kv;
 					}
@@ -1162,11 +1160,14 @@ void FP_Unsharp::process_double_pass(class SubFlow *subflow) {
 	// temporary array barrier
 	subflow->sync_point();
 
-	float amount = task->amount;
+	const float amount = task->amount;
+//	const float threshold = task->threshold;
+	const bool lc_darken = task->lc_darken;
+	const bool lc_brighten = task->lc_brighten;
 //	float threshold = task->threshold;
 	// vertical pass - from temporary to output area
-	j = 0;
-	while((j = task->y_flow_pass_2->fetch_add(1)) < y_max) {
+	auto y_flow_pass_2 = task->y_flow_pass_2;
+	while((j = y_flow_pass_2->fetch_add(1)) < y_max) {
 		for(int i = 0; i < x_max; ++i) {
 			const int i_in = ((j + in_y_offset) * in_width + (i + in_x_offset)) * 4; // k
 			const int i_out = ((j + out_y_offset) * out_width + (i + out_x_offset)) * 4; // l
@@ -1180,16 +1181,13 @@ void FP_Unsharp::process_double_pass(class SubFlow *subflow) {
 			float v_blur = 0.0f;
 			float v_blur_w = 0.0f;
 			for(int y = 0; y < kernel_length; ++y) {
-//				const int temp_y = j + y + kernel_offset;
 				const int in_y = j + y + kernel_offset + in_y_offset;
 				if(in_y >= 0 && in_y < in_h) {
 					float alpha = in[(in_y * in_width + i + in_x_offset) * 4 + 3];
 //					if(alpha == 1.0) {
 					if(alpha > 0.05f) {
 						float v_temp = temp[in_y * in_width + i + in_x_offset];
-//						float v_temp = temp[temp_y * temp_width + i];
-//						float kv = kernel[y];
-						float kv = task->kernel->value(y);
+						float kv = kernel->value(y);
 						v_blur += v_temp * kv;
 						v_blur_w += kv;
 					}
@@ -1205,11 +1203,27 @@ void FP_Unsharp::process_double_pass(class SubFlow *subflow) {
 //			out[i_out + 0] = v_blur;
 //			continue;
 			const float v_in = in[i_in + 0];
+#if 0
+			float v_out = v_in - v_blur;
+			// smooth amount increase for values under threshold to avoid coarsness
+			const float v_out_abs = ddr::abs(v_out);
+			if(v_out_abs < threshold)
+				v_out *= amount * (v_out_abs / threshold);
+			else
+				v_out *= amount;
+			v_out = v_out + v_in;
+#else
+#if 1
+			const float scale = amount * ((v_blur * 4.0f < 1.0f) ? v_blur * 4.0f : 1.0f);
+			float v_out = (v_in - v_blur) * scale + v_in;
+#else
 			float v_out = (v_in - v_blur) * amount + v_in;
+#endif
+#endif
 #if 1
 //			ddr::clip(v_out, v_in * 0.4f, v_in + (1.0f - v_in) * 0.6f);
-			const float v_min = (task->lc_darken) ? v_in * 0.5f : v_in;
-			const float v_max = (task->lc_brighten) ? v_in * 0.5f + 0.5f : v_in;
+			const float v_min = (lc_darken) ? v_in * 0.5f : v_in;
+			const float v_max = (lc_brighten) ? v_in * 0.5f + 0.5f : v_in;
 			ddr::clip(v_out, v_min, v_max);
 #else
 			v_out = ddr::clip(v_out);
@@ -1240,19 +1254,17 @@ void FP_Unsharp::process_single_pass(class SubFlow *subflow) {
 
 	const float amount = task->amount;
 	const float threshold = task->threshold;
-/*
-	const float sigma = (task->radius * 2.0) / 6.0;
-	const float sigma_sq = sigma * sigma;
-	const int kernel_length = 2 * floor(task->radius) + 1;
-	const float kernel_offset = -floor(task->radius);
-	const int kl_off = kernel_offset;
-*/
-
-	// float z = sqrtf(x * x + y * y);
-	// float w = (1.0 / sqrtf(2.0 * M_PI * sigma_sq)) * expf(-(z * z) / (2.0 * sigma_sq));
+	const float threshold_pt = threshold * 32.0f;
 
 	int j = 0;
-	while((j = task->y_flow_pass_1->fetch_add(1)) < y_max) {
+	const int kernel_length = task->kernel->width();
+	const int kernel_offset = task->kernel->offset_x();
+	const GaussianKernel *kernel = task->kernel;
+//	GaussianKernel k = *task->kernel;
+//	const GaussianKernel *kernel = &k;
+
+	auto y_flow = task->y_flow_pass_1;
+	while((j = y_flow->fetch_add(1)) < y_max) {
 		for(int i = 0; i < x_max; ++i) {
 			const int l = ((j + in_y_offset) * in_width + (i + in_x_offset)) * 4;
 			const int k = ((j + out_y_offset) * out_width + (i + out_x_offset)) * 4;
@@ -1267,25 +1279,16 @@ void FP_Unsharp::process_single_pass(class SubFlow *subflow) {
 			// calculate blurred value
 			float v_blur = 0.0f;
 			float v_blur_w = 0.0f;
-			const int kernel_length = task->kernel->width();
-			const int kernel_offset = task->kernel->offset_x();
 			for(int y = 0; y < kernel_length; ++y) {
 				for(int x = 0; x < kernel_length; ++x) {
 					const int in_x = i + x + kernel_offset + in_x_offset;
 					const int in_y = j + y + kernel_offset + in_y_offset;
-/*
-			for(int y = 0; y < kernel_length; ++y) {
-				for(int x = 0; x < kernel_length; ++x) {
-					const int in_x = i + x + kernel_offset + in_x_offset;
-					const int in_y = j + y + kernel_offset + in_y_offset;
-*/
 					if(in_x >= 0 && in_x < in_w && in_y >= 0 && in_y < in_h) {
 						const float alpha = in[(in_y * in_width + in_x) * 4 + 3];
 //						if(alpha == 1.0) {
 						if(alpha > 0.05f) {
 							const float v_in = in[(in_y * in_width + in_x) * 4 + 0];
-//							const float w = kernel[y * kernel_length + x];
-							const float w = task->kernel->value(x, y);
+							const float w = kernel->value(x, y);
 							v_blur += v_in * w;
 							v_blur_w += w;
 						}
@@ -1302,11 +1305,20 @@ void FP_Unsharp::process_single_pass(class SubFlow *subflow) {
 			const float v_in = in[l + 0];
 			float v_out = v_in - v_blur;
 			// smooth amount increase for values under threshold to avoid coarsness
-			const float v_out_abs = ddr::abs(v_out);
+//			const float v_out_abs = ddr::abs(v_out);
+#if 1
+			float scale = 1.0f;
+			if(threshold_pt > 0.0f) {
+				float vb = v_blur / threshold_pt;
+				scale = (vb < 1.0f) ? vb : 1.0f;
+			}
+			v_out *= amount * scale;
+#else
 			if(v_out_abs < threshold)
 				v_out *= amount * (v_out_abs / threshold);
 			else
 				v_out *= amount;
+#endif
 			v_out = v_in + v_out;
 			// limit changes
 //			ddr::clip(v_out, v_in * 0.4f, v_in + (1.0f - v_in) * 0.6f);

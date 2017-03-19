@@ -41,7 +41,7 @@ using namespace std;
 QList<QString> Import_PNG::extensions(void) {
 	QList<QString> l;
 	l.push_back("png");
-	l.push_back("png_b");
+//	l.push_back("png_b");
 	return l;
 }
 
@@ -61,20 +61,17 @@ QImage Import_PNG::thumb(Metadata *metadata, int thumb_width, int thumb_height) 
 	}
 	if(qimage.isNull() == true) {
 		// decompress image
-		Area *area = load_image(metadata, true);
+		std::unique_ptr<Area> area = load_image(metadata, true);
 		if(area != nullptr) {
-			if(area->valid()) {
 /*
-				Area *area_scaled = area->scale(thumb_width, thumb_height, true);
+			Area *area_scaled = area->scale(thumb_width, thumb_height, true);
 //cerr << "area_scaled->size == " << area_scaled->mem_width() << "x" << area_scaled->mem_height() << endl;
-				delete area;
-				if(area_scaled->valid())
-					qimage = QImage((uchar *)area_scaled->ptr(), area_scaled->mem_width(), area_scaled->mem_height(), QImage::Format_RGB32).copy();
-				delete area_scaled;
+			delete area;
+			if(area_scaled->valid())
+				qimage = QImage((uchar *)area_scaled->ptr(), area_scaled->mem_width(), area_scaled->mem_height(), QImage::Format_RGB32).copy();
+			delete area_scaled;
 */
-				qimage = QImage((uchar *)area->ptr(), area->mem_width(), area->mem_height(), QImage::Format_RGB32).copy();
-				delete area;
-			}
+			qimage = QImage((uchar *)area->ptr(), area->mem_width(), area->mem_height(), QImage::Format_RGB32).copy();
 		}
 	}
 	return qimage;
@@ -96,27 +93,25 @@ METHODDEF(void) j_error_exit(j_common_ptr cinfo) {
 }
 */
 
-Area *Import_PNG::image(Metadata *metadata) {
+std::unique_ptr<Area> Import_PNG::image(Metadata *metadata) {
 	return load_image(metadata, false);
 }
 
-Area *Import_PNG::load_image(Metadata *metadata, bool is_thumb) {
+std::unique_ptr<Area> Import_PNG::load_image(Metadata *metadata, bool is_thumb) {
 	png_struct *ptr_png_struct = nullptr;
 	png_info *ptr_png_info = nullptr;
 	png_byte *png_row = nullptr;
 
-	// --==--
 	metadata->rotation = 0;	// get real rotation with Exiv2
 	for(int i = 0; i < 3; ++i)
 		metadata->c_max[i] = 0.0;
 
-	// --==--
 	// load image - with contrib/pngminus/png2pnm.c sources of libpng as reference of usage
-	Area *area = nullptr;
+	std::unique_ptr<Area> area;
 
 	FILE *infile;
 	if((infile = fopen(file_name.c_str(), "rb")) == nullptr)
-		return nullptr;	// can't open file
+		return area;	// can't open file
 	try {
 		// check PNG signature
 		png_byte signature[8];
@@ -171,10 +166,9 @@ Area *Import_PNG::load_image(Metadata *metadata, bool is_thumb) {
 	
 		// read each row and convert to image
 		if(!is_thumb)
-			area = new Area(width, height);
+			area = std::unique_ptr<Area>(new Area(width, height));
 		else
-			area = new Area(width, height, Area::type_t::type_uint8_p4);    // ARGB 32bit
-	if(area->valid()) {
+			area = std::unique_ptr<Area>(new Area(width, height, Area::type_t::uint8_p4));    // ARGB 32bit
 		float *ptr = (float *)area->ptr();
 		uint8_t *ptr_u = (uint8_t *)area->ptr();
 		int pos = 0;
@@ -236,11 +230,9 @@ Area *Import_PNG::load_image(Metadata *metadata, bool is_thumb) {
 		png_read_end(ptr_png_struct, ptr_png_info);
 		// clean up after the read, and free any memory allocated - REQUIRED
 		png_destroy_read_struct(&ptr_png_struct, &ptr_png_info, (png_infopp)nullptr);
-	} // if(area->valid())
 	} catch(const char *msg) {
 		if(area != nullptr)
-			delete area;
-		area = nullptr;
+			area.reset(nullptr);
 		// try to process error message if any
 		cerr << "import PNG \"" << file_name.c_str() << "\" failed: " << msg << endl;
 	}
@@ -254,6 +246,7 @@ Area *Import_PNG::load_image(Metadata *metadata, bool is_thumb) {
 	if(png_row != nullptr)
 		delete[] (char *)png_row;
 
+#if 0
 	if(is_thumb == false) {
 		// create a fake RAW - apply Bayer pattern to image
 		const char *c = file_name.c_str();
@@ -268,10 +261,12 @@ Area *Import_PNG::load_image(Metadata *metadata, bool is_thumb) {
 		if(ext == QString("png_b"))
 			area = convert_to_bayer(metadata, area);
 	}
+#endif
 
 	return area;
 }
 
+#if 0
 #include "demosaic_pattern.h"
 
 Area *Import_PNG::convert_to_bayer(Metadata *metadata, Area *png) {
@@ -328,4 +323,5 @@ Area *Import_PNG::convert_to_bayer(Metadata *metadata, Area *png) {
 	delete png;
 	return area;
 }
+#endif
 //------------------------------------------------------------------------------

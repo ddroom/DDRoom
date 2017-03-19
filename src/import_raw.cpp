@@ -97,11 +97,10 @@ uint8_t *Import_Raw::thumb(Metadata *metadata, long &length) {
 	return (uint8_t *)thumb;
 }
 
-//uint16_t *Import_Raw::raw(Metadata *metadata) {
-Area *Import_Raw::image(Metadata *metadata) {
+std::unique_ptr<Area> Import_Raw::image(Metadata *metadata) {
 	metadata->is_raw = true;
 //	dcraw_lock.lock();
-	Area *area_out = nullptr;
+	std::unique_ptr<Area> area_out;
 	string prof_name = "Import_Raw::image() \"";
 	prof_name += file_name;
 	prof_name += "\"";
@@ -137,12 +136,12 @@ Area *Import_Raw::image(Metadata *metadata) {
 }
 
 //------------------------------------------------------------------------------
-class Area *Import_Raw::demosaic_xtrans(const uint16_t *_image, int _width, int _height, const class Metadata *metadata, int passes, class Area *area_out) {
+std::unique_ptr<Area> Import_Raw::demosaic_xtrans(const uint16_t *_image, int _width, int _height, const class Metadata *metadata, int passes, class Area *area_out) {
 	DCRaw dcraw;
 	return dcraw.demosaic_xtrans(_image, _width, _height, metadata, passes, area_out);
 }
 
-Area *Import_Raw::load_xtrans(DCRaw *dcraw, Metadata *metadata, const uint16_t *dcraw_raw) {
+std::unique_ptr<Area> Import_Raw::load_xtrans(DCRaw *dcraw, Metadata *metadata, const uint16_t *dcraw_raw) {
 	// prepare metadata
 //	metadata->is_raw = false;
 	metadata->is_raw = true;
@@ -150,30 +149,25 @@ Area *Import_Raw::load_xtrans(DCRaw *dcraw, Metadata *metadata, const uint16_t *
 	const int height = dcraw->height;
 	metadata->width = width;
 	metadata->height = height;
-	for(int j = 0; j < 6; ++j) {
-		for(int i = 0; i < 6; ++i) {
+	for(int j = 0; j < 6; ++j)
+		for(int i = 0; i < 6; ++i)
 			metadata->sensor_xtrans_pattern[j][i] = dcraw->xtrans[j][i];
-		}
-	}
 	for(int i = 0; i < 3; ++i) {
 		metadata->c_scale_ref[i] = dcraw->pre_mul[i];
 		metadata->c_scale_camera[i] = dcraw->cam_mul[i];
 	}
 	float f = metadata->c_scale_camera[1];
-	for(int i = 0; i < 3; ++i) {
+	for(int i = 0; i < 3; ++i)
 		metadata->c_scale_camera[i] /= f;
-	}
 	metadata->c_scale_camera_valid = true;
 
 	float mc[9];
 	int k = 0;
 	for(int j = 0; j < 3; ++j) {
-		for(int i = 0; i < 3; ++i) {
+		for(int i = 0; i < 3; ++i)
 			mc[k++] = dcraw->rgb_cam[j][i];
-		}
-		for(int i = 0; i < 4; ++i) {
+		for(int i = 0; i < 4; ++i)
 			metadata->rgb_cam[j][i] = dcraw->rgb_cam[j][i];
-		}
 	}
 	float m_srgb_to_xyz[9] = {
 		 0.4124564,  0.3575761,  0.1804375,
@@ -187,10 +181,7 @@ Area *Import_Raw::load_xtrans(DCRaw *dcraw, Metadata *metadata, const uint16_t *
 	for(int i = 0; i < 4; ++i)
 		scale[i] = 1.0f / 65535.0f;
 //		scale[i] = 1.0f / maximum;
-//	Area *area_out = new Area(width, height, Area::type_t::type_float_p4);
-	Area *area_out = new Area(width, height, Area::type_t::type_uint16_p4);
-	if(!area_out->valid())
-		return area_out;
+	auto area_out = std::unique_ptr<Area>(new Area(width, height, Area::type_t::uint16_p4));
 	uint16_t *out = (uint16_t *)area_out->ptr();
 	for(int i = 0; i < 3; ++i)
 		metadata->c_max[i] = 0.0f;
@@ -199,8 +190,6 @@ Area *Import_Raw::load_xtrans(DCRaw *dcraw, Metadata *metadata, const uint16_t *
 			const int index = (y * width + x) * 4;
 			int k = metadata->sensor_xtrans_pattern[(y + 6) % 6][(x + 6) % 6];
 			float value = (scale[k] * dcraw_raw[index + k]) / metadata->c_scale_ref[k];
-//			float value = (scale[k] * dcraw_raw[index + k]) * metadata->c_scale_ref[k];
-//			float value = (scale[k] * dcraw_raw[index + k]);
 			value = (value > 0.0) ? value : 0.0;
 			if(metadata->c_max[k] < value)
 				metadata->c_max[k] = value;
@@ -208,20 +197,6 @@ Area *Import_Raw::load_xtrans(DCRaw *dcraw, Metadata *metadata, const uint16_t *
 			if(c_index > 4095)	c_index = 4095;
 			(metadata->c_histogram[4096 * k + c_index])++;
 			metadata->c_histogram_count[k]++;
-/*
-			float value = 0.0f;
-			for(int k = 0; k < 3; ++k)
-				value += scale[k] * dcraw_raw[index + k];
-//				value += scale[k] * (dcraw_raw[index + k] - dcraw->black);
-			float value_n = (value > 0.0) ? value : 0.0;
-			uint32_t c_index = value_n * 2048;
-			if(c_index > 4095)	c_index = 4095;
-			for(int k = 0; k < 3; ++k) {
-//				out[index + k] = value;
-				(metadata->c_histogram[4096 * k + c_index])++;
-				metadata->c_histogram_count[k]++;
-			}
-*/
 			for(int k = 0; k < 4; ++k)
 				out[index + k] = dcraw_raw[index + k];
 //			out[index + 3] = 1.0;
@@ -230,7 +205,7 @@ Area *Import_Raw::load_xtrans(DCRaw *dcraw, Metadata *metadata, const uint16_t *
 	return area_out;
 }
 
-Area *Import_Raw::load_foveon(DCRaw *dcraw, Metadata *metadata, const uint16_t *dcraw_raw) {
+std::unique_ptr<Area> Import_Raw::load_foveon(DCRaw *dcraw, Metadata *metadata, const uint16_t *dcraw_raw) {
 	// prepare metadata
 	metadata->is_raw = false;
 	const int width = dcraw->width;
@@ -268,9 +243,7 @@ Area *Import_Raw::load_foveon(DCRaw *dcraw, Metadata *metadata, const uint16_t *
 	scale[1] = 1.0f / maximum;
 	scale[2] = 1.0f / maximum;
 	scale[3] = 1.0f / maximum;
-	Area *area_out = new Area(width, height, Area::type_t::type_float_p4);
-	if(!area_out->valid())
-		return area_out;
+	auto area_out = std::unique_ptr<Area>(new Area(width, height, Area::type_t::float_p4));
 	float *out = (float *)area_out->ptr();
 	for(int y = 0; y < height; ++y) {
 		for(int x = 0; x < width; ++x) {
@@ -295,7 +268,7 @@ Area *Import_Raw::load_foveon(DCRaw *dcraw, Metadata *metadata, const uint16_t *
 }
 
 // TODO: should be used for 'Bayer' sensor pattern only; add implementations for 'Foveon' and 'XTrans' sensors
-Area *Import_Raw::dcraw_to_area(DCRaw *dcraw, Metadata *metadata, const uint16_t *dcraw_raw) {
+std::unique_ptr<Area> Import_Raw::dcraw_to_area(DCRaw *dcraw, Metadata *metadata, const uint16_t *dcraw_raw) {
 	metadata->is_raw = true;
 //	int width = metadata->width;
 //	int height = metadata->height;
@@ -305,10 +278,7 @@ Area *Import_Raw::dcraw_to_area(DCRaw *dcraw, Metadata *metadata, const uint16_t
 //cerr << "dcraw_to_area():     metadata->rotation == " << metadata->rotation << endl;
 //cerr << "metadata->demosaic_pattern == " << metadata->demosaic_pattern << endl;
 //	metadata->rotation = 0;
-	Area *area_out = new Area(width + 4, height + 4, Area::type_t::type_float_p1);
-	if(!area_out->valid())
-		return area_out;
-	D_AREA_PTR(area_out);
+	auto area_out = std::unique_ptr<Area>(new Area(width + 4, height + 4, Area::type_t::float_p1));
 /*
 	int mm = (width + 4) * (height + 4);
 	float *mp = (float *)area_out->ptr();
@@ -350,19 +320,12 @@ cerr << "dcraw->pre_mul[3] == " << dcraw->pre_mul[3] << endl;
 //		metadata->c_scale_ref[1] = dcraw->pre_mul[3];
 	// try to normalize c_scale_ref
 	double c_scale_ref_min = metadata->c_scale_ref[1];
-	for(int i = 0; i < 3; ++i) {
-//cerr << "c_scale_ref[" << i << "] == " << metadata->c_scale_ref[i] << endl;
+	for(int i = 0; i < 3; ++i)
 		if(metadata->c_scale_ref[i] < c_scale_ref_min && metadata->c_scale_ref[i] > 0.5)
 			c_scale_ref_min = metadata->c_scale_ref[i];
-	}
-//cerr << "c_scale_min == " << c_scale_ref_min << endl;
-	for(int i = 0; i < 3; ++i) {
+	for(int i = 0; i < 3; ++i)
 		metadata->c_scale_ref[i] = metadata->c_scale_ref[i] / c_scale_ref_min;
-//cerr << "c_scale_ref[" << i << "] == " << metadata->c_scale_ref[i] << endl;
-	}
-//	float f = metadata->c_scale_ref[1];
-//	for(int i = 0; i < 3; ++i)
-//		metadata->c_scale_ref[i] /= f;
+
 	// camera scaling
 	bool cam_mul = true;
 	if(dcraw->cam_mul[0] == 0.0 || dcraw->cam_mul[2] == 0.0)
@@ -599,12 +562,8 @@ cerr << "bayer_signal_maximum[3] == " << bayer_signal_maximum[3] << endl;
 			int index_3 = (index_4 == 3) ? 1 : index_4;
 			// new
 			float value = dcraw_raw[k + index_4];
-//			if(s == p_green_r)	value *= adjust_green_r;
-//			if(s == p_green_b)	value *= adjust_green_b;
 			if(value > cmax[index_3])
 				cmax[index_3] = value;
-//			if(max1[s] < value)
-//				max1[s] = value;
 			// code based on dcraw's fuji_rotate() - check 'f_demosaic.cpp'
 			if(fuji_45 != nullptr) {
 //				if(fuji_45->raw_is_outside(i, j, 2)) {
@@ -615,8 +574,6 @@ cerr << "bayer_signal_maximum[3] == " << bayer_signal_maximum[3] << endl;
 				}
 			}
 
-//			if(_signal_max[index_4] < value)
-//				_signal_max[index_4] = value;
 			// --==--
 			// changed code from 'dcraw.c' - for black offset 'dcraw->cblack'
 			float black_offset = black_pixels_level[index_4];
@@ -624,15 +581,8 @@ cerr << "bayer_signal_maximum[3] == " << bayer_signal_maximum[3] << endl;
 				const int ii = j * width + i;
 				black_offset += dcraw->cblack[6 + ii / width % dcraw->cblack[4] * dcraw->cblack[5] + ii % width % dcraw->cblack[5]];
 			}
-//				value -= dcraw->cblack[6 + i / 4 / iwidth % dcraw->cblack[4] * dcraw->cblack[5] + i / 4 % iwidth % dcraw->cblack[5]];
-//			value -= cblack[i & 3];
 			value -= black_offset;
-
-//			value -= black_pixels_level[index_4];
-//			value /= normalization_factor[index_4];
 			value /= bayer_signal_maximum[index_4] - black_offset;
-//			if(max2[s] < value)
-//				max2[s] = value;
 
 			// --==--
 //			if(_signal_max[index_4] < value)
@@ -640,14 +590,7 @@ cerr << "bayer_signal_maximum[3] == " << bayer_signal_maximum[3] << endl;
 			if(metadata->c_max[index_3] < value)
 				metadata->c_max[index_3] = value;
 			value *= scale[l + i % 2];
-//			if(max3[s] < value)
-//				max3[s] = value;
-//			if(_signal_max[index_4] < value)
-//				_signal_max[index_4] = value;
-//			if(value > v_max_s[index_3])
-//				v_max_s[index_3] = value;
-//			if(value > 1.0)
-//				value = 1.0;
+
 			// histogram
 //			uint32_t c_index = v * 2047;
 			float value_n = (value > 0.0) ? value : 0.0;
@@ -657,8 +600,6 @@ cerr << "bayer_signal_maximum[3] == " << bayer_signal_maximum[3] << endl;
 			(metadata->c_histogram[4096 * index_3 + c_index])++;
 			metadata->c_histogram_count[index_3]++;
 			// store result
-//			value = dcraw_raw[k + index_4];
-//			value /= metadata->demosaic_level_white[index_4];
 			if(_signal_max[index_4] < value)
 				_signal_max[index_4] = value;
 			*out = value;
@@ -666,16 +607,6 @@ cerr << "bayer_signal_maximum[3] == " << bayer_signal_maximum[3] << endl;
 		}
 		out += 4;
 	}
-/*
-cerr << "____________" << endl;
-	for(int k = 0; k < 4; ++k)
-		cerr << "max_1[" << k << "] == " << max1[k] << endl;
-	for(int k = 0; k < 4; ++k)
-		cerr << "max_2[" << k << "] == " << max2[k] << endl;
-	for(int k = 0; k < 4; ++k)
-		cerr << "max_3[" << k << "] == " << max3[k] << endl;
-cerr << "____________" << endl;
-*/
 	for(int i = 0; i < 4; ++i) {
 		int s = __bayer_pos_to_c(i % 2, i / 2);
 		if(s == p_red) {
@@ -692,38 +623,6 @@ cerr << "____________" << endl;
 			metadata->demosaic_signal_max[3] = _signal_max[i];
 		}
 	}
-#if 0
-cerr << "cmax[0] == " << cmax[0] << endl;
-cerr << "cmax[1] == " << cmax[1] << endl;
-cerr << "cmax[2] == " << cmax[2] << endl;
-cerr << "dcraw->maximum == " << dcraw->maximum << endl;
-#endif
-/*
-cerr << "IMPORT_RAW: number of pixels below zero is: " << count << endl;
-for(int i = 0; i < 4; ++i) {
-cerr << "scale[ " << i << "] == " << metadata->demosaic_import_prescale[i] << endl;
-}
-for(int i = 0; i < 4; ++i) {
-cerr << "signal_max[ " << i << "] == " << metadata->demosaic_signal_max[i] << endl;
-}
-*/
-//	metadata->c_histogram_count = (width * height) / 4;
-//	metadata->c_histogram_count = (metadata->width * metadata->height) / 4;
-/*
-	for(int i = 0; i < 3; ++i) {
-		cerr << "  c_max[" << i << "] == " << metadata->c_max[i] << endl;
-		cerr << "v_max_s[" << i << "] == " << v_max_s[i] << endl;
-	}
-	for(int i = 0; i < 4; ++i)
-		cerr << "scale[" << i << "] == " << scale[i] << endl;
-*/
-/*
-	// TODO: try to use primaries, check Lindbloom formulas
-	for(int i = 0; i < 9; ++i) {
-		metadata->cRGB_primaries[i] = dcraw->camera_primaries[i];
-	}
-	m3_dump(metadata->cRGB_primaries);
-*/
 	return area_out;
 }
 

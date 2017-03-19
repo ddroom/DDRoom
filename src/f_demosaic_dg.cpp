@@ -28,21 +28,19 @@
 
 using namespace std;
 
-// '-' W, '\' NW, '|' N, '/' NE; i.e. West, North and East
-#define D2_V	0x00
-#define D2_H	0x01
-#define D2_N	D2_V
-#define D2_W	D2_H
+// '-' H, '\' L, '|' V, '/' R; i.e. horizontal, top-left, vertical, top-right
+#define D2_H	0x00
+#define D2_V	0x01
 #define D2_MASK	0x01
 
-#define D2D_NW	(0x00 << 1)
-#define D2D_NE	(0x01 << 1)
+#define D2D_L	(0x00 << 1)
+#define D2D_R	(0x01 << 1)
 #define D2D_MASK	(0x01 << 1)
 
-#define D4_W	(0x00 << 2)
-#define D4_NW	(0x01 << 2)
-#define D4_N	(0x02 << 2)
-#define D4_NE	(0x03 << 2)
+#define D4_H	(0x00 << 2)
+#define D4_V	(0x01 << 2)
+#define D4_L	(0x02 << 2)
+#define D4_R	(0x03 << 2)
 #define D4_MASK	(0x03 << 2)
 
 // moire
@@ -51,164 +49,127 @@ using namespace std;
 
 //------------------------------------------------------------------------------
 inline float middle(const float v1, const float v2, const float v3, const float v4) {
-//	return (v1 + v2 + v3 + v4) / 4.0;
 	float v[4] = {v1, v2, v3, v4};
-	int i_min = 0;
-	int i_max = 0;
-	for(int i = 1; i < 4; ++i) {
-		if(v[i_min] > v[i])
-			i_min = i;
-		if(v[i_max] < v[i])
-			i_max = i;
-	}
-	float s = 0.0;
-	int j = 0;
-	for(int i = 0; i < 4; ++i) {
-		if(i != i_min && i != i_max) {
-			s += v[i];
-			++j;
-		}
-	}
-	s /= j;
-	return s;
+	int i[4] = {0, 1, 2, 3};
+	if(v[i[0]] > v[i[1]]) std::swap(v[0], v[1]);
+	if(v[i[2]] > v[i[3]]) std::swap(v[2], v[3]);
+	if(v[i[1]] > v[i[2]]) std::swap(v[1], v[2]);
+	if(v[i[0]] > v[i[1]]) std::swap(v[0], v[1]);
+	if(v[i[2]] > v[i[3]]) std::swap(v[2], v[3]);
+	return (v[i[1]] != v[i[2]]) ? (v[i[1]] + v[i[2]]) * 0.5f : v[i[1]];
 }
 //------------------------------------------------------------------------------
-inline void clip_smooth2(float &v, const float &l1, const float &l2) {
-	float min = l2;
-	float max = l1;
-	if(l1 < l2) {
-		min = l1;
-		max = l2;
-	}
-	if(v < min || v > max)	v = (min + max) * 0.5;
+inline void clip_smooth2(float &v, float l1, float l2) {
+	if(l1 > l2) std::swap(l1, l2);
+	if(v < l1 || v > l2)
+		v = (l1 + l2) * 0.5f;
 }
 
-inline void clip_smooth(float &v, const float &l1, const float &l2) {
-	float min = l2;
-	float max = l1;
-	if(l1 < l2) {
-		min = l1;
-		max = l2;
-	}
-	if(v < min)	v = min + (max - min) * 0.333;
-	if(v > max)	v = min + (max - min) * 0.666;
+inline void clip_smooth(float &v, float l1, float l2) {
+	if(l1 > l2) std::swap(l1, l2);
+	if(v < l1)
+		v = l1 + (l2 - l1) * 0.333f;
+	else
+		if(v > l2)
+			v = l1 + (l2 - l1) * 0.666f;
 }
 
-inline void clip_n(float &v, const float &l1, const float &l2) {
-	float min = l2;
-	float max = l1;
-	if(l1 < l2) {
-		min = l1;
-		max = l2;
-	}
-	if(v < min)	v = min;
-	if(v > max)	v = max;
+inline void clip_n(float &v, float l1, float l2) {
+	if(l1 > l2) std::swap(l1, l2);
+	v = (v < l1) ? l1 : v;
+	v = (v > l2) ? l2 : v;
 }
 
-inline void clip_n(float &v1, const float &l1, const float &l2, const float &l3, const float &l4) {
-	float min = l1;
-	float max = l1;
-	if(min > l2)    min = l2;
-	if(min > l3)    min = l3;
-	if(min > l4)    min = l4;
-	if(max < l2)    max = l2;
-	if(max < l3)    max = l3;
-	if(max < l4)    max = l4;
-	if(v1 < min)    v1 = min;
-	if(v1 > max)    v1 = max;
+inline void clip_n(float &v, float l1, float l2, float l3, float l4) {
+	if(l1 > l2) std::swap(l1, l2);
+	if(l3 > l4) std::swap(l3, l4);
+	if(l2 > l3) std::swap(l2, l3);
+	if(l1 < l2) std::swap(l1, l2);
+	if(l3 < l4) std::swap(l3, l4);
+	v = (v < l1) ? l1 : v;
+	v = (v > l4) ? l4 : v;
 }
 
 //------------------------------------------------------------------------------
+inline float _rc(float a1, float a2, float b, float b1, float b2) {
+	if(a1 > a2) {
+		std::swap(a1, a2);
+		std::swap(b1, b2);
+	}
+	float bm = (b + b1 + b2) * 0.666666f;
+	if(bm > 0.0f) {
+		float a = (a1 + a2) * (b / bm);
+		if(a < a1)
+			return a1 + (a2 - a1) * 0.25f;
+		if(a > a2)
+			return a1 + (a2 - a1) * 0.75f;
+		return a;
+	}
+	return (a1 + a2) * 0.5f;
+}
+
 inline float _reconstruct(float c_low, float b, float b_low) {
 //	const float edge_low = 2.0 / 64.0;
 //	const float edge_high = 4.0 / 64.0;
 	// limits below looks good
-	const float edge_low = 3.0 / 64.0;
-	const float edge_high = 6.0 / 64.0;
+//	const float edge_low = 3.0 / 64.0;
+//	const float edge_high = 6.0 / 64.0;
+	const float edge_low = 0.046875f;
+	const float edge_high = 0.09375f;
 	const float r_sum = c_low + b - b_low;
-	if(b_low != 0.0) {
+	if(b_low != 0.0f) {
 		if(b_low < edge_low)
 			return r_sum;
 		const float r_div = c_low + ((b - b_low) / b_low) * c_low;
 		if(b_low > edge_high)
 			return r_div;
 		const float part = (b_low - edge_low) / (edge_high - edge_low);
-		return r_div * part + r_sum * (1.0 - part);
+		return r_div * part + r_sum * (1.0f - part);
 	}
 	return r_sum;
-#if 0
-//*
-	if(b_low != 0.0)
-		return c_low + ((b - b_low) / b_low) * c_low;
-//*/
-	return c_low + b - b_low;
-#endif
 }
-#if 0
-inline float _delta(float v1, float v2) {
-	return ddr::abs(v1 - v2);
+
+inline float _delta(const float &v1, const float &v2) {
+	return (v1 < v2) ? v2 - v1 : v1 - v2;
 }
-#else
-inline float _delta(float v1, float v2) {
-	return ddr::abs(v2 - v1);
-	float min = (v1 < v2) ? v1 : v2;
-	float max = (v1 > v2) ? v1 : v2;
-	return (max - min) / min;
-	// 'classic' - fastest, good enough
-	return ddr::abs(v2 - v1);
-	// weighted
-	if(v1 > v2) {
-		float v = v1; v1 = v2; v2 = v;
-	}
-	if(v2 != 0.0)
-		return (v2 - v1) / v2;
-	return 0.0;
-}
-#endif
-/*
-inline float _delta2(const float &v1, const float &v2, const float &v3) {
-	return ddr::abs(v1 - v2) + ddr::abs(v2 - v3);
-}
-*/
 
 //------------------------------------------------------------------------------
 inline float grad(float c1, float c2, float g, float g1, float g2) {
-	float c = 0.0;
-	if(g1 == 0.0 || g2 == 0.0)
-		c = (c1 + c2) * 0.5;
+	float c = 0.0f;
+	if(g1 == 0.0f || g2 == 0.0f)
+		c = (c1 + c2) * 0.5f;
 	else
-//		c = g * ((c1 + c2) / (g1 + g2));
-		c = g * (c1 / g1 + c2 / g2) * 0.5;
+		c = g * (c1 / g1 + c2 / g2) * 0.5f;
 	return c;
 }
 
 inline float grad2(float g1, float g2, float c, float c1, float c2) {
-	if(c1 == 0.0 || c2 == 0.0)
-		return (g1 + g2) / 2.0;
+	if(c1 == 0.0f || c2 == 0.0f)
+		return (g1 + g2) * 0.5f;
 	// g_1 / c == g1 / c1;
 	float g_1 = (g1 * c) / c1;
 	float g_2 = (g2 * c) / c2;
-	return (g_1 + g_2) / 2.0;
+	return (g_1 + g_2) * 0.5f;
 }
 
-inline float value_bayer(int w, int h, int x, int y, float *m) {
+inline const float &value_bayer(const int &w, const int &h, const int &x, const int &y, const float *m) {
 	return m[(x + 2) + (y + 2) * (w + 4)];
 }
 
 //------------------------------------------------------------------------------
 void FP_Demosaic::process_DG(class SubFlow *subflow) {
 	task_t *task = (task_t *)subflow->get_private();
-	int width = task->width;
-	int height = task->height;
+	const int width = task->width;
+	const int height = task->height;
 	float *bayer = task->bayer;	// input mosaic, float plane 1
 	float *rgba = task->rgba;	// output RGBA, float plane 4
 	int bayer_pattern = task->bayer_pattern;
 //	PS_Demosaic *ps = task->ps;
 
-	int x_min = task->x_min;
-	int x_max = task->x_max;
-	int y_min = task->y_min;
-	int y_max = task->y_max;
+	const int x_min = task->x_min;
+	const int x_max = task->x_max;
+	const int y_max = task->height;
+	int y;
 
 	float *_rgba = rgba;
 	struct rgba_t *_m = (struct rgba_t *)_rgba;
@@ -220,10 +181,6 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 	int p_green_b = __bayer_green_b(bayer_pattern);
 	int p_blue = __bayer_blue(bayer_pattern);
 
-//	const float max_red = task->max_red;
-//	const float max_green = task->max_green;
-//	const float max_blue = task->max_blue;
-
 	float *D = (float *)task->D;
 	struct rgba_t *_D = (struct rgba_t *)task->D;
 	float *sm_temp = (float *)task->sm_temp;
@@ -232,358 +189,226 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 		mirror_2(width, height, bayer);
 	subflow->sync_point_post();
 
-//	float *v_signal = task->v_signal;
-	//------------
-	// pass I: interpolation of the GREEN at RED and BLUE points
-//	float *noise_data = task->noise_data;
-	for(int y = y_min; y < y_max; ++y) {
+	auto y_flow = task->y_flow;
+	//--------------------------------------------------------------------------
+	// pass I: reconstruct missed GREEN in all four directions and store all of them
+	while((y = y_flow->fetch_add(1)) < y_max) {
 		for(int x = x_min; x < x_max; ++x) {
 			const int s = __bayer_pos_to_c(x, y);
 			const int k = ((width + 4) * (y + 2) + x + 2) * 4;
-//			int k2 = ((width + 4) * (y + 2) + x + 2) * 2;
 			if(s == p_green_r || s == p_green_b) {
 				float c = value_bayer(width, height, x, y, bayer);
 				_rgba[k + 0] = c;
-				_rgba[k + 2] = c;
 				_rgba[k + 1] = c;
+				_rgba[k + 2] = c;
 				_rgba[k + 3] = c;
+				continue;
 			} else {
-				float gH, gV, gNE, gNW;
-//				float c, c_low, c1, c2, c3, c4, g1, g2, g3, g4;
-				float c, c1, c2, c3, c4, g1, g2, g3, g4;
-				// s == p_red || s == p_blue
-				// 'sim' - i.e. keep proportion of high freq. part; to understand formula just draw pixel values on paper
-				// that helps to avoid false colors correlation on monochromatic colors
+				const float g1 = value_bayer(width, height, x + 0, y - 1, bayer);
+				const float g2 = value_bayer(width, height, x - 1, y + 0, bayer);
+				const float g3 = value_bayer(width, height, x + 1, y + 0, bayer);
+				const float g4 = value_bayer(width, height, x + 0, y + 1, bayer);
 
-				//       c1      
-				//       g1   
-				// c2 g2 c  g3 c3
-				//       g4   
-				//       c4      
-				//---------------
-				// '-' horizontal
-				c = value_bayer(width, height, x, y, bayer);
-				c2 = value_bayer(width, height, x - 2, y + 0, bayer);
-				c3 = value_bayer(width, height, x + 2, y + 0, bayer);
-				g2 = value_bayer(width, height, x - 1, y + 0, bayer);
-				g3 = value_bayer(width, height, x + 1, y + 0, bayer);
-#if 0
-				// first way - with less noise
-				if(ddr::abs(c - c2) < ddr::abs(c - c3))
-					gH = (g2 * c) / ((c2 + c) * 0.5);
-				else
-					gH = (g3 * c) / ((c3 + c) * 0.5);
-				clip_smooth(gH, g2, g3);
-#else
-				// more noise but better for directions detection with current direction detection algorithm
-//				c_low = (c2 + c3) * 0.5 + c;
-//				gH = (c_low != 0.0) ? ((g2 + g3) * (c / c_low)) : ((g2 + g3) * 0.5);
-//				gH = _reconstruct((g2 + g3) * 0.5, c, c_low / 2.0);
-				gH = _reconstruct((g2 + g3) * 0.5, c, (c2 + c3) * 0.2 + c * 0.6);
-//				gH = (g2 + g3) * 0.5;
-#endif
-//				clip_smooth(gH, g2, g3); // MARK2, especially diagonals
-//				clip(gH, g2, g3);
-				//-------------
-				// '|' vertical
-				c1 = value_bayer(width, height, x + 0, y - 2, bayer);
-				c4 = value_bayer(width, height, x + 0, y + 2, bayer);
-				g1 = value_bayer(width, height, x + 0, y - 1, bayer);
-				g4 = value_bayer(width, height, x + 0, y + 1, bayer);
-#if 0
-				if(ddr::abs(c - c1) < ddr::abs(c - c4))
-					gV = (g1 * c) / ((c1 + c) * 0.5);
-				else
-					gV = (g4 * c) / ((c4 + c) * 0.5);
-				clip_smooth(gV, g1, g4);
-#else
-//				c_low = (c1 + c4) * 0.5 + c;
-//				gV = (c_low != 0.0) ? ((g1 + g4) * (c / c_low)) : ((g1 + g4) * 0.5);
-//				gV = _reconstruct((g1 + g4) * 0.5, c, c_low / 2.0);
-				gV = _reconstruct((g1 + g4) * 0.5, c, (c1 + c4) * 0.2 + c * 0.6);
-//				gV = (g1 + g4) * 0.5;
-#endif
-//				clip_smooth(gV, g1, g4); // MARK2, especially diagonals
-//				clip(gV, g1, g4);
-				//========================
-				// '\' North-West diagonal
-				// '/' North-East diagonal
-/*
-				// good enough to determine directions
-				gNW = middle(g1, g2, g3, g4);
-				gNE = gNW;
-*/
-#if 0
-/*
-				// gNW - '\'
-				float cc1 = value_bayer(width, height, x - 2, y - 2, bayer);
-				float cc2 = value_bayer(width, height, x - 1, y - 1, bayer);
-				float cc3 = value_bayer(width, height, x    , y    , bayer);
-				float cc4 = value_bayer(width, height, x + 1, y + 1, bayer);
-				float cc5 = value_bayer(width, height, x + 2, y + 2, bayer);
-				float cc = _reconstruct((cc2 + cc4) * 0.5, cc3, ((cc1 + cc5) * 0.5 + cc3) * 0.5);
-				if(ddr::abs(g2 - g4) < ddr::abs(g1 - g3)) {
-					float gm = (g2 + g4) * 0.5;
-					float c_ = value_bayer(width, height, x - 1, y + 1, bayer);
-					float cm = (cc + c_) * 0.5;
-					// gm / cm = gNW / cc
-					gNW = (gm * cc) / cm;
-				} else {
-					float gm = (g1 + g3) * 0.5;
-					float c_ = value_bayer(width, height, x + 1, y - 1, bayer);
-					float cm = (cc + c_) * 0.5;
-					// gm / cm = gNW / cc
-					gNW = (gm * cc) / cm;
-				}
-				// gNE - '/'
-				cc1 = value_bayer(width, height, x + 2, y - 2, bayer);
-				cc2 = value_bayer(width, height, x + 1, y - 1, bayer);
-				cc3 = value_bayer(width, height, x    , y    , bayer);
-				cc4 = value_bayer(width, height, x - 1, y + 1, bayer);
-				cc5 = value_bayer(width, height, x - 2, y + 2, bayer);
-				cc = _reconstruct((cc2 + cc4) * 0.5, cc3, ((cc1 + cc5) * 0.5 + cc3) * 0.5);
-				if(ddr::abs(g1 - g2) < ddr::abs(g3 - g4)) {
-					float gm = (g1 + g2) * 0.5;
-					float c_ = value_bayer(width, height, x - 1, y - 1, bayer);
-					float cm = (cc + c_) * 0.5;
-					// gm / cm = gNW / cc
-					gNE = (gm * cc) / cm;
-				} else {
-					float gm = (g3 + g4) * 0.5;
-					float c_ = value_bayer(width, height, x + 1, y + 1, bayer);
-					float cm = (cc + c_) * 0.5;
-					// gm / cm = gNW / cc
-					gNE = (gm * cc) / cm;
-				}
-*/
-				// gNE - '/'
-///*
-				if(ddr::abs(g1 - g2) < ddr::abs(g3 - g4))
-					gNW = _reconstruct((g1 + g2) * 0.5, c, ((c1 + c2) * 0.5 + c) * 0.5);
-				else
-					gNW = _reconstruct((g3 + g4) * 0.5, c, ((c3 + c4) * 0.5 + c) * 0.5);
+				const float c = value_bayer(width, height, x, y, bayer);
 
-				if(ddr::abs(g1 - g3) < ddr::abs(g2 - g4))
-					gNE = _reconstruct((g1 + g3) * 0.5, c, ((c1 + c3) * 0.5 + c) * 0.5);
-				else
-					gNE = _reconstruct((g2 + g4) * 0.5, c, ((c2 + c4) * 0.5 + c) * 0.5);
-//*/
-#else
+				const float c2 = value_bayer(width, height, x - 2, y + 0, bayer);
+				const float c3 = value_bayer(width, height, x + 2, y + 0, bayer);
+				float gH = _reconstruct((g2 + g3) * 0.5f, c, (c2 + c3) * 0.2f + c * 0.6f);
+
+				const float c1 = value_bayer(width, height, x + 0, y - 2, bayer);
+				const float c4 = value_bayer(width, height, x + 0, y + 2, bayer);
+				float gV = _reconstruct((g1 + g4) * 0.5f, c, (c1 + c4) * 0.2f + c * 0.6f);
+
+				float gL;
 				if(ddr::abs(g1 - g2) < ddr::abs(g3 - g4)) {
-					float d = (g1 + g2) * 0.5;
+					float d = (g1 + g2) * 0.5f;
 					if(ddr::abs(d - g3) < ddr::abs(d - g4))
-						gNW = ((g1 + g2) * 0.75 + g3 * 0.25) / 1.75;
+						gL = ((g1 + g2) * 0.75f + g3 * 0.25f) * 0.57143f;
 					else
-						gNW = ((g1 + g2) * 0.75 + g4 * 0.25) / 1.75;
-//					gNW = ((g1 + g2) * 0.75 + (g3 + g4) * 0.25) / 2.0;
+						gL = ((g1 + g2) * 0.75f + g4 * 0.25f) * 0.57143f;
+//					gL = ((g1 + g2) * 0.75 + (g3 + g4) * 0.25) / 2.0;
 				} else {
-					float d = (g3 + g4) * 0.5;
+					float d = (g3 + g4) * 0.5f;
 					if(ddr::abs(d - g1) < ddr::abs(d - g2))
-						gNW = ((g3 + g4) * 0.75 + g1 * 0.25) / 1.75;
+						gL = ((g3 + g4) * 0.75f + g1 * 0.25f) * 0.57143f;
 					else
-						gNW = ((g3 + g4) * 0.75 + g2 * 0.25) / 1.75;
-//					gNW = ((g1 + g2) * 0.25 + (g3 + g4) * 0.75) / 2.0;
+						gL = ((g3 + g4) * 0.75f + g2 * 0.25f) * 0.57143f;
+//					gL = ((g1 + g2) * 0.25 + (g3 + g4) * 0.75) / 2.0;
 				}
 
+				float gR;
 				if(ddr::abs(g1 - g3) < ddr::abs(g2 - g4)) {
-					float d = (g1 + g3) * 0.5;
+					float d = (g1 + g3) * 0.5f;
 					if(ddr::abs(d - g2) < ddr::abs(d - g4))
-						gNE = ((g1 + g3) * 0.75 + g2 * 0.25) / 1.75;
+						gR = ((g1 + g3) * 0.75f + g2 * 0.25f) * 0.57143f;
 					else
-						gNE = ((g1 + g3) * 0.75 + g4 * 0.25) / 1.75;
-//					gNE = ((g1 + g3) * 0.75 + (g2 + g4) * 0.25) / 2.0;
+						gR = ((g1 + g3) * 0.75f + g4 * 0.25f) * 0.57143f;
+//					gR = ((g1 + g3) * 0.75 + (g2 + g4) * 0.25) / 2.0;
 				} else {
-					float d = (g2 + g4) * 0.5;
+					float d = (g2 + g4) * 0.5f;
 					if(ddr::abs(d - g1) < ddr::abs(d - g3))
-						gNE = ((g2 + g4) * 0.75 + g1 * 0.25) / 1.75;
+						gR = ((g2 + g4) * 0.75f + g1 * 0.25f) * 0.57143f;
 					else
-						gNE = ((g2 + g4) * 0.75 + g3 * 0.25) / 1.75;
-//					gNE = ((g1 + g3) * 0.25 + (g2 + g4) * 0.75) / 2.0;
+						gR = ((g2 + g4) * 0.75f + g3 * 0.25f) * 0.57143f;
+//					gR = ((g1 + g3) * 0.25 + (g2 + g4) * 0.75) / 2.0;
 				}
-#endif
-				// store reconstructed directional-depended GREEN values, at clockwise order from 15 minutes
-				// usually set of (gH / gV) are the best, but sometimes, with yellow flowers for example,
-				// set (_gH / _gV) are better
-				// TODO: use correct directions for color channels, i.e. _gH and _gV as
-				// horizontal and vertical directions 
+
 				_rgba[k + 0] = gH;
-				_rgba[k + 1] = gNW;
+				_rgba[k + 1] = gL;
 				_rgba[k + 2] = gV;
-				_rgba[k + 3] = gNE;
+				_rgba[k + 3] = gR;
 			}
 		}
 	}
-	//------------
-	if(subflow->sync_point_pre())
+
+	if(subflow->sync_point_pre()) {
+		y_flow->store(0);
 		mirror_2(width, height, _m);
+	}
 	subflow->sync_point_post();
 
-	//--==--
+	//--------------------------------------------------------------------------
+#ifdef DIRECTIONS_SMOOTH
 	// use high-freq component of signal to improve direction detection
-	// do direction-wise low-pass filter, and then use delta with  to obtain h.f.
+	// do direction-wise low-pass filter, and then use delta with to obtain h.f.
 	float *sm_in = _rgba;
 	float *sm_out = sm_temp;
-	for(int y = y_min; y < y_max; ++y) {
+	while((y = y_flow->fetch_add(1)) < y_max) {
 		for(int x = x_min; x < x_max; ++x) {
 			const int k = ((width + 4) * (y + 2) + x + 2) * 4;
 			// looks like a good compromise
 			float t[4];
-			// '-'
-			t[0]  = sm_in[((width + 4) * (y + 2 + 0) + x + 2 - 1) * 4 + 0];
-			t[0] += sm_in[((width + 4) * (y + 2 + 0) + x + 2 + 0) * 4 + 0];
-			t[0] += sm_in[((width + 4) * (y + 2 + 0) + x + 2 + 1) * 4 + 0];
-			t[0] *= 2.5f;
-			// '\'
-			t[1]  = sm_in[((width + 4) * (y + 2 - 1) + x + 2 - 1) * 4 + 1];
-			t[1] += sm_in[((width + 4) * (y + 2 + 0) + x + 2 + 0) * 4 + 1];
-			t[1] += sm_in[((width + 4) * (y + 2 + 1) + x + 2 + 1) * 4 + 1];
-			t[1] *= 2.5f;
-			// '|'
-			t[2]  = sm_in[((width + 4) * (y + 2 - 1) + x + 2 + 0) * 4 + 2];
-			t[2] += sm_in[((width + 4) * (y + 2 + 0) + x + 2 + 0) * 4 + 2];
-			t[2] += sm_in[((width + 4) * (y + 2 + 1) + x + 2 + 0) * 4 + 2];
-			t[2] *= 2.5f;
-			// '/'
-			t[3]  = sm_in[((width + 4) * (y + 2 - 1) + x + 2 + 1) * 4 + 3];
-			t[3] += sm_in[((width + 4) * (y + 2 + 0) + x + 2 + 0) * 4 + 3];
-			t[3] += sm_in[((width + 4) * (y + 2 + 1) + x + 2 - 1) * 4 + 3];
-			t[3] *= 2.5f;
+			t[0]  = (sm_in[k      - 4 + 0] + sm_in[k + 0] + sm_in[k      + 4 + 0]) * 2.5f;
+			t[1]  = (sm_in[k - w4 - 4 + 1] + sm_in[k + 1] + sm_in[k + w4 + 4 + 1]) * 2.5f;
+			t[2]  = (sm_in[k - w4     + 2] + sm_in[k + 2] + sm_in[k + w4     + 2]) * 2.5f;
+			t[3]  = (sm_in[k - w4 + 4 + 3] + sm_in[k + 3] + sm_in[k + w4 - 4 + 3]) * 2.5f;
 			// 3x3
 			for(int m = 0; m < 4; ++m) {
 				float v = 0.0f;
-				v += sm_in[((width + 4) * (y + 2 + 0) + x + 2 + 0) * 4 + m];
-				v += sm_in[((width + 4) * (y + 2 + 0) + x + 2 - 1) * 4 + m];
-				v += sm_in[((width + 4) * (y + 2 + 0) + x + 2 + 1) * 4 + m];
-				v += sm_in[((width + 4) * (y + 2 - 1) + x + 2 + 0) * 4 + m];
-				v += sm_in[((width + 4) * (y + 2 - 1) + x + 2 - 1) * 4 + m];
-				v += sm_in[((width + 4) * (y + 2 - 1) + x + 2 + 1) * 4 + m];
-				v += sm_in[((width + 4) * (y + 2 + 1) + x + 2 + 0) * 4 + m];
-				v += sm_in[((width + 4) * (y + 2 + 1) + x + 2 - 1) * 4 + m];
-				v += sm_in[((width + 4) * (y + 2 + 1) + x + 2 + 1) * 4 + m];
-				sm_out[k + m] = sm_in[k + m] - (t[m] + v) / (9.0f + 7.5f);
+				v += sm_in[k - w4 - 4 + m] + sm_in[k - w4 + m] + sm_in[k - w4 + 4 + m];
+				v += sm_in[k      - 4 + m] + sm_in[k      + m] + sm_in[k      + 4 + m];
+				v += sm_in[k + w4 - 4 + m] + sm_in[k + w4 + m] + sm_in[k + w4 + 4 + m];
+				sm_out[k + m] = sm_in[k + m] - (t[m] + v) * 0.06060606f;
+//				sm_out[k + m] = sm_in[k + m] - (t[m] + v) / (9.0f + 7.5f);
 			}
 		}
 	}
-	if(subflow->sync_point_pre())
+	if(subflow->sync_point_pre()) {
+		y_flow->store(0);
 		mirror_2(width, height, (struct rgba_t *)sm_out);
+	}
 	subflow->sync_point_post();
+#endif
 
-	//------------
-	// pass II: create Dv, Dnw, Dh, Dne tables
-	const float w = 1.0;
-//	const float w = 1.0 / 1.41421356;
+	//--------------------------------------------------------------------------
+	// pass II: create direction tables H, L, V, R at the reed, green, blue and alpha channels
 #ifdef DIRECTIONS_SMOOTH
 	float *v_green = sm_temp;
 #else
 	float *v_green = _rgba;
 #endif
-	for(int y = y_min; y < y_max; ++y) {
+	while((y = y_flow->fetch_add(1)) < y_max) {
 		for(int x = x_min; x < x_max; ++x) {
 			const int k = ((width + 4) * (y + 2) + x + 2) * 4;
-#if 0
-			for(int i = 0; i < 4; ++i) {
-				D[k + i]  = _delta(v_green[k + i], v_green[k +      4 + i]) + _delta(v_green[k      - 4 + i], v_green[k + i]);
-				D[k + i] += _delta(v_green[k + i], v_green[k + w4 + 4 + i]) + _delta(v_green[k - w4 - 4 + i], v_green[k + i]);
-				D[k + i] += _delta(v_green[k + i], v_green[k - w4 +     i]) + _delta(v_green[k + w4     + i], v_green[k + i]);
-				D[k + i] += _delta(v_green[k + i], v_green[k - w4 + 4 + i]) + _delta(v_green[k + w4 - 4 + i], v_green[k + i]);
-			}
-#else
-			// '-' horizontal
-			D[k + 0] = _delta(v_green[k + 0], v_green[k + 4 + 0]) + _delta(v_green[k - 4 + 0], v_green[k + 0]);
-			// '\' NW
-			D[k + 1] = (_delta(v_green[k + 1], v_green[k + w4 + 4 + 1]) + _delta(v_green[k - w4 - 4 + 1], v_green[k + 1])) * w;
-			// '|' vertical
-			D[k + 2] = _delta(v_green[k + 2], v_green[k - w4 + 2]) + _delta(v_green[k + w4 + 2], v_green[k + 2]);
-			// '/' NE
-			D[k + 3] = (_delta(v_green[k + 3], v_green[k - w4 + 4 + 3]) + _delta(v_green[k + w4 - 4 + 3], v_green[k + 3])) * w;
-//			D[k + 1] = _delta(_rgba[k + 1], _rgba[k + 4 + 1]) + _delta(_rgba[k - 4 + 1], _rgba[k + 1]);
-//			D[k + 3] = _delta(_rgba[k + 3], _rgba[k - w4 + 3]) + _delta(_rgba[k + w4 + 3], _rgba[k + 3]);
-#endif
+			D[k + 0] = _delta(v_green[k + 0], v_green[k      + 4 + 0]) + _delta(v_green[k      - 4 + 0], v_green[k + 0]);
+			D[k + 1] = _delta(v_green[k + 1], v_green[k + w4 + 4 + 1]) + _delta(v_green[k - w4 - 4 + 1], v_green[k + 1]);
+			D[k + 2] = _delta(v_green[k + 2], v_green[k - w4     + 2]) + _delta(v_green[k + w4     + 2], v_green[k + 2]);
+			D[k + 3] = _delta(v_green[k + 3], v_green[k - w4 + 4 + 3]) + _delta(v_green[k + w4 - 4 + 3], v_green[k + 3]);
 		}
 	}
 
-	//------------
 	if(subflow->sync_point_pre()) {
+		y_flow->store(0);
 		mirror_2(width, height, _m);
 		mirror_2(width, height, _D);
 	}
 	subflow->sync_point_post();
 
-//	float *gaussian = task->gaussian;
-	//------------
+	//--------------------------------------------------------------------------
 	// pass III: determine directions of green plane, reconstruct GREEN by direction, copy known RED and BLUE
 //	float median = 0.3f;
 //	float median_low = median - 0.05f;
 //	float median_high = median + 0.05f;
-	for(int y = y_min; y < y_max; ++y) {
+	while((y = y_flow->fetch_add(1)) < y_max) {
 		for(int x = x_min; x < x_max; ++x) {
 			const int k = ((width + 4) * (y + 2) + x + 2) * 4;
 			float C[4];
 			for(int i = 0; i < 4; ++i) {
-				float c = D[k - w4 - 4 + i] + D[k - w4 + 0 + i] + D[k - w4 + 4 + i];
-				     c += D[k +  0 - 4 + i] + D[k +  0 + 0 + i] + D[k +  0 + 4 + i];
-				     c += D[k + w4 - 4 + i] + D[k + w4 + 0 + i] + D[k + w4 + 4 + i];
+				float c;
+				c  = D[k - w4 - 4 + i] + D[k - w4 + i] + D[k - w4 + 4 + i];
+				c += D[k      - 4 + i] + D[k      + i] + D[k      + 4 + i];
+				c += D[k + w4 - 4 + i] + D[k + w4 + i] + D[k + w4 + 4 + i];
 				C[i] = c;
 			}
-			// direction from green
 			int d = 0;
 			float C_min = C[0];
-			for(int j = 0; j < 4; ++j) {
-				if(C_min > C[j]) {
-					d = j;
-					C_min = C[j];
-				}
+			if(C_min > C[1]) {
+				C_min = C[1];
+				d = 1;
+			}
+			if(C_min > C[2]) {
+				C_min = C[2];
+				d = 2;
+			}
+			if(C_min > C[3]) {
+				C_min = C[3];
+				d = 3;
 			}
 #if 0
-			// use horizontal and vertical directions for GREEN channel
-			if(C[0] < C[2])
-				_rgba[k + 1] = _rgba[k + 0];
-			if(C[0] > C[2])
-				_rgba[k + 1] = _rgba[k + 2];
-			if(C[0] == C[2])
-				_rgba[k + 1] = (_rgba[k + 2] + _rgba[k + 0]) * 0.5;
-#else
-//		const int s = __bayer_pos_to_c(x, y);
-//		if(s == p_red || s == p_blue) {
+			int d = 0;
+			float C_min = 0.0f;
+//			float C_max = 0.0f;
+			for(int i = 0; i < 4; ++i) {
+				float c;
+				c  = D[k - w4 - 4 + i] + D[k - w4 + i] + D[k - w4 + 4 + i];
+				c += D[k      - 4 + i] + D[k      + i] + D[k      + 4 + i];
+				c += D[k + w4 - 4 + i] + D[k + w4 + i] + D[k + w4 + 4 + i];
+				C[i] = c;
+				if(i == 0) {
+					C_min = c;
+//					C_max = c;
+				} else {
+					d = (C_min > c) ? i : d;
+					C_min = (C_min > c) ? c : C_min;
+//					C_max = (C_max < c) ? c : C_max;
+				}
+			}
+#endif
+#if 0
+			const float dd = C_max - C_min;
+			_rgba[k + 1] = dd;
 			// skip clipped areas
-			if(C[0] < 0.95f && C[2] < 0.95f && C[0] > 0.05f && C[2] > 0.05f) {
-//			if(C[0] < median_high && C[2] < median_high && C[0] > median_low && C[2] > median_low) {
-				float dd = ddr::abs(C[0] - C[2]);
-				_rgba[k + 1] = dd;
-				long dd_index = (dd * task->dd_hist_scale) * task->dd_hist.size();
+			if(C_min > 0.02f && C_max < 0.98f) {
+				const long dd_index = (dd * task->dd_hist_scale) * task->dd_hist.size();
 				if(dd_index >= 0 && dd_index < task->dd_hist.size())
 					++task->dd_hist[dd_index];
-//			}
 			}
-//		}
 #endif
-			// store directions - in alpha channel
-			// '-' '\' '|' '/' - 0, 1, 2, 3
-			d_ptr[k + 3] = 0x00;
-			//--
-			if(C[0] < C[2])
-				d_ptr[k + 3] |= D2_H;
-			else
-				d_ptr[k + 3] |= D2_V;
-			//--
-			if(C[1] < C[3])
-				d_ptr[k + 3] |= D2D_NW;
-			else
-				d_ptr[k + 3] |= D2D_NE;
-			//--
-			if(d == 0)	d_ptr[k + 3] |= D4_W;
-			if(d == 1)	d_ptr[k + 3] |= D4_NW;
-			if(d == 2)	d_ptr[k + 3] |= D4_N;
-			if(d == 3)	d_ptr[k + 3] |= D4_NE;
+			// store directions in alpha channel
+			int32_t d_mask = 0x00;
+			d_mask = 0x00;
+			d_mask |= (C[0] < C[2]) ? D2_H : D2_V;
+			d_mask |= (C[1] < C[3]) ? D2D_L : D2D_R;
+			d_mask |= (d == 0) * D4_H;
+			d_mask |= (d == 1) * D4_L;
+			d_mask |= (d == 2) * D4_V;
+			d_mask |= (d == 3) * D4_R;
+
+			d_ptr[k + 3] = d_mask;
+			const int s = __bayer_pos_to_c(x, y);
+			if(s == p_red || s == p_blue)
+				_rgba[k + 1] = ((d_mask & D2_MASK)== D2_H) ? _rgba[k + 0] : _rgba[k + 2];
 		}
 	}
-	//------------
-	if(subflow->sync_point_pre())
+
+	if(subflow->sync_point_pre()) {
+		y_flow->store(0);
 		mirror_2(width, height, _m);
+	}
 	subflow->sync_point_post();
 
-#if 1
-	//------------
+#if 0
+	//--------------------------------------------------------------------------
 	// fill missed GREEN with refined from directional noise values
 	// TODO: use a more appropriate noise analysis for 'dd_limit' value,
 	//       and pprobably not a linear shift function (?)
@@ -603,11 +428,14 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 		float dd_limit = task->dd_limit;
 		for(int k = dd_hist_size - 1; k >= 0; k--)
 			if(dd_hist[k] > dd_max / 10) {
-				dd_limit = ((float(k + 1) / dd_hist_size) * task->dd_hist_scale) / 0.9f;
+				dd_limit = ((float(k + 1) / dd_hist_size) * task->dd_hist_scale) * 1.11111111f;
 				break;
 			}
+		dd_limit *= 25.0f;
+//		dd_limit *= 15.0f;
 //		dd_limit *= 9.0f;
-		dd_limit *= 3.0f;
+//		dd_limit *= 5.0f;
+//		dd_limit *= 3.0f;
 //		dd_limit = 0.06f;
 		for(int i = 0; i < subflow->threads_count(); ++i) {
 			task_t *_task = (task_t *)subflow->get_private(i);
@@ -616,104 +444,127 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 //		cerr << "dd_limit for median == " << median << " == " << dd_limit << endl;
 	}
 	subflow->sync_point_post();
+#endif
 
-	for(int y = y_min; y < y_max; ++y) {
+#if 0
+	while((y = y_flow->fetch_add(1)) < y_max) {
 		for(int x = x_min; x < x_max; ++x) {
 			const int k = w4 * (y + 2) + (x + 2) * 4;
 			const int s = __bayer_pos_to_c(x, y);
 			if(s == p_red || s == p_blue) {
+				const int d2 = d_ptr[k + 3] & D2_MASK;
+				float g1 = (d2 == D2_H) ? _rgba[k + 0] : _rgba[k + 2];
+/*
+				const int d4 = d_ptr[k + 3] & D4_MASK;
 				float dd = _rgba[k + 1];
-				const int d4 = d_ptr[k + 3] & D2_MASK;
-				float g1;
-				if(d4 == D2_H)
-					g1 = _rgba[k + 0];
-				else
-					g1 = _rgba[k + 2];
 				if(dd < task->dd_limit) {
-					float g2 = (_rgba[k + 0] + _rgba[k + 2]) * 0.5;
-					dd *= 1.0f / task->dd_limit;
-					g1 = g1 + (g2 - g1) * (1.0f - dd);
+//				if(dd < task->dd_limit && (d4 == D4_H || d4 == D4_V)) {
+					float g2;
+					if(d4 == D4_H)
+						g2  = _rgba[k - w4] + _rgba[k + w4];
+					else
+						g2 = _rgba[k - 4] + _rgba[k + 4];
+					g2 *= 0.5f;
+					float factor = (task->dd_limit - dd) / task->dd_limit;
+					g1 = g1 + (g2 - g1) * factor;
 				}
+*/
 				_rgba[k + 1] = g1;
 			} else {
 				_rgba[k + 1] = _rgba[k + 0];
 			}
 		}
 	}
-	//---------------------------
-	if(subflow->sync_point_pre())
+
+	if(subflow->sync_point_pre()) {
+		y_flow->store(0);
 		mirror_2(width, height, _m);
+	}
 	subflow->sync_point_post();
 #endif
 
-#if 1
-	//------------
-	// refine diagonal GREEN at RED and BLUE
-	for(int y = y_min; y < y_max; ++y) {
+	//--------------------------------------------------------------------------
+	// refine diagonal GREEN at RED and BLUE, write result in the RED channel
+	while((y = y_flow->fetch_add(1)) < y_max) {
 		for(int x = x_min; x < x_max; ++x) {
 			const int k = w4 * (y + 2) + (x + 2) * 4;
 			const int s = __bayer_pos_to_c(x, y);
-			_rgba[k + 0] = _rgba[k + 1];
+			float g = _rgba[k + 0] = _rgba[k + 1];
 			if(s == p_red || s == p_blue) {
 				const int d4 = d_ptr[k + 3] & D4_MASK;
-				if(d4 == D4_NW) { // '\'
+				if(d4 == D4_L) {
 					const int d1 = d_ptr[k - w4 - 4 + 3] & D4_MASK;
 					const int d2 = d_ptr[k + w4 + 4 + 3] & D4_MASK;
-					if(d1 == D4_NW || d2 == D4_NW)
-						_rgba[k + 0] = (_rgba[k - w4 - 4 + 1] + _rgba[k + 1] + _rgba[k + w4 + 4 + 1]) / 3.0f;
-//						_rgba[k + 1] = (_rgba[k - w4 - 4 + 1] + _rgba[k + 1] + _rgba[k + w4 + 4 + 1]) / 3.0f;
+					if(d1 == D4_L || d2 == D4_L)
+						_rgba[k + 0] = (_rgba[k - w4 - 4 + 1] + _rgba[k + w4 + 4 + 1]) * 0.25f + _rgba[k + 1] * 0.5f;
+					continue;
 				}
-				if(d4 == D4_NE) { // '/'
+				if(d4 == D4_R) {
 					const int d1 = d_ptr[k - w4 + 4 + 3] & D4_MASK;
 					const int d2 = d_ptr[k + w4 - 4 + 3] & D4_MASK;
-					if(d1 == D4_NE || d2 == D4_NE)
-						_rgba[k + 0] = (_rgba[k - w4 + 4 + 1] + _rgba[k + 1] + _rgba[k + w4 - 4 + 1]) / 3.0f;
-//						_rgba[k + 1] = (_rgba[k - w4 + 4 + 1] + _rgba[k + 1] + _rgba[k + w4 - 4 + 1]) / 3.0f;
+					if(d1 == D4_R || d2 == D4_R)
+						_rgba[k + 0] = (_rgba[k - w4 + 4 + 1] + _rgba[k + w4 - 4 + 1]) * 0.25f + _rgba[k + 1] * 0.5f;
+					continue;
+				}
+				if(d4 == D4_V) {
+					float g1 = _rgba[k - w4 + 1];
+					float g2 = _rgba[k + w4 + 1];
+					if(g1 > g2) std::swap(g1, g2);
+					if(g < g1) _rgba[k + 0] = g1 + (g2 - g1) * 0.25f;
+					if(g > g2) _rgba[k + 0] = g1 + (g2 - g1) * 0.75f;
+					continue;
+				}
+				if(d4 == D4_H) {
+					float g1 = _rgba[k - 4 + 1];
+					float g2 = _rgba[k + 4 + 1];
+					if(g1 > g2) std::swap(g1, g2);
+					if(g < g1) _rgba[k + 0] = g1 + (g2 - g1) * 0.25f;
+					if(g > g2) _rgba[k + 0] = g1 + (g2 - g1) * 0.75f;
+					continue;
 				}
 			}
 		}
 	}
-	//---------------------------
-//	if(subflow->sync_point_pre())
-//		mirror_2(width, height, _m);
-//	subflow->sync_point_post();
-	//---------------------------
-	for(int y = y_min; y < y_max; ++y) {
+	if(subflow->sync_point_pre())
+		y_flow->store(0);
+	subflow->sync_point_post();
+
+	// move refined GREEN from the RED channel
+	while((y = y_flow->fetch_add(1)) < y_max) {
 		for(int x = x_min; x < x_max; ++x) {
 			const int k = w4 * (y + 2) + (x + 2) * 4;
 			_rgba[k + 1] = _rgba[k + 0];
 		}
 	}
-	//---------------------------
-	if(subflow->sync_point_pre())
+	if(subflow->sync_point_pre()) {
+		y_flow->store(0);
 		mirror_2(width, height, _m);
+	}
 	subflow->sync_point_post();
-	//---------------------------
-#endif
 
+	//--------------------------------------------------------------------------
 #if 1
-	//------------
 	// detect moire
-	for(int y = y_min; y < y_max; ++y) {
+	while((y = y_flow->fetch_add(1)) < y_max) {
 		for(int x = x_min; x < x_max; ++x) {
 			const int k = w4 * (y + 2) + (x + 2) * 4;
 			const int d4 = d_ptr[k + 3] & D4_MASK;
 			const float g = _rgba[k + 1];
 			float g1 = g;
 			float g2 = g;
-			if(d4 == D4_W) { // '-'
+			if(d4 == D4_H) {
 				g1 = _rgba[k - w4 + 1];
 				g2 = _rgba[k + w4 + 1];
 			}
-			if(d4 == D4_NW) { // '\'
+			if(d4 == D4_L) {
 				g1 = _rgba[k - w4 + 4 + 1];
 				g2 = _rgba[k + w4 - 4 + 1];
 			}
-			if(d4 == D4_N) { // '|'
+			if(d4 == D4_V) {
 				g1 = _rgba[k - 4 + 1];
 				g2 = _rgba[k + 4 + 1];
 			}
-			if(d4 == D4_NE) { // '/'
+			if(d4 == D4_R) {
 				g1 = _rgba[k - w4 - 4 + 1];
 				g2 = _rgba[k + w4 + 4 + 1];
 			}
@@ -724,16 +575,16 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 				d_ptr[k + 3] |= DM_FLAG;
 		}
 	}
-	//---------------------------
-	if(subflow->sync_point_pre())
+	if(subflow->sync_point_pre()) {
+		y_flow->store(0);
 		mirror_2(width, height, _m);
+	}
 	subflow->sync_point_post();
 #endif
 
-	//------------
 	// copy known RED and BLUE pixels into output array
 /*
-	for(int y = y_min; y < y_max; ++y) {
+	while((y = y_flow->fetch_add(1)) < y_max) {
 		for(int x = x_min; x < x_max; ++x) {
 			int k = w4 * (y + 2) + (x + 2) * 4;
 			int s = __bayer_pos_to_c(x, y);
@@ -750,13 +601,15 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 			_rgba[k + 2] = b;
 		}
 	}
-	if(subflow->sync_point_pre())
+	if(subflow->sync_point_pre()) {
+		y_flow->store(0);
 		mirror_2(width, height, _m);
+	}
 	subflow->sync_point_post();
 */
-	//------------
+
 	// pass IV: interpolation of the RED and BLUE at the BLUE and RED with known direction and all GREEN points;
-	for(int y = y_min; y < y_max; ++y) {
+	while((y = y_flow->fetch_add(1)) < y_max) {
 		for(int x = x_min; x < x_max; ++x) {
 			const int k = w4 * (y + 2) + (x + 2) * 4;
 			const int s = __bayer_pos_to_c(x, y);
@@ -765,7 +618,7 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 				const int ci_2 = (s == p_red) ? 0 : 2;
 				_rgba[k + ci_2] = v;
 				// interpolation for other color
-				float c = 0.0;
+				float c = 0.0f;
 				const int ci = (s == p_red) ? 2 : 0;
 				// c1 c2
 				// c3 c4
@@ -779,15 +632,15 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 				if(dm != DM_FLAG) {
 //				if(false) {
 					const int d = d_ptr[k + 3] & D2D_MASK;
-					if(d == D2D_NW) { // '\'
+					if(d == D2D_L) {
 						float g1 = _rgba[k - w4 - 4 + 1];
 						float g4 = _rgba[k + w4 + 4 + 1];
-						c = _reconstruct((c1 + c4) * 0.5, g, (g1 + g4) * 0.5);
+						c = _reconstruct((c1 + c4) * 0.5f, g, (g1 + g4) * 0.5f);
 						clip_smooth(c, c1, c4);
-					} else { // '/'
+					} else {
 						float g2 = _rgba[k - w4 + 4 + 1];
 						float g3 = _rgba[k + w4 - 4 + 1];
-						c = _reconstruct((c2 + c3) * 0.5, g, (g2 + g3) * 0.5);
+						c = _reconstruct((c2 + c3) * 0.5f, g, (g2 + g3) * 0.5f);
 						clip_smooth(c, c2, c3);
 					}
 					_rgba[k + ci] = c;
@@ -797,24 +650,24 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 					// TODO: don't use '-' and '|' directions where is no correlations of RED/GREEN
 					// TODO: check how to improve diagonal direction detection and processing
 					int d4 = d_ptr[k + 3] & D4_MASK;
-					int d2 = ((d_ptr[k + 3] & D2_MASK) == D2_N) ? D4_N : D4_W;
+					int d2 = ((d_ptr[k + 3] & D2_MASK) == D2_V) ? D4_V : D4_H;
 					int d = d2;
-					if(d4 == D4_NW || d4 == D4_NE) {
+					if(d4 == D4_L || d4 == D4_R) {
 						d = d4;
-						if(d4 == D4_NW) { // '\'
+						if(d4 == D4_L) {
 							float d4_1 = d_ptr[k - w4 - w4 - 4 - 4 + 3] & D4_MASK;
 							float d4_2 = d_ptr[k + w4 + w4 + 4 + 4 + 3] & D4_MASK;
-							if(d4_1 != D4_NW && d4_2 != D4_NW)
+							if(d4_1 != D4_L && d4_2 != D4_L)
 								d = d2;
-						} else { // '/'
+						} else {
 							float d4_1 = d_ptr[k - w4 - w4 + 4 + 4 + 3] & D4_MASK;
 							float d4_2 = d_ptr[k + w4 + w4 - 4 - 4 + 3] & D4_MASK;
-							if(d4_1 != D4_NE && d4_2 != D4_NE)
+							if(d4_1 != D4_R && d4_2 != D4_R)
 								d = d2;
 						}
 					}
 					//--
-					if(d == D4_W) { // '-'
+					if(d == D4_H) {
 						float g = _rgba[k + 1];
 						float g1 = _rgba[k - w4 + 1];
 						float g2 = _rgba[k + w4 + 1];
@@ -823,16 +676,18 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 						float g21 = _rgba[k - 4 + w4 + 1];
 						float g22 = _rgba[k + 4 + w4 + 1];
 						// use low freq from the color channel, and use high freq from the green channel
-						float gt = (g1 + g11 + g12) / 3.0;
-						float gb = (g2 + g21 + g22) / 3.0;
+						float gt = (g1 + g11 + g12) * 0.33333333f;
+						float gb = (g2 + g21 + g22) * 0.33333333f;
 //						if(ddr::abs(g - gt) < ddr::abs(g - gb))
-							c = _reconstruct((c1 + c2) * 0.5, g, gt);
+							c = _reconstruct((c1 + c2) * 0.5f, g, gt);
 //						else
-							c += _reconstruct((c3 + c4) * 0.5, g, gb);
-						c /= 2.0;
+							c += _reconstruct((c3 + c4) * 0.5f, g, gb);
+						c *= 0.5f;
 //						c = _reconstruct((c2 + c3 + c1 + c4) * 0.25, g, (g1 + g2) * 0.5);
+						_rgba[k + ci] = c;
+						continue;
 					}
-					if(d == D4_N) { // '|'
+					if(d == D4_V) {
 						float g = _rgba[k + 1];
 						float g1 = _rgba[k - 4 + 1];
 						float g2 = _rgba[k + 4 + 1];
@@ -840,40 +695,45 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 						float g12 = _rgba[k - 4 + w4 + 1];
 						float g21 = _rgba[k + 4 - w4 + 1];
 						float g22 = _rgba[k + 4 + w4 + 1];
-						float gl = (g1 + g11 + g12) / 3.0;
-						float gr = (g2 + g21 + g22) / 3.0;
+						float gl = (g1 + g11 + g12) * 0.33333333f;
+						float gr = (g2 + g21 + g22) * 0.33333333f;
 //						if(ddr::abs(g - gl) < ddr::abs(g - gr))
-							c = _reconstruct((c1 + c3) * 0.5, g, gl);
+							c = _reconstruct((c1 + c3) * 0.5f, g, gl);
 //						else
-							c += _reconstruct((c2 + c4) * 0.5, g, gr);
-						c /= 2.0;
+							c += _reconstruct((c2 + c4) * 0.5f, g, gr);
+						c *= 0.5f;
 //						c = _reconstruct((c2 + c3 + c1 + c4) * 0.25, g, (g1 + g2) * 0.5);
+						_rgba[k + ci] = c;
+						continue;
 					}
-					if(d == D4_NW) { // '\'
+					if(d == D4_L) {
 						float g1 = _rgba[k - w4 - 4 + 1];
 						float g4 = _rgba[k + w4 + 4 + 1];
-						c = _reconstruct((c1 + c4) * 0.5, g, (g1 + g4) * 0.5);
+						c = _reconstruct((c1 + c4) * 0.5f, g, (g1 + g4) * 0.5f);
 						clip_smooth(c, c1, c4);
+						_rgba[k + ci] = c;
+						continue;
 					}
-					if(d == D4_NE) { // '/'
+					if(d == D4_R) {
 						float g2 = _rgba[k - w4 + 4 + 1];
 						float g3 = _rgba[k + w4 - 4 + 1];
-						c = _reconstruct((c2 + c3) * 0.5, g, (g2 + g3) * 0.5);
+						c = _reconstruct((c2 + c3) * 0.5f, g, (g2 + g3) * 0.5f);
 						clip_smooth(c, c2, c3);
+						_rgba[k + ci] = c;
+						continue;
 					}
-					_rgba[k + ci] = c;
 				}
 			}
 		}
 	}
-	//------------
-	if(subflow->sync_point_pre())
+	if(subflow->sync_point_pre()) {
+		y_flow->store(0);
 		mirror_2(width, height, _m);
+	}
 	subflow->sync_point_post();
 
-	//------------
 	// pass V: interpolation of the RED and BLUE at the GREEN;
-	for(int y = y_min; y < y_max; ++y) {
+	while((y = y_flow->fetch_add(1)) < y_max) {
 		for(int x = x_min; x < x_max; ++x) {
 			const int k = w4 * (y + 2) + (x + 2) * 4;
 			const int s = __bayer_pos_to_c(x, y);
@@ -883,35 +743,35 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 			} else {
 				const int ci = (s == p_green_r) ? 0 : 2;
 				float g = _rgba[k + 1];
-#if 1
+#if 0
 				// check direction
 				int d4 = d_ptr[k + 3] & D4_MASK;
-				int d2 = ((d_ptr[k + 3] & D2_MASK) == D2_N) ? D4_N : D4_W;
+				int d2 = ((d_ptr[k + 3] & D2_MASK) == D2_V) ? D4_V : D4_H;
 				int d = d2;
-				if(d4 == D4_NW || d4 == D4_NE) {
+				if(d4 == D4_L || d4 == D4_R) {
 					d = d4;
-					if(d4 == D4_NW) { // '\'
+					if(d4 == D4_L) {
 						float d4_1 = d_ptr[k - w4 - w4 - 4 - 4 + 3] & D4_MASK;
 						float d4_2 = d_ptr[k + w4 + w4 + 4 + 4 + 3] & D4_MASK;
-						if(d4_1 != D4_NW && d4_2 != D4_NW)
+						if(d4_1 != D4_L && d4_2 != D4_L)
 							d = d2;
 					} else { // '/'
 						float d4_1 = d_ptr[k - w4 - w4 + 4 + 4 + 3] & D4_MASK;
 						float d4_2 = d_ptr[k + w4 + w4 - 4 - 4 + 3] & D4_MASK;
-						if(d4_1 != D4_NE && d4_2 != D4_NE)
+						if(d4_1 != D4_R && d4_2 != D4_R)
 							d = d2;
 					}
 				}
 				// apply
-				if(d == D4_W || d == D4_N) {
-					int doff = (d == D4_W) ? 4 : w4;	// horizontal - vertical
+				if(d == D4_H || d == D4_V) {
+					int doff = (d == D4_H) ? 4 : w4;
 					int ai[2] = {ci, 2 - ci};
 					for(int i = 0; i < 2; ++i) {
 						float c1 = _rgba[k - doff + ai[i]];
 						float c2 = _rgba[k + doff + ai[i]];
 						float g1 = _rgba[k - doff + 1];
 						float g2 = _rgba[k + doff + 1];
-						float c = _reconstruct((c1 + c2) * 0.5, g, (g1 + g2) * 0.5);
+						float c = _reconstruct((c1 + c2) * 0.5f, g, (g1 + g2) * 0.5f);
 						_rgba[k + ai[i]] = c;
 					}
 				} else {
@@ -919,7 +779,7 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 					float g2 = _rgba[k -  4 + 1];
 					float g3 = _rgba[k +  4 + 1];
 					float g4 = _rgba[k + w4 + 1];
-					if(d == D4_NW) { // '\'
+					if(d == D4_L) {
 						int ai[2] = {ci, 2 - ci};
 						for(int i = 0; i < 2; ++i) {
 							float c1 = _rgba[k - w4 + ai[i]];
@@ -928,14 +788,14 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 							float c4 = _rgba[k + w4 + ai[i]];
 							float c;
 							if(ddr::abs(c1 - c2) < ddr::abs(g3 - g4))
-								c = _reconstruct((c1 + c2) * 0.5, g, (g1 + g2) * 0.5);
+								c = _reconstruct((c1 + c2) * 0.5f, g, (g1 + g2) * 0.5f);
 							else
-								c = _reconstruct((c3 + c4) * 0.5, g, (g3 + g4) * 0.5);
+								c = _reconstruct((c3 + c4) * 0.5f, g, (g3 + g4) * 0.5f);
 							_rgba[k + ai[i]] = c;
 						}
 //						c = _reconstruct((c1 + c4) * 0.5, g, (g1 + g4) * 0.5);
 //						clip_smooth(c, c1, c4);
-					} else { // '/'
+					} else {
 						int ai[2] = {ci, 2 - ci};
 						for(int i = 0; i < 2; ++i) {
 							float c1 = _rgba[k - w4 + ai[i]];
@@ -944,22 +804,26 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 							float c4 = _rgba[k + w4 + ai[i]];
 							float c;
 							if(ddr::abs(c1 - c3) < ddr::abs(g2 - g4))
-								c = _reconstruct((c1 + c3) * 0.5, g, (g1 + g3) * 0.5);
+								c = _reconstruct((c1 + c3) * 0.5f, g, (g1 + g3) * 0.5f);
 							else
-								c = _reconstruct((c2 + c4) * 0.5, g, (g2 + g4) * 0.5);
+								c = _reconstruct((c2 + c4) * 0.5f, g, (g2 + g4) * 0.5f);
 							_rgba[k + ai[i]] = c;
 						}
 					}
 				}
 #else
-				int doff = (direction % 2 == 0) ? 4 : w4;	// horizontal - vertical
+				int doff = ((d_ptr[k + 3] & D2_MASK) == D2_V) ? w4 : 4;
 				int ai[2] = {ci, 2 - ci};
 				for(int i = 0; i < 2; ++i) {
 					float c1 = _rgba[k - doff + ai[i]];
 					float c2 = _rgba[k + doff + ai[i]];
+///*
 					float g1 = _rgba[k - doff + 1];
 					float g2 = _rgba[k + doff + 1];
-					float c = _reconstruct((c1 + c2) * 0.5, g, (g1 + g2) * 0.5);
+					float c = _reconstruct((c1 + c2) * 0.5f, g, (g1 + g2) * 0.5f);
+//*/
+					if(((c1 - c2) * (g1 - g2) < 0.0f) || (c < c1 && c < c2) || (c > c1 && c > c2))
+						c = (c1 + c2) * 0.5f;
 //					clip_n(c, c1, c2);
 					_rgba[k + ai[i]] = c;
 				}
@@ -967,14 +831,15 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 			}
 		}
 	}
-	//---------------------------
-	if(subflow->sync_point_pre())
+	if(subflow->sync_point_pre()) {
+		y_flow->store(0);
 		mirror_2(width, height, _m);
+	}
 	subflow->sync_point_post();
 
-	//------------
 	// refine horizontal and vertical RED at BLUE and BLUE at RED
-	for(int y = y_min; y < y_max; ++y) {
+#if 1
+	while((y = y_flow->fetch_add(1)) < y_max) {
 		for(int x = x_min; x < x_max; ++x) {
 			const int k = w4 * (y + 2) + (x + 2) * 4;
 			const int dm = d_ptr[k + 3] & DM_MASK;
@@ -983,67 +848,34 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 				if(s == p_red || s == p_blue) {
 					const int d4 = d_ptr[k + 3] & D4_MASK;
 					const int ci = (s == p_blue) ? 0 : 2;
-					if(d4 == D4_W) { // '-'
+					if(d4 == D4_H) {
 						const int d1 = d_ptr[k - 4 + 3] & D4_MASK;
 						const int d2 = d_ptr[k + 4 + 3] & D4_MASK;
-						if(d1 == D4_W || d2 == D4_W)
-							_rgba[k + ci] = (_rgba[k - 4 + ci] + _rgba[k + ci] + _rgba[k + 4 + ci]) / 3.0f;
+						if(d1 == D4_H || d2 == D4_H)
+							_rgba[k + ci] = (_rgba[k - 4 + ci] + _rgba[k + ci] + _rgba[k + 4 + ci]) * 0.333333f;
 					}
-					if(d4 == D4_N) { // '|'
+					if(d4 == D4_V) {
 						const int d1 = d_ptr[k - w4 + 3] & D4_MASK;
 						const int d2 = d_ptr[k + w4 + 3] & D4_MASK;
-						if(d1 == D4_N || d2 == D4_N)
-							_rgba[k + ci] = (_rgba[k - w4 + ci] + _rgba[k + ci] + _rgba[k + w4 + ci]) / 3.0f;
+						if(d1 == D4_V || d2 == D4_V)
+							_rgba[k + ci] = (_rgba[k - w4 + ci] + _rgba[k + ci] + _rgba[k + w4 + ci]) * 0.333333f;
 					}
 				}
 			}
 		}
 	}
 	//---------------------------
-	if(subflow->sync_point_pre())
+	if(subflow->sync_point_pre()) {
+		y_flow->store(0);
 		mirror_2(width, height, _m);
-	subflow->sync_point_post();
-
-#if 0
-	for(int y = y_min; y < y_max; ++y) {
-		for(int x = x_min; x < x_max; ++x) {
-			const int k = w4 * (y + 2) + (x + 2) * 4;
-			const int d4 = d_ptr[k + 3] & D4_MASK;
-			if(d4 == D4_W) { // '-' - check for moire
-				bool moire[3];
-				for(int i = -1; i < 2; ++i) {
-					moire[i + 1] = false;
-					const int d = d_ptr[k + i * 4 + 3] & D4_MASK;
-					if(d == D4_W) {
-						const float g1 = _rgba[k - w4 + i * 4 + 1];
-						const float g2 = _rgba[k      + i * 4 + 1];
-						const float g3 = _rgba[k + w4 + i * 4 + 1];
-						moire[i + 1] |= (g1 > g2) && (g3 > g2);
-						moire[i + 1] |= (g1 < g2) && (g3 < g2);
-//						moire[i + 1] = (g1 - g2) * (g2 - g3) < 0.0f;
-//						if((g1 - g2) * (g2 - g3) < 0.0f)
-//							moire[i + 1] = true;
-					}
-				}
-//				if((moire[0] && moire[1]) || (moire[1] && moire[2])) {
-				if(moire[1]) {
-					_rgba[k + 0] = 0.0f;
-					_rgba[k + 1] = 0.0f;
-					_rgba[k + 2] = 0.0f;
-				}
-			}
-		}
 	}
-	//---------------------------
-	if(subflow->sync_point_pre())
-		mirror_2(width, height, _m);
 	subflow->sync_point_post();
 #endif
 
 	//------------
 //	const float black_offset = task->black_offset;
 //	const float black_scale = 1.0 / (1.0 - black_offset);
-	for(int y = y_min; y < y_max; ++y) {
+	while((y = y_flow->fetch_add(1)) < y_max) {
 		for(int x = x_min; x < x_max; ++x) {
 			const int k = w4 * (y + 2) + (x + 2) * 4;
 #if 0
@@ -1106,21 +938,14 @@ void FP_Demosaic::process_DG(class SubFlow *subflow) {
 			ddr::clip(_rgba[k + 2]);
 */
 #if 0
-			_rgba[k + 0] = _rgba[k + 1];
-			_rgba[k + 2] = _rgba[k + 1];
+			const int ic = 1;
+			_rgba[k + 0] = _rgba[k + ic];
+			_rgba[k + 2] = _rgba[k + ic];
 #endif
-#if 0
-			_rgba[k + 1] = _rgba[k + 0];
-			_rgba[k + 2] = _rgba[k + 0];
-#endif
-#if 0
-			_rgba[k + 1] = _rgba[k + 2];
-			_rgba[k + 0] = _rgba[k + 2];
-#endif
-			_rgba[k + 3] = 1.0;
 			_rgba[k + 0] /= task->c_scale[0];
 			_rgba[k + 1] /= task->c_scale[1];
 			_rgba[k + 2] /= task->c_scale[2];
+			_rgba[k + 3] = 1.0;
 		}
 	}
 	if(subflow->sync_point_pre())

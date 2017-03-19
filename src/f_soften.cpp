@@ -41,7 +41,7 @@ public:
 	virtual ~FP_Soften();
 
 	bool is_enabled(const PS_Base *ps_base);
-	Area *process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj);
+	std::unique_ptr<Area> process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj);
 
 	void size_forward(FP_size_t *fp_size, const Area::t_dimensions *d_before, Area::t_dimensions *d_after);
 	void size_backward(FP_size_t *fp_size, Area::t_dimensions *d_before, const Area::t_dimensions *d_after);
@@ -316,17 +316,18 @@ void FP_Soften::size_backward(FP_size_t *fp_size, Area::t_dimensions *d_before, 
 // requirements for caller:
 // - should be skipped call for 'is_enabled() == false' filters
 // - if OpenCL is enabled, should be called only for 'master' thread - i.e. subflow/::task_t will be ignored
-Area *FP_Soften::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj) {
+std::unique_ptr<Area> FP_Soften::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj) {
 	SubFlow *subflow = mt_obj->subflow;
-	PS_Soften *ps = (PS_Soften *)filter_obj->ps_base;
-	Area *area_in = process_obj->area_in;
-	Area *area_out = nullptr;
 
+	std::unique_ptr<Area> area_out;
 	std::unique_ptr<std::atomic_int> y_flow;
 	std::unique_ptr<GaussianKernel> kernel;
 	std::vector<std::unique_ptr<task_t>> tasks(0);
 
 	if(subflow->sync_point_pre()) {
+		Area *area_in = process_obj->area_in;
+		PS_Soften *ps = (PS_Soften *)filter_obj->ps_base;
+
 		// non-destructive processing
 		const int threads_count = subflow->threads_count();
 
@@ -362,8 +363,7 @@ Area *FP_Soften::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_
 		const int in_x_offset = (tp.x - area_in->dimensions()->position.x) / px_size_x + 0.5 + area_in->dimensions()->edges.x1;
 		const int in_y_offset = (tp.y - area_in->dimensions()->position.y) / px_size_y + 0.5 + area_in->dimensions()->edges.y1;
 
-		area_out = new Area(&d_out);
-		process_obj->OOM |= !area_out->valid();
+		area_out = std::unique_ptr<Area>(new Area(&d_out));
 
 		y_flow = decltype(y_flow)(new std::atomic_int(0));
 		tasks.resize(threads_count);
@@ -371,7 +371,7 @@ Area *FP_Soften::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_
 			tasks[i] = std::unique_ptr<task_t>(new task_t);
 			task_t *task = tasks[i].get();
 			task->area_in = area_in;
-			task->area_out = area_out;
+			task->area_out = area_out.get();
 			task->in_x_offset = in_x_offset;
 			task->in_y_offset = in_y_offset;
 			task->y_flow = y_flow.get();
@@ -384,8 +384,7 @@ Area *FP_Soften::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_
 	}
 	subflow->sync_point_post();
 
-	if(!process_obj->OOM)
-		process(subflow);
+	process(subflow);
 
 	subflow->sync_point();
 	return area_out;
@@ -407,12 +406,16 @@ void FP_Soften::process(class SubFlow *subflow) {
 	const int in_w = task->area_in->dimensions()->width();
 	const int in_h = task->area_in->dimensions()->height();
 
-	float *in = (float *)task->area_in->ptr();
+	const float *in = (float *)task->area_in->ptr();
 	float *out = (float *)task->area_out->ptr();
 
 	const int kernel_length = task->kernel->width();
 	const int kernel_offset = task->kernel->offset_x();
 	const float strength = task->strength;
+//	const GaussianKernel *kernel = task->kernel;
+	GaussianKernel _kernel = *task->kernel;
+	const GaussianKernel *kernel = &_kernel;
+
 	float s_sharp = 1.0;
 	float s_blur = strength;
 	if(strength > 1.0) {
@@ -446,7 +449,7 @@ void FP_Soften::process(class SubFlow *subflow) {
 //							if(alpha == 1.0) {
 							if(alpha > 0.95) {
 								float v_in = in[(in_y * in_width + in_x) * 4 + ci];
-								float kv = task->kernel->value(x, y);
+								float kv = kernel->value(x, y);
 								v_blur += v_in * kv;
 								blur_w += kv;
 							}

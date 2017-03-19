@@ -20,7 +20,6 @@
 
 #include <QtWidgets>
 
-//#include "area.h"
 #include "dataset.h"
 #include "widgets.h"
 #include "filter.h"
@@ -37,8 +36,7 @@ public:
 protected:
 	class task_t;
 	void run(void);
-	QList<class task_t *> tasks_list;
-//	std::list<class task_t *> tasks_list;
+	std::list<std::unique_ptr<task_t>> tasks_list;
 	class Process *process;
 	std::thread *std_thread = nullptr;
 	std::mutex task_lock;

@@ -9,7 +9,6 @@
  *
  */
 
-
 #include <string>
 
 #include "import.h"
@@ -20,11 +19,11 @@ public:
 	static QList<QString> extensions(void);
 	Import_Jpeg(std::string fname);
 	QImage thumb(Metadata *metadata, int thumb_width, int thumb_height);
-	class Area *image(class Metadata *metadata);
+	std::unique_ptr<Area> image(class Metadata *metadata);
 
 protected:
 	std::string file_name;
-	class Area *load_image(class Metadata *metadata, bool is_thumb);
+	std::unique_ptr<Area> load_image(class Metadata *metadata, bool is_thumb);
 };
 //------------------------------------------------------------------------------
 

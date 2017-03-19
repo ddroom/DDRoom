@@ -11,6 +11,7 @@
 
 #include <list>
 #include <string>
+#include <memory>
 
 #include <QtWidgets>
 
@@ -145,8 +146,6 @@ public:
 };
 
 //------------------------------------------------------------------------------
-// should be used as pointers - so real objects can be of inherited class
-
 class MT_t {
 public:
 	// multithreading
@@ -165,7 +164,6 @@ public:
 	class Area *area_in;
 	class Tile_t::t_position position;	// desired dimensions of result
 	bool allow_destructive;
-	volatile bool OOM;	// should be set up at filter if OOM happen
 };
 
 // used only for process, not for edit
@@ -251,7 +249,7 @@ public:
 	// MT_t - OpenCL | Subflow
 	// Process_t - Area *area_in, Metadata *metadata
 	// Filter_t - PS_Base *ps_base, Filter *__this
-	virtual Area *process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj) = 0;
+	virtual std::unique_ptr<Area> process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj) = 0;
 	// return 'false' if t_dimensions are the same, and 'true' otherwise
 	// Always only 1:1. What should be result dimensions after processing of the whole photo, with scale 1:1, w/o tiling
 	virtual void size_forward(FP_size_t *fp_size, const Area::t_dimensions *d_before, Area::t_dimensions *d_after);
@@ -355,8 +353,9 @@ public:
 class Filter_Store {
 
 public:
-	Filter_Store(void);
-	QList<class Filter *> get_filters_list(bool is_online = true);
+	static Filter_Store *instance(void);
+
+	std::list<class Filter *> get_filters_list(bool is_online = true);
 
 	std::list<std::pair<class FilterEdit *, class Filter *> > filter_edit_list;
 	// filters
@@ -386,11 +385,13 @@ public:
 /*
 	class F_Invert *f_invert;
 */
-	static Filter_Store *_this;
 
 protected:
-	QList<class Filter *> filters_list_online;
-	QList<class Filter *> filters_list_offline;
+	Filter_Store(void);
+	static std::unique_ptr<Filter_Store> _this;
+
+	std::list<class Filter *> filters_list_online;
+	std::list<class Filter *> filters_list_offline;
 };
 
 //------------------------------------------------------------------------------

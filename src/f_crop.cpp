@@ -277,13 +277,11 @@ class FP_Crop : public FilterProcess_2D {
 public:
 	FP_Crop(void);
 	bool is_enabled(const PS_Base *ps_base);
-	Area *process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj);
+	std::unique_ptr<Area> process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj);
 
 	void size_forward(FP_size_t *fp_size, const Area::t_dimensions *d_before, Area::t_dimensions *d_after);
 	void size_backward(FP_size_t *fp_size, Area::t_dimensions *d_before, const Area::t_dimensions *d_after);
 
-protected:
-//	Area *process(Area *in, Metadata *metadata, class PS_Crop *ps, F_Crop *_this);
 };
 
 //------------------------------------------------------------------------------
@@ -743,12 +741,11 @@ void FP_Crop::size_backward(FP_size_t *fp_size, Area::t_dimensions *d_before, co
 	*d_before = *d_after;
 }
 
-Area *FP_Crop::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj) {
-	Area *area_out = nullptr;
+std::unique_ptr<Area> FP_Crop::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj) {
+	std::unique_ptr<Area> area_out;
 	SubFlow *subflow = mt_obj->subflow;
-	if(subflow->is_main()) {
-		area_out = new Area(*process_obj->area_in);
-	}
+	if(subflow->is_main())
+		area_out = std::unique_ptr<Area>(new Area(*process_obj->area_in));
 	return area_out;
 }
 

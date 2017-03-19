@@ -419,7 +419,7 @@ void PS_Loader::set_thumbnail(Area *thumb) {
 		thumbnail = QImage();
 	if(thumb == nullptr)
 		return;
-	if(thumb->type() == Area::type_t::type_uint8_p4) {
+	if(thumb->type() == Area::type_t::uint8_p4) {
 //cerr << "save thumb: " << thumb->mem_width() << "x" << thumb->mem_height() << endl;
 		thumbnail = QImage((uchar *)thumb->ptr(), thumb->mem_width(), thumb->mem_height(), QImage::Format_RGB32).copy();
 //		thumbnail = QImage((uchar *)thumb->ptr(), thumb->mem_width(), thumb->mem_height(), QImage::Format_RGB32).scaled(160, 160, Qt::KeepAspectRatio, Qt::SmoothTransformation).copy();

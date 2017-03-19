@@ -18,19 +18,6 @@ using namespace std;
 
 // (heap) Memory storage, with reference counter.
 //------------------------------------------------------------------------------
-template <class T> class MemDeleter {
-public:
-	MemDeleter(size_t _size)
-		: size(_size) {}
-	void operator()(T *ptr) {
-		delete[] ptr;
-		Mem::register_free(ptr, size);
-	}
-protected:
-	size_t size;
-};
-
-//------------------------------------------------------------------------------
 size_t Mem::mem_total = 0;
 std::mutex Mem::state_mutex;
 size_t Mem::mem_start = 0;
@@ -58,38 +45,38 @@ Mem::Mem(size_t size) {
 		} catch(...) {
 			// operator new failed, use nullptr value instead
 			ptr_allocated = nullptr;
-cerr << "failed to allocate memory with size: " << size << endl;
+			return;
+//cerr << "failed to allocate memory with size: " << size << endl;
 		}
-	}
-	if(ptr_allocated != nullptr) {
-		_mem_size = size + 32;
-		state_update(_mem_size);
+	} else
+		return;
+	_mem_size = size + 32;
+	state_update(_mem_size);
 #ifdef USE_PTR_SET
-		ptr_set_lock.lock();
-		ptr_set.insert((uintptr_t)((void *)ptr_allocated));
-		ptr_set_lock.unlock();
+	ptr_set_lock.lock();
+	ptr_set.insert((uintptr_t)((void *)ptr_allocated));
+	ptr_set_lock.unlock();
 #endif
-		if(!silent) {
-			cerr << "------------------------->> ptr == 0x" << std::hex << (unsigned long)((void *)ptr_allocated) << std::dec <<  "; after new[";
-			int m = _mem_size;
-			cerr << m / 1000000 << setfill('0') << "." << setw(3) << (m % 1000000 / 1000) << "." << setw(3) << (m % 1000) << setfill(' ') << " bytes] memory usage: ";
-			//--
-			m = mem_total;
-			cerr << m / 1000000 << setfill('0') << "." << setw(3) << (m % 1000000 / 1000) << "." << setw(3) << (m % 1000) << setfill(' ') << " bytes" << endl;
-		}
-		uintptr_t pointer = (uintptr_t)((void *)ptr_allocated);
-		uint32_t mask_32 = 0xFFFFFFF0;
-		uint64_t mask_64 = 0xFFFFFFFF;
-		mask_64 <<= 32;
-		mask_64 += 0xFFFFFFF0;
-		if(sizeof(uintptr_t) == 4)
-			pointer = (pointer + 16) & mask_32;
-		else
-			pointer = (pointer + 16) & mask_64;
-		ptr_aligned = (void *)pointer;
-		MemDeleter<char> d(_mem_size);
-		mem_shared_ptr = decltype(mem_shared_ptr)(ptr_allocated, d);
+	if(!silent) {
+		cerr << "------------------------->> ptr == 0x" << std::hex << (unsigned long)((void *)ptr_allocated) << std::dec <<  "; after new[";
+		int m = _mem_size;
+		cerr << m / 1000000 << setfill('0') << "." << setw(3) << (m % 1000000 / 1000) << "." << setw(3) << (m % 1000) << setfill(' ') << " bytes] memory usage: ";
+		//--
+		m = mem_total;
+		cerr << m / 1000000 << setfill('0') << "." << setw(3) << (m % 1000000 / 1000) << "." << setw(3) << (m % 1000) << setfill(' ') << " bytes" << endl;
 	}
+	uintptr_t pointer = (uintptr_t)((void *)ptr_allocated);
+	uint32_t mask_32 = 0xFFFFFFF0;
+	uint64_t mask_64 = 0xFFFFFFFF;
+	mask_64 <<= 32;
+	mask_64 += 0xFFFFFFF0;
+	if(sizeof(uintptr_t) == 4)
+		pointer = (pointer + 16) & mask_32;
+	else
+		pointer = (pointer + 16) & mask_64;
+	ptr_aligned = (void *)pointer;
+	size_t msize = _mem_size;
+	mem_shared_ptr = decltype(mem_shared_ptr)(ptr_allocated, [msize](char *ptr){delete[] ptr; Mem::register_free(ptr, msize);});
 }
 
 Mem::Mem(Mem const &other) {

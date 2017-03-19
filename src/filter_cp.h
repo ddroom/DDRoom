@@ -70,7 +70,7 @@ class FilterProcess_CP_Wrapper : public FilterProcess_2D {
 public:
 	FilterProcess_CP_Wrapper(const std::vector<class FP_CP_Wrapper_record_t> &);
 	virtual ~FilterProcess_CP_Wrapper(void);
-	Area *process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj);
+	std::unique_ptr<Area> process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj);
 	bool is_enabled(const PS_Base *ps_base);
 	void set_destructive(bool);
 

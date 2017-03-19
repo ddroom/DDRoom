@@ -20,14 +20,9 @@
 //------------------------------------------------------------------------------
 struct thumbnail_record_t {
 public:
-	std::string folder_id;
-	int index;
-	void *data;
-	thumbnail_record_t(void) {
-		folder_id = "";
-		index = -1;
-		data = nullptr;
-	}
+	std::string folder_id = std::string("");
+	int index = -1;
+	void *data = nullptr;
 };
 
 //------------------------------------------------------------------------------

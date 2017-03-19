@@ -49,29 +49,24 @@ QImage Import_TIFF::thumb(Metadata *metadata, int thumb_width, int thumb_height)
 	}
 	if(qimage.isNull() == true) {
 		// decompress image
-		Area *area = load_image(metadata, true);
-		if(area != nullptr) {
-			if(area->valid())
-				qimage = QImage((uchar *)area->ptr(), area->mem_width(), area->mem_height(), QImage::Format_RGB32).copy();
-			delete area;
-		}
+		auto area = load_image(metadata, true);
+		if(area != nullptr)
+			qimage = QImage((uchar *)area->ptr(), area->mem_width(), area->mem_height(), QImage::Format_RGB32).copy();
 	}
 	return qimage;
 }
 
-Area *Import_TIFF::image(Metadata *metadata) {
+std::unique_ptr<Area> Import_TIFF::image(Metadata *metadata) {
 	return load_image(metadata, false);
 }
 
-Area *Import_TIFF::load_image(Metadata *metadata, bool is_thumb) {
-	// --==--
+std::unique_ptr<Area> Import_TIFF::load_image(Metadata *metadata, bool is_thumb) {
 	metadata->rotation = 0;	// get real rotation with Exiv2
 	for(int i = 0; i < 3; ++i)
 		metadata->c_max[i] = 0.0;
 
-	// --==--
 	// load image - with contrib/pngminus/png2pnm.c sources of libpng as reference of usage
-	Area *area = nullptr;
+	std::unique_ptr<Area> area;
 
 	TIFF *tif = TIFFOpen(file_name.c_str(), "r");
 	if(tif) {
@@ -119,10 +114,9 @@ Area *Import_TIFF::load_image(Metadata *metadata, bool is_thumb) {
 		}
 		if(to_process) {
 			if(!is_thumb)
-				area = new Area(width, height);
+				area = std::unique_ptr<Area>(new Area(width, height));
 			else
-				area = new Area(width, height, Area::type_t::type_uint8_p4);    // ARGB 32bit
-		if(area->valid()) {
+				area = std::unique_ptr<Area>(new Area(width, height, Area::type_t::uint8_p4));    // ARGB 32bit
 			float *ptr = (float *)area->ptr();
 			uint8_t *ptr_u = (uint8_t *)area->ptr();
 			int pos = 0;
@@ -184,7 +178,6 @@ Area *Import_TIFF::load_image(Metadata *metadata, bool is_thumb) {
 			metadata->height = height;
 			metadata->rotation = 0;
 //			metadata->c_histogram_count = metadata->width * metadata->height;
-		}
 		}
 		if(raster != nullptr)
 			_TIFFfree(raster);

@@ -144,7 +144,7 @@ public:
 	void filter_post(fp_cp_args_t *args);
 
 	// FilterProcess_2D
-	Area *process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj);
+	std::unique_ptr<Area> process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj);
 	void process_2d(SubFlow *subflow);
 	
 protected:
@@ -331,8 +331,11 @@ void F_CM_Colors::set_CM(std::string cm_name) {
 //------------------------------------------------------------------------------
 class TF_JS_Spline : public TableFunction {
 public:
-	TF_JS_Spline(const QVector<QPointF> *points) {
-		spline = new Spline_Calc(*points);
+	TF_JS_Spline(const QVector<QPointF> *_points) {
+		std::vector<std::pair<float, float>> points(_points->size());
+		for(int i = 0; i < points.size(); ++i)
+			points[i] = std::pair<float, float>{(*_points)[i].x(), (*_points)[i].y()};
+		spline = new Spline_Calc(points);
 		_init(0.0, 1.0, 1024);
 	}
 	~TF_JS_Spline() {
@@ -484,6 +487,7 @@ void FP_CM_Colors::filter(float *pixel, fp_cp_task_t *fp_cp_task) {
 	task_t *task = (task_t *)fp_cp_task;
 	// Jsh
 	float scale = task->saturation;
+#if 0
 	float J = pixel[0];
 	if(task->gamut_use && task->sg != nullptr) {
 		float J_edge, s_edge;
@@ -493,28 +497,38 @@ void FP_CM_Colors::filter(float *pixel, fp_cp_task_t *fp_cp_task) {
 	}
 	if(task->js_curve)
 		scale *= (*task->fp_cache->tf_js_spline)(J);
+#else
+	if(task->gamut_use && task->sg != nullptr && task->js_curve) {
+		float J_edge, s_edge;
+		task->sg->lightness_edge_Js(J_edge, s_edge, pixel[2]);
+		float J = pixel[0] / J_edge;
+		ddr::clip(J);
+		scale *= (*task->fp_cache->tf_js_spline)(J);
+	}
+#endif
 	pixel[1] *= scale;
 }
 
 //------------------------------------------------------------------------------
-Area *FP_CM_Colors::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj) {
+std::unique_ptr<Area> FP_CM_Colors::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj) {
 	SubFlow *subflow = mt_obj->subflow;
-	Area *area_in = process_obj->area_in;
+
 	PS_CM_Colors *ps = (PS_CM_Colors *)(filter_obj->ps_base);
 	FP_CM_Colors_Cache_t *fp_cache = (FP_CM_Colors_Cache_t *)process_obj->fp_cache;
 
-	Area *_area_out = nullptr;
+	std::unique_ptr<Area> area_out;
 	std::vector<std::unique_ptr<task_t>> tasks(0);
 	std::unique_ptr<std::atomic_int> y_flow;
 
 //	long j_scale = 1000;	// use low-pass filter to draw distribution at gui_curve
 
 	if(subflow->sync_point_pre()) {
+		Area *area_in = process_obj->area_in;
+
 //cerr << endl;
 //cerr << "Area *FP_CM_Colors::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj) {..." << endl;
 		// TODO: check here destructive processing
-		_area_out = new Area(*area_in);
-//D_AREA_PTR(_area_out);
+		area_out = std::unique_ptr<Area>(new Area(*area_in));
 
 		fill_js_curve(fp_cache, ps);
 		std::shared_ptr<Saturation_Gamut> sg;
@@ -539,7 +553,7 @@ Area *FP_CM_Colors::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filt
 			tasks[i] = std::unique_ptr<task_t>(new task_t);
 			task_t *task = tasks[i].get();
 			task->area_in = area_in;
-			task->area_out = _area_out;
+			task->area_out = area_out.get();
 			task->saturation = saturation;
 			task->y_flow = y_flow.get();
 			task->js_curve = ps->enabled_js_curve;
@@ -554,7 +568,7 @@ Area *FP_CM_Colors::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filt
 	process_2d(subflow);
 	subflow->sync_point();
 
-	return _area_out;
+	return area_out;
 }
 
 //------------------------------------------------------------------------------
@@ -562,19 +576,19 @@ void FP_CM_Colors::process_2d(SubFlow *subflow) {
 	// process
 	task_t *task = (task_t *)subflow->get_private();
 
-	float *in = (float *)task->area_in->ptr();
+	const float *in = (float *)task->area_in->ptr();
 //	float *out = (float *)task->area_in->ptr();
 	float *out = (float *)task->area_out->ptr();
 
-	int x_max = task->area_out->dimensions()->width();
-	int y_max = task->area_out->dimensions()->height();
+	const int x_max = task->area_out->dimensions()->width();
+	const int y_max = task->area_out->dimensions()->height();
 
-	int in_mx = task->area_in->dimensions()->edges.x1;
-	int in_my = task->area_in->dimensions()->edges.y1;
-	int out_mx = task->area_out->dimensions()->edges.x1;
-	int out_my = task->area_out->dimensions()->edges.y1;
-	int in_width = task->area_in->mem_width();
-	int out_width = task->area_out->mem_width();
+	const int in_mx = task->area_in->dimensions()->edges.x1;
+	const int in_my = task->area_in->dimensions()->edges.y1;
+	const int out_mx = task->area_out->dimensions()->edges.x1;
+	const int out_my = task->area_out->dimensions()->edges.y1;
+	const int in_width = task->area_in->mem_width();
+	const int out_width = task->area_out->mem_width();
 
 //	float ps_saturation = 1.0;
 //	if(ps->enabled_saturation && ps->saturation != 1.0)

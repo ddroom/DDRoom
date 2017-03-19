@@ -88,7 +88,7 @@ public:
 	FP_WB(void);
 	FP_Cache_t *new_FP_Cache(void);
 	bool is_enabled(const PS_Base *ps_base);
-	Area *process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj);
+	std::unique_ptr<Area> process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj);
 	
 protected:
 	class task_t;
@@ -962,15 +962,15 @@ bool FP_WB::is_enabled(const PS_Base *ps_base) {
 	return true;
 }
 
-Area *FP_WB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj) {
+std::unique_ptr<Area> FP_WB::process(MT_t *mt_obj, Process_t *process_obj, Filter_t *filter_obj) {
     SubFlow *const subflow = mt_obj->subflow;
-    Area *const area_in = process_obj->area_in;
+
     PS_WB *const ps = (PS_WB *)filter_obj->ps_base;
 	Metadata *const metadata = process_obj->metadata;
 	F_WB *const filter = (F_WB *)filter_obj->filter;
 	FP_WB_Cache_t *const fp_cache = (FP_WB_Cache_t *)process_obj->fp_cache;
-    Area *area_out = nullptr;
 
+	std::unique_ptr<Area> area_out;
 	std::unique_ptr<std::atomic_int> y_flow(nullptr);
 	std::vector<std::unique_ptr<task_t>> tasks(0);
 	
@@ -979,10 +979,9 @@ if(subflow->is_main())
 	cerr << "FP_WB::process, size == " << area_in->dimensions()->width() << "x" << area_in->dimensions()->height() << endl;
 */
 	if(subflow->sync_point_pre()) {
-//		area_out = new Area(*area_in);
-		area_out = new Area(area_in->dimensions());
-		process_obj->OOM |= !area_out->valid();
-//cerr << "...1; process_obj->OOM == " << process_obj->OOM << endl;
+	    Area *const area_in = process_obj->area_in;
+
+		area_out = std::unique_ptr<Area>(new Area(area_in->dimensions()));
 
 		//finish initialization, because we need here some data from metadata
 		if(filter)
@@ -1149,7 +1148,7 @@ if(subflow->is_main())
 			task_t *task = tasks[i].get();
 
 			task->area_in = area_in;
-			task->area_out = area_out;
+			task->area_out = area_out.get();
 			for(int k = 0; k < 3; ++k) {
 				task->c_scale[k] = metadata->c_scale_ref[k];
 				task->scale[k] = fp_cache->scale[k];
@@ -1171,9 +1170,7 @@ if(subflow->is_main())
 	}
 	subflow->sync_point_post();
 
-//cerr << "...2; process_obj->OOM == " << process_obj->OOM << "; subflow->is_main() == " << subflow->is_main() << "; process_obj == " << (unsigned long)process_obj << endl;
-	if(!process_obj->OOM)
-		process_wb(subflow);
+	process_wb(subflow);
 
 	//-- clean-up
 	if(subflow->sync_point_pre()) {

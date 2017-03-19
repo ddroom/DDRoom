@@ -16,10 +16,8 @@
 using namespace std;
 
 //------------------------------------------------------------------------------
-Area *AreaHelper::convert(Area *area_in, Area::format_t out_format, int rotation) {
+std::unique_ptr<Area> AreaHelper::convert(Area *area_in, Area::format_t out_format, int rotation) {
 //cerr << "AreaHelper::convert(): rotation == " << rotation << endl;
-//rotation = 0;
-	Area *area_out = nullptr;
 	Area::t_dimensions d_out;
 	d_out.size.w = area_in->dimensions()->width();
 	d_out.size.h = area_in->dimensions()->height();
@@ -28,10 +26,7 @@ Area *AreaHelper::convert(Area *area_in, Area::format_t out_format, int rotation
 		d_out.size.h = area_in->dimensions()->width();
 	}
 
-	area_out = new Area(&d_out, Area::type_for_format(out_format));
-	if(!area_out->valid())
-		return area_out;
-	D_AREA_PTR(area_out)
+	auto area_out = std::unique_ptr<Area>(new Area(&d_out, Area::type_for_format(out_format)));
 
 	// input format is FLOAT RGBA, and output - U8 ARGB
 	int in_width = area_in->mem_width();
@@ -40,20 +35,6 @@ Area *AreaHelper::convert(Area *area_in, Area::format_t out_format, int rotation
 	int x_max = area_in->dimensions()->width();
 	int y_off = area_in->dimensions()->edges.y1;
 	int y_max = area_in->dimensions()->height();
-/*
-cerr << "area_in->dimensions()->edges.x1 == " << area_in->dimensions()->edges.x1 << endl;
-cerr << "area_in->dimensions()->edges.x2 == " << area_in->dimensions()->edges.x2 << endl;
-cerr << "area_in->dimensions()->edges.y1 == " << area_in->dimensions()->edges.y1 << endl;
-cerr << "area_in->dimensions()->edges.y2 == " << area_in->dimensions()->edges.y2 << endl;
-cerr << "area_in->dimensions()->width()  == " << area_in->dimensions()->width() << endl;
-cerr << "area_in->dimensions()->height() == " << area_in->dimensions()->height() << endl;
-cerr << "area_out->dimensions()->edges.x1 == " << area_out->dimensions()->edges.x1 << endl;
-cerr << "area_out->dimensions()->edges.x2 == " << area_out->dimensions()->edges.x2 << endl;
-cerr << "area_out->dimensions()->edges.y1 == " << area_out->dimensions()->edges.y1 << endl;
-cerr << "area_out->dimensions()->edges.y2 == " << area_out->dimensions()->edges.y2 << endl;
-cerr << "area_out->dimensions()->width()  == " << area_out->dimensions()->width() << endl;
-cerr << "area_out->dimensions()->height() == " << area_out->dimensions()->height() << endl;
-*/
 	uint8_t *out_8 = (uint8_t *)area_out->ptr();
 	uint16_t *out_16 = (uint16_t *)area_out->ptr();
 
@@ -62,7 +43,7 @@ cerr << "area_out->dimensions()->height() == " << area_out->dimensions()->height
 	int _i_g = 1;
 	int _i_b = 2;
 	int _i_a = 3;
-	if(out_format == Area::format_t::format_bgra_8) {
+	if(out_format == Area::format_t::bgra_8) {
 		// weird channel order for QT
 		_i_r = 2;
 		_i_g = 1;
@@ -75,14 +56,14 @@ cerr << "area_out->dimensions()->height() == " << area_out->dimensions()->height
 	const int i_a = _i_a;
 	bool out_is_16 = false;
 	int _out_step = 4;
-	if(out_format == Area::format_t::format_rgba_16) {
+	if(out_format == Area::format_t::rgba_16) {
 		out_is_16 = true;
 	}
-	if(out_format == Area::format_t::format_rgb_16) {
+	if(out_format == Area::format_t::rgb_16) {
 		out_is_16 = true;
 		_out_step = 3;
 	}
-	if(out_format == Area::format_t::format_rgb_8) {
+	if(out_format == Area::format_t::rgb_8) {
 		_out_step = 3;
 	}
 	const int out_step = _out_step;
@@ -90,7 +71,6 @@ cerr << "area_out->dimensions()->height() == " << area_out->dimensions()->height
 	int32_t i_scale = 0x00FFFF;
 	float f_scale = 65536.0 - 1.0;
 
-	int32_t v;
 	int index_table[4] = {i_r, i_g, i_b, i_a};
 	for(int y = 0; y < y_max; ++y) {
 		for(int x = 0; x < x_max; ++x) {
@@ -104,7 +84,7 @@ cerr << "area_out->dimensions()->height() == " << area_out->dimensions()->height
 				k = ((x_max - x - 1) * y_max + y) * out_step;
 
 			for(int c = 0; c < out_step; ++c) {
-				v = int32_t(in[l + c] * f_scale);
+				auto v = int32_t(in[l + c] * f_scale);
 				if(v > i_scale)	v = i_scale;
 				else if(v < 0x00)	v = 0x00;
 				if(out_is_16)
@@ -122,6 +102,7 @@ class AreaHelper::mt_task_t {
 public:
 	Area *area_in;
 	Area *area_out;
+	Area::format_t out_format;
 
 	int32_t i_scale;
 	float f_scale;
@@ -130,28 +111,17 @@ public:
 	int pos_y;
 
 	std::atomic_int *y_flow;
-
-	Area::format_t out_format;
 };
 
-// rotation already is normalized to [0|90|180|270]
+// rotation already is normalized to [0 | 90 | 180 | 270]
 // 'pos_x, pos_y' are offsets for insertion into 'tiled_area' if any
-Area *AreaHelper::convert_mt(SubFlow *subflow, Area *area_in, Area::format_t out_format, int rotation, Area *tiled_area, int pos_x, int pos_y) {
-	AreaHelper::mt_task_t **tasks = nullptr;
-	Area *area_out = nullptr;
-	std::atomic_int *y_flow = nullptr;
-
-	// TODO - remove that to task, or as global system setting...
-//	bool split_vertical = true;
-//rotation = 0;
+std::unique_ptr<Area> AreaHelper::convert_mt(SubFlow *subflow, Area *area_in, Area::format_t out_format, int rotation, Area *tiled_area, int pos_x, int pos_y) {
+	std::unique_ptr<Area> area_out;
+	Area *area_out_ptr = nullptr;
+	std::unique_ptr<std::atomic_int> y_flow;
+	std::vector<std::unique_ptr<mt_task_t>> tasks(0);
 
 	if(subflow->sync_point_pre()) {
-//cerr << "AreaHelper::convert(): rotation == " << rotation << endl;
-//rotation = 0;
-//cerr << "___________________-----------------------         rotation == " << rotation << endl;
-		int threads_count = subflow->threads_count();
-		tasks = new AreaHelper::mt_task_t *[threads_count];
-
 		Area::t_dimensions d_out;
 		d_out.size.w = area_in->dimensions()->width();
 		d_out.size.h = area_in->dimensions()->height();
@@ -160,62 +130,36 @@ Area *AreaHelper::convert_mt(SubFlow *subflow, Area *area_in, Area::format_t out
 			d_out.size.h = area_in->dimensions()->width();
 		}
 		//--
-		if(tiled_area == nullptr)
-			area_out = new Area(&d_out, Area::type_for_format(out_format));
-		else
-			area_out = tiled_area;
-		D_AREA_PTR(area_out)
-/*
-cerr << "convert_mt():" << endl;
-cerr << "area_in->dimensions()->edges.x1 == " << area_in->dimensions()->edges.x1 << endl;
-cerr << "area_in->dimensions()->edges.x2 == " << area_in->dimensions()->edges.x2 << endl;
-cerr << "area_in->dimensions()->edges.y1 == " << area_in->dimensions()->edges.y1 << endl;
-cerr << "area_in->dimensions()->edges.y2 == " << area_in->dimensions()->edges.y2 << endl;
-cerr << "area_in->dimensions()->width()  == " << area_in->dimensions()->width() << endl;
-cerr << "area_in->dimensions()->height() == " << area_in->dimensions()->height() << endl;
-cerr << "area_out->dimensions()->edges.x1 == " << area_out->dimensions()->edges.x1 << endl;
-cerr << "area_out->dimensions()->edges.x2 == " << area_out->dimensions()->edges.x2 << endl;
-cerr << "area_out->dimensions()->edges.y1 == " << area_out->dimensions()->edges.y1 << endl;
-cerr << "area_out->dimensions()->edges.y2 == " << area_out->dimensions()->edges.y2 << endl;
-cerr << "area_out->dimensions()->width()  == " << area_out->dimensions()->width() << endl;
-cerr << "area_out->dimensions()->height() == " << area_out->dimensions()->height() << endl;
-cerr << "area_out->mem_width()  == " << area_out->mem_width() << endl;
-cerr << "area_out->mem_height() == " << area_out->mem_height() << endl;
-cerr << "convert, pos_x == " << pos_x << ", pos_y == " << pos_y << endl;
-*/
-		y_flow = new std::atomic_int(0);
+		if(tiled_area == nullptr) {
+			area_out = std::unique_ptr<Area>(new Area(&d_out, Area::type_for_format(out_format)));
+			area_out_ptr = area_out.get();
+		} else
+			area_out_ptr = tiled_area;
+		const int threads_count = subflow->threads_count();
+		tasks.resize(threads_count);
+		y_flow = std::unique_ptr<std::atomic_int>(new std::atomic_int(0));
 		for(int i = 0; i < threads_count; ++i) {
-			tasks[i] = new AreaHelper::mt_task_t;
-			tasks[i]->area_in = area_in;
-			tasks[i]->area_out = area_out;
-			tasks[i]->i_scale = 0x00FFFF;
-			tasks[i]->f_scale = 0x00FFFF;
-//			tasks[i]->f_scale = 65536.0 - 1.0;
-			tasks[i]->rotation = rotation;
-			tasks[i]->out_format = out_format;
-			tasks[i]->y_flow = y_flow;
-			tasks[i]->pos_x = pos_x;
-			tasks[i]->pos_y = pos_y;
+			tasks[i] = std::unique_ptr<mt_task_t>(new mt_task_t);
+			mt_task_t *task = tasks[i].get();
+
+			task->area_in = area_in;
+			task->area_out = area_out_ptr;
+			task->i_scale = 0x00FFFF;
+			task->f_scale = 0x00FFFF;
+			task->rotation = rotation;
+			task->out_format = out_format;
+			task->y_flow = y_flow.get();
+			task->pos_x = pos_x;
+			task->pos_y = pos_y;
+
+			subflow->set_private(task, i);
 		}
-		subflow->set_private((void **)tasks);
 	}
 	subflow->sync_point_post();
 
-	AreaHelper::mt_task_t *task = (AreaHelper::mt_task_t *)subflow->get_private();
-	if(task->area_out->valid())
-		f_convert_mt(subflow);
+	f_convert_mt(subflow);
+	subflow->sync_point();
 
-//	subflow->sync_point();
-//	if(subflow->is_main()) {
-	if(subflow->sync_point_pre()) {
-		for(int i = 0; i < subflow->threads_count(); ++i)
-			delete tasks[i];
-		delete[] tasks;
-		delete y_flow;
-		// rotate geometry description if necessary
-	}
-	subflow->sync_point_post();
-//	subflow->sync_point();
 	return area_out;
 }
 
@@ -225,12 +169,12 @@ void AreaHelper::f_convert_mt(class SubFlow *subflow) {
 
 	// input format is FLOAT RGBA, and output - U8 ARGB
 	int in_width = task->area_in->mem_width();
-	float *in = (float *)task->area_in->ptr();
+	const float *in = (const float *)task->area_in->ptr();
 	const int rotation = task->rotation;
-	int x_off = task->area_in->dimensions()->edges.x1;
-	int x_max = task->area_in->dimensions()->width();
-	int y_off = task->area_in->dimensions()->edges.y1;
-	int y_max = task->area_in->dimensions()->height();
+	const int x_off = task->area_in->dimensions()->edges.x1;
+	const int x_max = task->area_in->dimensions()->width();
+	const int y_off = task->area_in->dimensions()->edges.y1;
+	const int y_max = task->area_in->dimensions()->height();
 	const int pos_x = task->pos_x;
 	const int pos_y = task->pos_y;
 
@@ -240,28 +184,26 @@ void AreaHelper::f_convert_mt(class SubFlow *subflow) {
 	const int out_height = task->area_out->mem_height();
 
 	// by default, RGBA_8 format
-	int _i_r = 0;
-	int _i_g = 1;
-	int _i_b = 2;
-	int _i_a = 3;
-	if(out_format == Area::format_t::format_bgra_8) {
-		_i_r = 2;
-		_i_b = 0;
+	int i_r = 0;
+	int i_g = 1;
+	int i_b = 2;
+	int i_a = 3;
+	if(out_format == Area::format_t::bgra_8) {
+		i_r = 2;
+		i_b = 0;
 	}
-	const int i_r = _i_r;
-	const int i_g = _i_g;
-	const int i_b = _i_b;
-	const int i_a = _i_a;
+	const int index_table[4] = {i_r, i_g, i_b, i_a};
+
 	bool out_is_16 = false;
 	int _out_step = 4;
-	if(out_format == Area::format_t::format_rgba_16) {
+	if(out_format == Area::format_t::rgba_16) {
 		out_is_16 = true;
 	}
-	if(out_format == Area::format_t::format_rgb_16) {
+	if(out_format == Area::format_t::rgb_16) {
 		out_is_16 = true;
 		_out_step = 3;
 	}
-	if(out_format == Area::format_t::format_rgb_8) {
+	if(out_format == Area::format_t::rgb_8) {
 		_out_step = 3;
 	}
 	const int out_step = _out_step;
@@ -270,9 +212,7 @@ void AreaHelper::f_convert_mt(class SubFlow *subflow) {
 	float f_scale = task->f_scale;
 
 	// TODO: for export - apply color background for 3 bytes RGB format
-	int32_t v;
 	int y;
-	int index_table[4] = {i_r, i_g, i_b, i_a};
 	while((y = task->y_flow->fetch_add(1)) < y_max) {
 		for(int x = 0; x < x_max; ++x) {
 			const int l = ((y + y_off) * in_width + (x + x_off)) * 4;
@@ -292,7 +232,7 @@ void AreaHelper::f_convert_mt(class SubFlow *subflow) {
 				break;
 			};
 			for(int c = 0; c < out_step; ++c) {
-				v = int32_t(in[l + c] * f_scale);
+				auto v = int32_t(in[l + c] * f_scale);
 				if(v > i_scale)	v = i_scale;
 				else if(v < 0x00)	v = 0x00;
 				if(out_is_16)
@@ -304,239 +244,4 @@ void AreaHelper::f_convert_mt(class SubFlow *subflow) {
 	}
 }
 
-//------------------------------------------------------------------------------
-// use 'edges' for crop if any of them is not zero (for filters w/o geometry change)
-// use 'position.x|.y' otherwise (for filters like f_rotation, with geometry change)
-Area *AreaHelper::crop(Area *area_in, Area::t_dimensions crop) {
-//cerr << "AreaHelper::crop()" << endl;
-//cerr << "asked crop: " << crop.width() << "x" << crop.height() << endl;
-	// can be asked from f_rotation etc
-	if(crop.width() > area_in->dimensions()->width() || crop.height() > area_in->dimensions()->height()) {
-//cerr << "AreaHelper::crop(): asked too big crop: area_input size is " << area_in->dimensions()->width() << "x" << area_in->dimensions()->height() << "; crop size is " << crop.width() << "x" << crop.height() << endl;
-//		return new Area(*area_in);
-cerr << "WARNING (\?\?): AreaHelper::crop(): asked too big crop: input size is " << area_in->dimensions()->width() << "x" << area_in->dimensions()->height() << "; crop size is " << crop.width() << "x" << crop.height() << endl;
-	}
-	if(!crop.edges_are_OK()) {
-cerr << "AreaHelper::crop(): asked invalid crop: crop size == " << crop.size.w << "x" << crop.size.h << "; edges for x == " << crop.edges.x1 << " - " << crop.edges.x2;
-cerr << "; edges for y == " << crop.edges.y1 << " - " << crop.edges.y2 << endl;
-//		return new Area(*area_in);
-		Area *a = new Area(*area_in);
-		D_AREA_PTR(a)
-		return a;
-	}
-//cerr << "crop(): asked size is " << crop.width() << "x" << crop.height() << endl;
-
-	Area *area_out = new Area(crop.width(), crop.height(), area_in->type());
-	if(!area_out->valid())
-		return area_out;
-	D_AREA_PTR(area_out);
-	Area::t_dimensions *d_in = area_in->dimensions();
-	Area::t_dimensions *d = area_out->dimensions();
-	d->position = crop.position;
-//cerr << "AreaHelper::crop(): d->position == " << d->position.x << " - " << d->position.y << ", px_size == " << d->position.px_size << endl;
-//cerr << "AreaHelper::crop(): d->position._max == " << d->position._x_max << " - " << d->position._y_max << endl;
-/*
-cerr << "d->edges x == " << d->edges.x1 << " - " << d->edges.x2 << endl;
-cerr << "d->edges y == " << d->edges.y1 << " - " << d->edges.y2 << endl;
-cerr << "z->edges x == " << d_in->edges.x1 << " - " << d_in->edges.x2 << endl;
-cerr << "z->edges y == " << d_in->edges.y1 << " - " << d_in->edges.y2 << endl;
-cerr << "z->size    == " << d_in->size.w << " - " << d_in->size.h << endl;
-*/
-/*
-cerr << "AreaHelper::crop()" << endl;
-cerr << "area in size is " << in->dimensions()->width() << "x" << in->dimensions()->height() << endl;
-cerr << "desired size is " << crop.width() << "x" << crop.height() << endl;
-*/
-
-	int in_width = area_in->dimensions()->width();
-	int in_height = area_in->dimensions()->height();
-	int x_min = crop.edges.x1;
-	int y_min = crop.edges.y1;
-	int x_max = crop.size.w - crop.edges.x2;
-	int y_max = crop.size.h - crop.edges.y2;
-	uint8_t *ptr_in = (uint8_t *)area_in->ptr();
-	uint8_t *ptr_out = (uint8_t *)area_out->ptr();
-	uint8_t *pi, *po;
-	uint8_t black = 0x7F;
-	int s = area_in->type_to_sizeof();
-/*
-cerr << "s == " << s << endl;
-cerr << "edges x == " << crop.edges.x1 << " - " << crop.edges.x2 << endl;
-cerr << "crop: X from " << crop.edges.x1 << " to " << x_max << " inside of " << crop.size.w << endl;
-cerr << "crop: Y from " << crop.edges.y1 << " to " << y_max << " inside of " << crop.size.h << endl;
-cerr << "desired size is " << crop.width() << "x" << crop.height() << endl;
-cerr << "area in size is " << in->dimensions()->width() << "x" << in->dimensions()->height() << endl;
-*/
-	int offset_x = d_in->edges.x1;
-	int offset_y = d_in->edges.y1;
-
-	if(crop.edges.x1 == 0 && crop.edges.x2 == 0 && crop.edges.y1 == 0 && crop.edges.y2 == 0) {
-		// use position instead of edges
-		x_min = (crop.position.x - d_in->position.x) / crop.position.px_size_x;
-		y_min = (crop.position.y - d_in->position.y) / crop.position.px_size_y;
-		x_max = crop.size.w + x_min;
-		y_max = crop.size.h + y_min;
-//		x_max = in_width - x_min - crop.size.w;
-//		y_max = in_height - y_min - crop.size.h;
-	}
-/*
-cerr << "x_min == " << x_min << endl;
-cerr << "y_min == " << y_min << endl;
-cerr << "x_max == " << x_max << endl;
-cerr << "y_max == " << y_max << endl;
-cerr << "crop.width() == " << crop.width() << endl;
-cerr << "crop.height() == " << crop.height() << endl;
-cerr << "offset_x == " << offset_x << endl;
-cerr << "offset_y == " << offset_y << endl;
-*/
-	d->position.x = d_in->position.x + x_min * d_in->position.px_size_x;
-	d->position.y = d_in->position.y + y_min * d_in->position.px_size_y;
-
-	int in_w = d_in->size.w;
-/*
-cerr << "in_w == " << in_w << endl;
-cerr << "in_width == " << in_width << endl;
-cerr << "in_h == " << d_in->size.h << endl;
-cerr << "in_height == " << in_height << endl;
-*/
-
-	long offset = 0;
-	float black_f[4] = {0.0, 0.0, 0.0, 0.0};
-	for(int y = y_min; y < y_max; ++y) {
-		for(int x = x_min; x < x_max; ++x) {
-			if(x < 0 || x >= in_width || y < 0 || y >= in_height)
-				pi = (uint8_t *)black_f;
-			else
-				pi = &ptr_in[((y + offset_y) * in_w + x + offset_x) * s];
-			po = &ptr_out[offset];
-			for(int i = 0; i < s; ++i)
-				po[i] = pi[i];
-//				ptr_out[offset + i] = ptr_in[(y * crop.size.w + x) * s + i];
-			offset += s;
-///*
-			// mark corners
-			bool draw = false;
-			if((y == y_min || y == y_max - 1) && (x < x_min + 20 || x > x_max - 21))
-				draw = true;
-			if((y < y_min + 20 || y > y_max - 21) && (x == x_min || x == x_max - 1))
-				draw = true;
-			if(draw) {
-				for(int i = 0; i < s; ++i)
-					po[i] = black;
-			}
-//*/
-		}
-	}
-//cerr << "crop - done" << endl;
-	return area_out;
-}
-
-//------------------------------------------------------------------------------
-// use it only with type_float_p4
-Area *AreaHelper::rotate(Area *area_in, int rotation) {
-	if(rotation == 0 || rotation % 90 != 0 || area_in->type() != Area::type_t::type_float_p4) {
-		Area *a = new Area(*area_in);
-		D_AREA_PTR(a);
-		return a;
-//		return new Area(*area_in);
-	}
-
-	Area::t_dimensions dims = *area_in->dimensions();
-	int r = rotation;
-	while(r != 0) {
-		r -= 90;
-		int t;
-		t = dims.size.w;
-		dims.size.w = dims.size.h;
-		dims.size.h = t;
-		t = dims.edges.x1;
-		dims.edges.x1 = dims.edges.y2;
-		dims.edges.y2 = dims.edges.x2;
-		dims.edges.x2 = dims.edges.y1;
-		dims.edges.y1 = t;
-	}
-	Area *area_out = new Area(&dims, area_in->type());
-	if(!area_out->valid())
-		return area_out;
-	D_AREA_PTR(area_out);
-	const Area::t_dimensions *in_dim = area_in->dimensions();
-	int width = dims.size.w;
-	int height = dims.size.h;
-
-	int offset = width;
-	int offset_x = 1;
-	int offset_y = 0;
-	if(rotation == 90) {
-		offset = width - 1;
-		offset_x = width;
-		offset_y = -(width * height + 1);
-	}
-	if(rotation == 180) {
-		offset = width * height - 1;
-		offset_x = -1;
-		offset_y = 0;
-	}
-	if(rotation == 270) {
-		offset = (height - 1) * width;
-		offset_x = -width;
-		offset_y = height * width + 1;
-	}
-	float *p_in = (float *)area_in->ptr();
-	float *p_out = (float *)area_out->ptr();
-	int x_max = in_dim->size.w;
-	int y_max = in_dim->size.h;
-	for(int y = 0; y < y_max; ++y) {
-		for(int x = 0; x < x_max; ++x) {
-			for(int i = 0; i < 4; ++i)
-				p_out[offset * 4 + i] = p_in[i];
-			offset += offset_x;
-			p_in += 4;
-		}
-		offset += offset_y;
-	}
-	return area_out;
-}
-
-//------------------------------------------------------------------------------
-bool AreaHelper::insert(Area *whole, Area *tile, int pos_x, int pos_y) {
-//	if(whole->type() != Area::type_t::type_float_p4 || tile->type() != Area::type_t::type_float_p4)
-//		return true;
-//cerr << "start insert..." << endl;
-	const Area::t_dimensions &d_in = *tile->dimensions();
-	const Area::t_dimensions &d_out = *whole->dimensions();
-	// get and normalize measures
-	bool normalized = false;
-	int in_w = d_in.width();
-	int in_h = d_in.height();
-	const int out_w = d_out.width();
-	const int out_h = d_out.height();
-	if(in_w + pos_x > out_w) {
-		in_w = out_w - pos_x;
-		normalized = true;
-	}
-	if(in_h + pos_y > out_h) {
-		in_h = out_h - pos_y;
-		normalized = true;
-	}
-	if(in_w <= 0 || in_h <= 0) return true;
-//cerr << "insert tile: " << in_w << "x" << in_h << endl;
-	int bytes_per_pixel = Area::type_to_sizeof(tile->type());
-	// apply copying
-	// do a pointers shift to skip repeated offsets in loops
-	char *in = (char *)tile->ptr() + (d_in.edges.y1 * d_in.size.w + d_in.edges.x1) * bytes_per_pixel;
-	char *out = (char *)whole->ptr() + ((d_out.edges.y1 + pos_y) * d_out.size.w + d_out.edges.x1 + pos_x) * bytes_per_pixel;
-	const int in_strip = d_in.size.w * bytes_per_pixel;
-	const int out_strip = d_out.size.w * bytes_per_pixel;
-	for(int y = 0; y < in_h; ++y) {
-		int offset_in = y * in_strip;
-		int offset_out = y * out_strip;
-		for(int x = 0; x < in_w; ++x) {
-			for(int k = 0; k < bytes_per_pixel; ++k)
-				out[offset_out + k] = in[offset_in + k];
-			offset_in += bytes_per_pixel;
-			offset_out += bytes_per_pixel;
-		}
-	}
-	return normalized;
-}
 //------------------------------------------------------------------------------
