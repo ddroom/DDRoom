@@ -81,7 +81,7 @@ protected:
 	void task_add(std::list<Batch::task_t> &tasks, bool ASAP = false);
 	void run_batch(void);
 	void run(void);
-	std::thread *std_thread = nullptr;
+	std::thread *run_thread = nullptr;
 	void load_default_ep(export_parameters_t *ep);
 	void save_default_ep(export_parameters_t *ep);
 

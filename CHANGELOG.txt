@@ -1,4 +1,5 @@
 
+1.0.4.9 - Disabled F_Distortion for now, removed 'lensfun' dependency.
 1.0.4.8 - Cleanups.
 1.0.4.7 - Switched to std::unique_ptr<>/std::share_ptr<> memory management in the filters processing.
 1.0.4.6 - F_Softness: added 'scale radius' checkbox.

@@ -12,7 +12,6 @@
  *		- The real colors scaling happens at "filter_gp" right now, before image sampling.
  *		- Used mutators: '_p_thumb', '_s_raw_colors'.
  *
- *  TODO: - fix 'audo black' - incorrect shift of the white point happens now (check with 'clip highlights').
 */
 
 #include <iostream>
@@ -927,12 +926,8 @@ public:
 	FP_WB_Cache_t(void);
 	virtual ~FP_WB_Cache_t();
 	bool is_empty;
-	float scale[3];
-	float offset;
-
-	bool levels;
-	float a;
-	float b;
+	double scale[3];
+	double offset;
 };
 
 FP_WB_Cache_t::FP_WB_Cache_t(void) {
@@ -940,9 +935,6 @@ FP_WB_Cache_t::FP_WB_Cache_t(void) {
 	for(int i = 0; i < 3; ++i)
 		scale[i] = 1.0;
 	offset = 0.0;
-	levels = false;
-	a = 1.0;
-	b = 0.0;
 }
 
 FP_WB_Cache_t::~FP_WB_Cache_t() {
@@ -994,29 +986,29 @@ if(subflow->is_main())
 		if((fp_cache->is_empty || is_thumb == true) && _s_raw_colors == false) {
 			// is critical for export with processing w/o thumbnails
 			fp_cache->is_empty = false;
-			float scale[3] = {1.0, 1.0, 1.0};
-			float offset = 0.0;
+			double scale[3] = {1.0, 1.0, 1.0};
+			double offset = 0.0;
 			for(int i = 0; i < 3; ++i)
 				if(ps->defined)
 					scale[i] = ps->scale_current[i] / metadata->c_scale_ref[i];
 				else
 					scale[i] = metadata->c_scale_camera[i] / metadata->c_scale_ref[i];
-			float n = scale[1];
+			double n = scale[1];
 			for(int i = 0; i < 3; ++i)
 				scale[i] /= n;
 			//----
 			// auto exposure alignment
 			if(ps->auto_alignment) {
-				float alignment = 1.0;
-				float max = 0.0;
-//				float max_unclipped = 0.0;
-				float min = 0.0;
+				double alignment = 1.0;
+				double max = 0.0;
+//				double max_unclipped = 0.0;
+				double min = 0.0;
 				bool clipped = false;
 				bool clipped_raw = false;
 				for(int i = 0; i < 3; ++i) {
 //					bool is_clipped = (metadata->c_max[i] >= 0.995);
 					clipped_raw |= (metadata->c_max[i] >= 0.995);
-					float v = scale[i] * (metadata->c_max[i] * metadata->c_scale_ref[i]);
+					double v = scale[i] * (metadata->c_max[i] * metadata->c_scale_ref[i]);
 					clipped |= (v > 1.0);
 					max = (v > max) ? v : max;
 //					max_unclipped = (v > max_unclipped && !is_clipped) ? v : max_unclipped;
@@ -1041,7 +1033,7 @@ if(subflow->is_main())
 			//----
 			// auto white upscale if possible (i.e. unclipped signals only)
 			if(ps->auto_white) {
-				float s_white[3] = {1.0f, 1.0f, 1.0f};
+				double s_white[3] = {1.0, 1.0, 1.0};
 				long sum[3] = {0, 0, 0};
 				double edge = 1.0 - ps->auto_white_edge * 0.01;
 				for(int j = 0; j < 3; ++j) {
@@ -1049,13 +1041,13 @@ if(subflow->is_main())
 						sum[j] += metadata->c_histogram[4096 * j + i];
 						double rate = double(sum[j]) / metadata->c_histogram_count[j];
 						if(rate >= edge) {
-							s_white[j] = 1.0 / ((float(i - 1) / 2047) * scale[j]);
+							s_white[j] = 1.0 / ((double(i - 1) / 2047) * scale[j]);
 							s_white[j] /= metadata->c_scale_ref[j];
 							break;
 						}
 					}
 				}
-				float s_max = s_white[0];
+				double s_max = s_white[0];
 				s_max = (s_max > s_white[1]) ? s_max : s_white[1];
 				s_max = (s_max > s_white[2]) ? s_max : s_white[2];
 				for(int k = 0; k < 3; ++k)
@@ -1068,7 +1060,7 @@ if(subflow->is_main())
 //cerr << "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ps->auto_black_edge == " << ps->auto_black_edge << endl;
 				// calculate each channel separatelly and cut when one of them fill asked percents;
 				long sum[3] = {0, 0, 0};
-				float edge = ps->auto_black_edge * 0.01;
+				double edge = ps->auto_black_edge * 0.01f;
 				bool flag = false;
 				int i = 0;
 				int j = 0;
@@ -1076,7 +1068,7 @@ if(subflow->is_main())
 					j = 0;
 					for(; j < 3; ++j) {
 						sum[j] += metadata->c_histogram[4096 * j + i];
-						float rate = float(sum[j]) / metadata->c_histogram_count[j];
+						double rate = double(sum[j]) / metadata->c_histogram_count[j];
 						if(rate >= edge) {
 //cerr << "rate == " << rate << "; edge == " << edge << endl;
 							flag = true;
@@ -1088,13 +1080,13 @@ if(subflow->is_main())
 					}
 				}
 				if(flag) {
-					offset = (float(i) / 2047) * scale[j];
+					offset = (double(i) / 2047) * scale[j];
 				}
 			}
 
 			// manual exposure correction
 			if(ps->exposure_level != 0) {
-				const float s = powf(2.0, ps->exposure_level);
+				const double s = pow(2.0f, ps->exposure_level);
 				scale[0] *= s;
 				scale[1] *= s;
 				scale[2] *= s;
@@ -1112,33 +1104,32 @@ if(subflow->is_main())
 				fp_cache->scale[i] = 1.0 / metadata->c_scale_ref[i];
 			fp_cache->offset = 0.0;
 		}
-		float *scale = fp_cache->scale;
-		float offset = fp_cache->offset;
-		float b = offset / (offset - 1.0f);
-		float scale_a[3];
-		float scale_b[3];
+		double *scale = fp_cache->scale;
+		double offset = fp_cache->offset;
+		double b = offset / (offset - 1.0);
+		double scale_a[3];
+		double scale_b[3];
 		for(int k = 0; k < 3; ++k) {
-			scale_a[k] = (scale[k] * metadata->c_scale_ref[k]) / (1.0f - offset);
+			scale_a[k] = (double(scale[k]) * metadata->c_scale_ref[k]) / (1.0 - offset);
 			scale_b[k] = b;
 		}
 		bool hl_clip = ps->hl_clip;
 		if(ps->exposure_level < 0.0)
 			hl_clip = false;
-		float edge[3];
-		float limit = 1.0f;
+		double edge[3];
+		double limit = 1.0;
 		for(int k = 0; k < 3; ++k)
 			edge[k] = 1.0f;
 		if(hl_clip) {
-			for(int k = 0; k < 3; ++k) {
+			for(int k = 0; k < 3; ++k)
 				edge[k] = edge[k] * scale_a[k] + scale_b[k];
-			}			
 			limit = (edge[0] < edge[1]) ? edge[0] : edge[1];
 			limit = (limit < edge[2]) ? limit : edge[2];
-			ddr::clip(limit, 0.05f, 1.0f);
+			ddr::clip(limit, 0.05, 1.0);
 		}
-		if(limit < 1.0f)
+		if(limit < 0.999) // 'auto black' could add little drift from '1.0f' value
 			hl_clip = false;
-//cerr << "hl_cip == " << hl_clip << endl;
+//cerr << "hl_cip == " << hl_clip << ", limit == " << limit << endl;
 
 		y_flow = std::unique_ptr<std::atomic_int>(new std::atomic_int(0));
 		const int threads_count = subflow->threads_count();

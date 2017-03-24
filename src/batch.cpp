@@ -57,18 +57,18 @@ Batch::Batch(QWidget *parent, class Process *_process, class Edit *_edit, class 
 Batch::~Batch() {
 	// save destination dir
 	Config::instance()->set(CONFIG_SECTION_BATCH, "destination_dir", destination_dir);
-	if(std_thread != nullptr) {
+	if(run_thread != nullptr) {
 		to_leave = true;
 		task_wait.notify_all();
-		std_thread->join();
-		delete std_thread;
-		std_thread = nullptr;
+		run_thread->join();
+		delete run_thread;
 	}
 }
 
 void Batch::start(void) {
-	auto ptr = this;
-	std_thread = new std::thread( [ptr](void){ptr->run();} );
+//	auto ptr = this;
+//	run_thread = new std::thread( [ptr](void){ptr->run();} );
+	run_thread = new std::thread( [=]{run();} );
 }
 
 //------------------------------------------------------------------------------
@@ -138,15 +138,13 @@ void Batch::slot_active_photo_changed(void) {
 //------------------------------------------------------------------------------
 // status GUI
 void Batch::do_pause(void) {
-//	if(!was_run)
-	if(std_thread == nullptr)
+	if(run_thread == nullptr)
 		return;
 	to_pause = true;
 }
 
 void Batch::do_continue(void) {
-//	if(!was_run)
-	if(std_thread == nullptr)
+	if(run_thread == nullptr)
 		return;
 	task_list_lock.lock();
 	if(task_list.begin() != task_list.end())
@@ -303,11 +301,12 @@ void Batch::slot_abort(bool checked) {
 
 //------------------------------------------------------------------------------
 void Batch::run_batch(void) {
-	// TODO: where that exactly should be ???
+	// TODO: replace with capture PS_Base for each photo in the batch at this time, dynamically.
 	edit->flush_current_ps();
-	if(std_thread == nullptr) {
-		auto ptr = this;
-		std_thread = new std::thread( [ptr](void){ptr->run();} );
+	if(run_thread == nullptr) {
+//		auto ptr = this;
+//		run_thread = new std::thread( [ptr](void){ptr->run();} );
+		run_thread = new std::thread( [=]{ run(); } );
 	} else {
 		// wake up thread
 		task_wait.notify_all();

@@ -27,7 +27,7 @@ void GUI_Curve_Histogram::draw_histogram(QPainter *painter, int size_w, int size
 	int hist_size = size_w;
 	data_lock.lock();
 	bool data_not_ready_yet = (data == nullptr);
-	if(data_not_ready_yet == false) {
+	if(data != nullptr) {
 		data_not_ready_yet |= data->hist_before.size() == 0;
 		data_not_ready_yet |= data->hist_after.size() == 0;
 	}

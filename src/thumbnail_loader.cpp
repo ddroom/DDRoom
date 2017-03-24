@@ -77,7 +77,7 @@ void ThumbnailLoader::_start(string _folder, list<thumbnail_record_t> *vlist, Ph
 		delete std_thread;
 	}
 
-	std_thread = new std::thread( [this] { run();} );
+	std_thread = new std::thread( [=] { run();} );
 }
 
 void ThumbnailLoader::wait(void) {
@@ -245,8 +245,7 @@ void ThumbnailThread::_start(string _folder, void *_thumbnail_loader) {
 		delete std_thread;
 	}
 //std::cerr << "..... 3" << std::endl;
-	auto obj = this;
-	std_thread = new std::thread( [obj](void){obj->run();} );
+	std_thread = new std::thread( [=]{ run(); } );
 //std::cerr << "..... 4" << std::endl;
 //	this->wait();
 //	this->start();

@@ -50,7 +50,7 @@ public:
 	// CPU configuration
 	bool cpu_sse2(void) {return _sse2;}
 
-	struct lfDatabase *ldb(void);
+//	struct lfDatabase *ldb(void);
 
 	// update according to changed config
 	void update_to_config(void);
@@ -65,7 +65,7 @@ protected:
 	int detected_cores;
 	bool detected_sse2;
 	void apply_config(void);
-	struct lfDatabase *_ldb;
+//	struct lfDatabase *_ldb;
 };
 
 //------------------------------------------------------------------------------

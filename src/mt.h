@@ -13,17 +13,27 @@
 #include <condition_variable>
 #include <mutex>
 #include <thread>
-#include <list>
+#include <vector>
+#include <map>
 
-//
-// 'Flow' presents a multithreaded working unit, and each of threads threads have
-// access to the 'SubFlow' object that represent it. The first thread is a 'main'
-// thread and only it should allocate resources and split tasks between subflows.
-// SubFlow::
+/*
+ 'Flow' presents a multithreaded working unit, and each of threads threads have
+ access to the 'SubFlow' object that represent it. The first thread is a 'main'
+ thread and only it should allocate resources and split tasks between subflows.
+*/
 //------------------------------------------------------------------------------
 class Flow {
 public:
-	Flow(void (*f_ptr)(void *obj, class SubFlow *subflow, void *data), void *f_object, void *f_data, int _threads_count = 0);
+	// Priorities for the ::flow() call - all flows with the lower priority will be paused
+	// on the ::flow() start and resumed on the return; and the call will be paused if there are other 
+	enum priority_t {
+		priority_UI = 0,
+		priority_online_interactive,
+		priority_online_open,
+		priority_offline
+	};
+
+	Flow(Flow::priority_t priority, void (*f_ptr)(void *obj, class SubFlow *subflow, void *data), void *f_object, void *f_data, int _threads_count = 0);
 	virtual ~Flow(void);
 	void flow(void);
 
@@ -33,8 +43,25 @@ protected:
 	void set_private(void *priv_data, int thread_index);
 	void *get_private(int thread_index);
 
+	// priority
 protected:
-	class SubFlow **subflows;
+	const priority_t _priority;
+
+	static void run_flows_add(Flow *);
+	static void run_flows_remove(Flow *);
+	static void rerun_flows(void);
+	static std::mutex run_flows_lock;
+	static std::multimap<priority_t, Flow *> run_flows;
+
+	void pause(void);
+	void resume(void);
+	// covered with mutex 'm_lock'
+	std::atomic_int b_flag_pause;
+	std::condition_variable cv_pause;
+
+	// sync point
+protected:
+	std::vector<class SubFlow *>subflows = std::vector<class SubFlow *>(0);
 	int threads_count;
 
 	std::mutex m_lock;
@@ -85,7 +112,7 @@ public:
 
 protected:
 	class abort_exception {};
-	std::thread *std_thread = nullptr;
+	std::thread *sf_thread = nullptr;
 	void (*f_ptr)(void *, class SubFlow *, void *);
 	void *f_object;
 	void *f_data;
@@ -110,6 +137,9 @@ protected:
 	bool *b_flag_out = nullptr;
 	bool *b_flag_main_wakeup = nullptr;
 	bool *b_flag_abort = nullptr;
+
+	std::condition_variable *cv_pause = nullptr;
+	std::atomic_int *b_flag_pause = nullptr;
 };
 
 //------------------------------------------------------------------------------

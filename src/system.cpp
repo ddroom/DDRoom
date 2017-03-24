@@ -9,9 +9,7 @@
 
 #include <iostream>
 #include <iomanip>
-//#include <limits.h>
-//#include <stdio.h>
-//#include <stdlib.h>
+#include <thread>
 
 #ifdef Q_OS_WIN32
 	// CPU count for Windows
@@ -24,7 +22,7 @@
 	#include <sys/types.h>
 #endif
 
-#include <lensfun/lensfun.h>
+//#include <lensfun/lensfun.h>
 
 #include "system.h"
 #include "config.h"
@@ -33,6 +31,8 @@ using namespace std;
 
 #undef _PROFILER_OFF
 //#define _PROFILER_OFF
+
+#define THREADS_DEFAULT 4
 
 //------------------------------------------------------------------------------
 // Time profiler. Last entry should be ""
@@ -76,9 +76,9 @@ Profiler::~Profiler() {
 	cerr << "Profile for " << _module << " : " << endl;
 	long total = 0;
 	cerr << setfill('0');
-	for(auto it = prof.begin(); it != prof.end(); ++it) {
-		long msec = (*it).second / 1000;
-		cerr << msec / 1000 << "." << setw(3) << msec % 1000 << " sec for: " << (*it).first << endl;
+	for(auto el : prof) {
+		long msec = el.second / 1000;
+		cerr << msec / 1000 << "." << setw(3) << msec % 1000 << " sec for: " << el.first << endl;
 		total += msec;
 	}
 	cerr << "TOTAL:    " << total / 1000 << "." << setw(3) << total % 1000 << " sec." << endl;
@@ -98,8 +98,9 @@ System *System::_this = nullptr;
 	"=a" (ax), "=b" (bx), "=c" (cx), "=d" (dx) : "a" (func));
 
 System::System(void) {
-	_cores = QThread::idealThreadCount();
-	if(_cores == -1) {
+//	_cores = QThread::idealThreadCount();
+	_cores = std::thread::hardware_concurrency();
+	if(_cores <= 0) {
 		_cores = 1;
 		// Linux
 #ifdef _SC_NPROCESSORS_CONF
@@ -136,11 +137,15 @@ System::System(void) {
 		cerr << "SSE2: " << _sse2 << endl;
 #endif
 	}
+	if(_cores <= 0)
+		_cores = THREADS_DEFAULT;
 	detected_cores = _cores;
 //	cerr << "detected cores: " << _cores << endl;
 	apply_config();
 //	connect(Config::instance(), SIGNAL(changed(void)), this, SLOT(slot_config_changed(void)));
 //	cerr << "cores to be used: " << _cores << endl;
+
+#if 0
 //	_ldb = lf_db_new();
 	_ldb = lfDatabase::Create();
 #ifdef Q_OS_WIN
@@ -157,15 +162,18 @@ System::System(void) {
 #else
 	_ldb->Load();
 #endif
+#endif
 }
 
 System::~System(void) {
-	_ldb->Destroy();
+//	_ldb->Destroy();
 }
 
+/*
 struct lfDatabase *System::ldb(void) {
 	return _ldb;
 }
+*/
 
 void System::update_to_config(void) {
 	apply_config();

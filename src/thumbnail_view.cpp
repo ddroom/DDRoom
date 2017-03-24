@@ -285,8 +285,7 @@ PhotoList_LoadThread::~PhotoList_LoadThread() {
 void PhotoList_LoadThread::start(void) {
 	std::unique_lock<std::mutex> locker(running_lock);
 	if(std_thread == nullptr) {
-		auto pl = photo_list;
-		std_thread = new std::thread( [pl](void){pl->set_folder_f();} );
+		std_thread = new std::thread( [=]{ photo_list->set_folder_f(); } );
 	}
 }
 

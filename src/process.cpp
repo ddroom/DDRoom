@@ -16,12 +16,6 @@
 		if the source is the same, remember tiles before that filter in hope that in the next time
 		this cache can be used.
 
-NOTE on quit:
-	-! use quit_lock to ensure access to valid pointer on tiles receiver;
-	-! use quit_lock as much as needed to protect relativelly fast code blocks w/o useless frequent checks;
-	-+ use quit flag in the same way as 'abort' to abort break processing;
-	-+ use quit_lock from master thread, and signal abort to all threads in the same way as actual 'abort' event;
-
  */
 
 #include <algorithm>
@@ -56,8 +50,7 @@ using namespace std;
 int Process::ID_counter = 0;
 std::mutex Process::ID_counter_lock;
 std::set<int> Process::IDs_in_process;
-bool Process::to_quit = false;
-std::mutex Process::quit_lock;
+std::atomic_int Process::to_quit(0);
 
 void Process::ID_add(int ID) {
 	ID_counter_lock.lock();
@@ -112,9 +105,7 @@ Process::~Process() {
 }
 
 void Process::quit(void) {
-	quit_lock.lock();
-	to_quit = true;
-	quit_lock.unlock();
+	to_quit.store(1);
 }
 
 //------------------------------------------------------------------------------
@@ -294,7 +285,7 @@ void Process::assign_filters(list<filter_record_t> &filters, task_run_t *task) {
 
 //------------------------------------------------------------------------------
 // call from Edit
-void Process::process_online(void *ptr, std::shared_ptr<Photo_t> photo, int request_ID, bool is_inactive, TilesReceiver *tiles_receiver, map<Filter *, std::shared_ptr<PS_Base> > map_ps_base) {
+bool Process::process_online(void *ptr, std::shared_ptr<Photo_t> photo, int request_ID, bool is_inactive, TilesReceiver *tiles_receiver, map<Filter *, std::shared_ptr<PS_Base> > map_ps_base) {
 	ID_add(request_ID);
 	// TODO: register (thread-safe, with lock) tasks in some list, and then use flag to abort processing at request (i.e. UI parameters change during slow tiles processing)
 	// use request ID to identify process to abort
@@ -336,7 +327,7 @@ void Process::process_online(void *ptr, std::shared_ptr<Photo_t> photo, int requ
 		if(photo->area_raw == nullptr || bad_alloc) {
 cerr << "decline processing task, failed to import \"" << photo->photo_id.get_export_file_name() << "\"" << endl;
 			emit signal_process_complete(ptr, photo_processed);
-			return;
+			return false;
 		}
 		task.update = false;
 	}
@@ -379,7 +370,8 @@ cerr << "decline processing task, failed to import \"" << photo->photo_id.get_ex
 	bad_alloc = false;
 	try {
 		// apply filters
-		Flow flow(Process::subflow_run_mt, nullptr, (void *)&task);
+		Flow::priority_t priority = task.update ? Flow::priority_online_interactive : Flow::priority_online_open;
+		Flow flow(priority, Process::subflow_run_mt, nullptr, (void *)&task);
 		flow.flow();
 		bad_alloc = task.bad_alloc;
 	} catch(Area::bad_alloc) {
@@ -401,13 +393,15 @@ cerr << "decline processing task, failed to import \"" << photo->photo_id.get_ex
 		OOM_desc->at_export = false;
 		OOM_desc->at_open_stage = (photo->process_source == ProcessSource::s_load);
 		emit signal_OOM_notification((void *)OOM_desc);
+		return false;
 	}
+	return true;
 }
 
 //------------------------------------------------------------------------------
-void Process::process_export(Photo_ID photo_id, string fname_export, export_parameters_t *ep) {
+bool Process::process_export(Photo_ID photo_id, string fname_export, export_parameters_t *ep) {
 	if(photo_id.is_empty())
-		return;
+		return false;
 //Mem::state_reset();
 //cerr << "process_export() on " << photo_id << endl;
 	Process::task_run_t task;
@@ -426,8 +420,7 @@ void Process::process_export(Photo_ID photo_id, string fname_export, export_para
 Profiler prof(string("Batch for ") + photo_id.get_export_file_name());
 prof.mark("load RAW");
 
-	Photo_t *photo_ptr = new Photo_t();
-	std::shared_ptr<Photo_t> photo(photo_ptr);
+	std::shared_ptr<Photo_t> photo(new Photo_t());
 	task.photo = photo;
 	photo->process_source = ProcessSource::s_process_export;
 	photo->metadata = new Metadata;
@@ -448,7 +441,7 @@ prof.mark("load RAW");
 	}
 	if(photo->area_raw == nullptr || bad_alloc) {
 		delete task.tiles_receiver;
-		return;
+		return false;
 	}
 
 	// check control filter for skipping some other filters
@@ -505,7 +498,7 @@ prof.mark("load RAW");
 prof.mark("filters");
 	bad_alloc = false;
 	try {
-		Flow flow(Process::subflow_run_mt, nullptr, (void *)&task);
+		Flow flow(Flow::priority_offline, Process::subflow_run_mt, nullptr, (void *)&task);
 		flow.flow();
 		bad_alloc = task.bad_alloc;
 	} catch(Area::bad_alloc) {
@@ -531,7 +524,9 @@ prof.mark("");
 		OOM_desc->photo_id = photo->photo_id;
 		OOM_desc->at_export = true;
 		emit signal_OOM_notification((void *)OOM_desc);
+		return false;
 	}
+	return true;
 }
 
 //------------------------------------------------------------------------------
@@ -626,13 +621,12 @@ void Process::run_mt(SubFlow *subflow, void *data) {
 	//--------------------------------------------------------------------------
 	Profiler *prof = nullptr;
 	if(subflow->sync_point_pre()) {
-		quit_lock.lock();
 		prof = new Profiler("Process");
 		Mem::state_reset();
 		task->mutators_multipass = new DataSet();
 	}
 	subflow->sync_point_post();
-	if(to_quit)
+	if(to_quit.load() != 0)
 		return;
 	ProcessCache_t *process_cache = (ProcessCache_t *)task->photo->cache_process;
 	//--------------------------------------------------------------------------
@@ -775,7 +769,6 @@ cerr << "     size is: " << target_dimensions.width() << " x " << target_dimensi
 //		if(is_main)
 //			cerr << "process_filters - start" << endl;
 		if(subflow->sync_point_pre()) {
-			quit_lock.unlock();
 			task->mutators->set("_s_raw_colors", task->_s_raw_colors);
 		}
 		subflow->sync_point_post();
@@ -791,8 +784,6 @@ cerr << "     size is: " << target_dimensions.width() << " x " << target_dimensi
 
 //		if(is_main)
 //			cerr << "process_filters - done, now clean up" << endl;
-		if(is_main)
-			quit_lock.lock();
 		// clean
 		subflow->sync_point();
 		if(is_main) {
@@ -807,13 +798,12 @@ cerr << "     size is: " << target_dimensions.width() << " x " << target_dimensi
 			break;
 		}
 		// don't clean up mess on quit
-		if(to_quit)
+		if(to_quit.load() != 0)
 			return;
 	}
 	//---------------------------------------------
 	// clean
 	if(subflow->sync_point_pre()) {
-		quit_lock.unlock();
 		prof->mark("");
 		delete prof;
 //		Mem::state_print();
@@ -962,10 +952,8 @@ void Process::process_filters(SubFlow *subflow, Process::task_run_t *task, std::
 		if(is_main) {
 			if(Process::ID_to_abort(task->request_ID) && !is_thumb)
 				task->to_abort = true;
-			quit_lock.lock();
-			if(to_quit)
+			if(to_quit.load() != 0)
 				task->to_abort = true;
-			quit_lock.unlock();
 		}
 		subflow->sync_point();
 		if(task->to_abort) {
@@ -1094,11 +1082,9 @@ void Process::process_filters(SubFlow *subflow, Process::task_run_t *task, std::
 				delete tile->area;
 			tile->area = area_out;
 //			tile->request_ID = task->request_ID;
-			quit_lock.lock();
 			// there is no reason to clean up on quit
-			if(!to_quit)
+			if(to_quit.load() == 0)
 				tiles_request->receiver->receive_tile(tile, is_thumb);
-			quit_lock.unlock();
 		}
 		subflow->sync_point_post();
 	}

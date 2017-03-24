@@ -46,8 +46,9 @@ public:
 	// is_inactive - flag, "some filters should know how process is run - like for histogram update etc..."
 	// TilesReceiver * - receiver of resulting thumbnail/tiles
 	// map<...> - processing settings for filters
-	void process_online(void *ptr, std::shared_ptr<class Photo_t>, int request_ID, bool is_inactive, class TilesReceiver *, class std::map<class Filter *, std::shared_ptr<PS_Base> >);
-	void process_export(Photo_ID photo_id, std::string fname_export, class export_parameters_t *ep);
+	// Return 'false' if failed - like out-of-memory etc...
+	bool process_online(void *ptr, std::shared_ptr<class Photo_t>, int request_ID, bool is_inactive, class TilesReceiver *, class std::map<class Filter *, std::shared_ptr<PS_Base> >);
+	bool process_export(Photo_ID photo_id, std::string fname_export, class export_parameters_t *ep);
 
 	static void quit(void);
 
@@ -60,28 +61,27 @@ signals:
 	void signal_OOM_notification(void *); // pointer to OOM_desc_t object
 
 protected:
-	static bool to_quit;
-	static std::mutex quit_lock;
-	//
+	static std::atomic_int to_quit;
+
 	static int ID_counter;
 	static std::mutex ID_counter_lock;
 	static std::set<int> IDs_in_process;
 	static void ID_add(int ID);
 	static void ID_remove(int ID);
 	static bool ID_to_abort(int ID);
+
 	// thread properties
 	class task_run_t;
 	static void subflow_run_mt(void *obj, SubFlow *subflow, void *data);
 	static void run_mt(SubFlow *subflow, void *data);
 
-	// NOTE: functions below should be static because those are called from (master) thread
 	static void process_demosaic(SubFlow *subflow, void *data);
 	static void process_size_forward(Process::task_run_t *task, std::list<class filter_record_t> &pl_filters, class Area::t_dimensions &d_out);
 	static void process_size_backward(Process::task_run_t *task, std::list<class filter_record_t> &pl_filters, const Area::t_dimensions &);
 	static void process_filters(SubFlow *subflow, Process::task_run_t *task, std::list<class filter_record_t> &pl_filters, bool is_thumb, class Profiler *prof);
 
-	void assign_filters(std::list<class filter_record_t> &filters, class task_run_t *task);
-	void allocate_process_caches(std::list<class filter_record_t> &filters, std::shared_ptr<class Photo_t> photo_ptr);
+	static void assign_filters(std::list<class filter_record_t> &filters, class task_run_t *task);
+	static void allocate_process_caches(std::list<class filter_record_t> &filters, std::shared_ptr<class Photo_t> photo_ptr);
 
 protected:
 	class Filter_Store *fstore;

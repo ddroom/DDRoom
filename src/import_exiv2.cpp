@@ -20,7 +20,7 @@
 #include <exiv2/image.hpp>
 #include <exiv2/preview.hpp>
 
-#include <lensfun/lensfun.h>
+//#include <lensfun/lensfun.h>
 #include <sstream>
 
 using namespace std;
@@ -171,7 +171,7 @@ bool Exiv2_load_metadata_image(Exiv2::Image::AutoPtr &image, class Metadata *met
 				std::string it_str = it->toString();
 				if(metadata->exiv2_lens_model == "")
 					metadata->exiv2_lens_model = it_str;
-				metadata->lensfun_lens_model = it_str;
+//				metadata->lensfun_lens_model = it_str;
 			}
 			if(metadata->exiv2_lens_model != "") {
 				metadata->exiv2_lens_footprint += " ";
@@ -247,7 +247,7 @@ bool Exiv2_load_metadata_image(Exiv2::Image::AutoPtr &image, class Metadata *met
 	if(!lens_footprint)
 		metadata->exiv2_lens_footprint = "";
 	//--
-#if 1
+#if 0
 //cerr << "metadata->exiv2_lens_model == " << metadata->exiv2_lens_model.c_str() << endl;
 	// try to load lensfun lens ID
 //cerr << "Exiv2 camera_maker == \"" << metadata->camera_make << "\"; camera model == \"" << metadata->camera_model << "\"; lens footprint: \"" << metadata->exiv2_lens_footprint << "\"" << endl;
@@ -279,6 +279,7 @@ bool Exiv2_load_metadata_image(Exiv2::Image::AutoPtr &image, class Metadata *met
 #endif
 	//--
 	// TODO: use inner database for connection, if necessary
+#if 0
 	DB_lens_links_record_t record;
 	bool db_ok = DB_lens_links::instance()->get_lens_link(record, metadata->exiv2_lens_footprint, metadata->camera_make, metadata->camera_model);
 	if(db_ok) {
@@ -304,6 +305,10 @@ bool Exiv2_load_metadata_image(Exiv2::Image::AutoPtr &image, class Metadata *met
 		}
 	}
 	lf_free(cameras);
+#endif
+	metadata->sensor_crop = 1.0;
+	metadata->sensor_mm_width = 36.0 / metadata->sensor_crop;
+	metadata->sensor_mm_height = 24.0 / metadata->sensor_crop;
 	//--
 //cerr << "  exiv2 lens footprint == \"" << metadata->exiv2_lens_footprint << "\"" << endl;
 /*

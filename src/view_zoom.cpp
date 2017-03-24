@@ -7,19 +7,9 @@
  *
  */
 
-/*
- * TODO:
-	- disable controls when active View has no open photo
-	- update state on photo load/close
- *
- */
-
 #include "config.h"
 #include "view_zoom.h"
 #include "view.h"
-
-#include <iostream>
-using namespace std;
 
 //------------------------------------------------------------------------------
 View_Zoom::View_Zoom(void) : QObject() {
@@ -31,10 +21,10 @@ View_Zoom::View_Zoom(void) : QObject() {
 }
 
 void View_Zoom::fill_toolbar(QToolBar *t) {
-	button_100 = new QToolButton();
-	button_100->setText(tr("1:1"));
-	button_100->setCheckable(true);
-	t->addWidget(button_100);
+	button_fit = new QToolButton();
+	button_fit->setText(tr("Fit"));
+	button_fit->setCheckable(true);
+	t->addWidget(button_fit);
 
 	slider = new QSlider(Qt::Horizontal);
 	slider->setMaximumWidth(100);
@@ -52,10 +42,10 @@ void View_Zoom::fill_toolbar(QToolBar *t) {
 	button_custom->setCheckable(true);
 	t->addWidget(button_custom);
 
-	button_fit = new QToolButton();
-	button_fit->setText(tr("Fit"));
-	button_fit->setCheckable(true);
-	t->addWidget(button_fit);
+	button_100 = new QToolButton();
+	button_100->setText(tr("1:1"));
+	button_100->setCheckable(true);
+	t->addWidget(button_100);
 
 	t->addSeparator();
 	reconnect(true);
@@ -169,15 +159,14 @@ void View_Zoom::ui_disable(bool disable) {
 	slider->setEnabled(enabled);
 }
 
-// signal from View, on photo load/close or zoom changed from mouse double click, etc...
 void View_Zoom::update(void) {
 	if(view == nullptr)
 		return;
 	// read status
 	View::zoom_t zoom_type;
-	float zoom_scale;
+	float view_zoom_scale;
 	bool zoom_ui_disabled;
-	view->get_zoom(zoom_type, zoom_scale, zoom_ui_disabled);
+	view->get_zoom(zoom_type, view_zoom_scale, zoom_ui_disabled);
 	// disable UI
 	ui_disable(zoom_ui_disabled);
 	if(zoom_ui_disabled) {
@@ -192,6 +181,7 @@ void View_Zoom::update(void) {
 		if(zoom_type == View::zoom_t::zoom_100)
 			button_100_toggled(true, false);
 		if(zoom_type == View::zoom_t::zoom_custom) {
+			zoom_scale = view_zoom_scale;
 			button_custom_toggled(true, false);
 			reconnect(false);
 			slider->setValue(zoom_scale);

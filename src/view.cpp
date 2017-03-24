@@ -128,9 +128,6 @@ public:
 	// according to ±90 degree rotation and X|Y mirroring
 	double dx;
 	double dy;
-	// rotated scaled actual size
-//	int width;
-//	int height;
 
 	// tiles
 	std::vector<int> tiles_len_x;
@@ -220,7 +217,6 @@ void image_t::reset_thumb(void) {
 // for processing thread should be used deferred deletion
 // via signal/slot system.
 void image_t::reset_tiles(bool deferred) {
-//	bool lock_flag = lock.tryLock();
 	lock.lock();
 	d_rotation = 0;
 	tiles_len_x = std::vector<int>(0);
@@ -241,8 +237,6 @@ void image_t::reset_tiles(bool deferred) {
 	}
 	tiles_pixmaps = std::vector<QPixmap *>(0);
 	tiles_d_index_map = std::vector<int>(0);
-//	if(lock_flag)
-//		lock.unlock();
 	lock.unlock();
 }
 
@@ -252,21 +246,17 @@ void image_t::reset_tiles_deferred(void) {
 
 // should be called from the main thread
 void image_t::reset_tiles_deferred_execute(void) {
-//	bool lock_flag = lock.tryLock();
 	lock.lock();
 	while(!tiles_pixmaps_to_delete.empty()) {
 		delete tiles_pixmaps_to_delete.front();
 		tiles_pixmaps_to_delete.pop_front();
 	}
-//	if(lock_flag)
-//		lock.unlock();
 	lock.unlock();
 }
 
 // !!! destructive on argument
 std::vector<int> image_t::arrange_tiles_indexes(std::vector<int> &raw_index_vector) {
 	std::vector<int> arranged_index_list;
-//	bool flag_lock = lock.tryLock();
 	lock.lock();
 	int raw_count = raw_index_vector.size();
 	int count = tiles_d_index_map.size();
@@ -280,8 +270,6 @@ std::vector<int> image_t::arrange_tiles_indexes(std::vector<int> &raw_index_vect
 			}
 		}
 	}
-//	if(flag_lock)
-//		lock.unlock();
 	lock.unlock();
 	return arranged_index_list;
 }
@@ -571,7 +559,6 @@ void View::photo_open_finish(PhotoProcessed_t *pp) {
 		// TODO: update only if needed - after rotation...
 //		scrollbars_update();
 	}
-	delete pp;
 	emit signal_update_image();
 	emit update();
 	// update zoom UI
@@ -606,42 +593,34 @@ void View::set_zoom(zoom_t zoom_type, float zoom_scale) {
 }
 
 void View::set_zoom(zoom_t zoom_type, float zoom_scale, bool flag_center, int vp_x, int vp_y) {
-	if(image->zoom_type == zoom_type && image->zoom_type != zoom_t::zoom_custom) {
-//		cerr << "return 1" << endl;
+	if(image->zoom_type == zoom_type && image->zoom_type != zoom_t::zoom_custom)
 		return;
-	}
-	if(image->zoom_type == zoom_t::zoom_custom && zoom_type == zoom_t::zoom_custom && image->zoom_scale == zoom_scale) {
-//		cerr << "return 2" << endl;
+	if(image->zoom_type == zoom_t::zoom_custom && zoom_type == zoom_t::zoom_custom && image->zoom_scale == zoom_scale)
 		return;
-	}
-//cerr << "View::set_zoom(" << zoom_type << ", " << zoom_scale << ")" << endl;
 	image->zoom_type = zoom_type;
 	image->zoom_scale = zoom_scale;
-	// --
-	image->lock.lock();
+
+	if(image->is_empty)
+		return;
+
 	// remove tiles to avoid possible garbage drawing (i.e. tiles from a previous requests)
 	image->reset_tiles();
-	if(image->is_empty) {
-		image->lock.unlock();
-		return;
-	}
 	if(flag_center) {
 		vp_x = -1;
 		vp_y = -1;
 	}
+	image->lock.lock();
 	update_image_to_zoom(vp_x, vp_y, true);
-//	update_image_to_zoom(flag_center, vp_x, vp_y);
 	image->lock.unlock();
 	if(image->zoom_type == zoom_t::zoom_fit || image->zoom_type == zoom_t::zoom_custom)
 		normalize_offset();
-	// --
+
 	set_cursor(Cursor::arrow);
-//cerr << "emit: line " << __LINE__ << endl;
+
 	emit signal_process_update((void *)this, ProcessSource::s_view_refresh);
 }
 
 void View::sb_x_show(bool flag_show) {
-//cerr << "sb_x_show(" << flag_show << ")" << endl;
 	int h = this->height();
 	bool sb_x_shown = sb_x->isVisible();
 	if(flag_show) {
@@ -663,7 +642,6 @@ void View::sb_x_show(bool flag_show) {
 }
 
 void View::sb_y_show(bool flag_show) {
-//cerr << "sb_y_show(" << flag_show << ")" << endl;
 	int w = this->width();
 	bool sb_y_shown = sb_y->isVisible();
 	if(flag_show) {
@@ -686,10 +664,12 @@ void View::sb_y_show(bool flag_show) {
 }
 
 void View::update_image_to_zoom(double pos_x, double pos_y, bool pos_at_viewport) {
-//cerr << "^^^^^^^^^^^^               View::update_image_to_zoom()" << endl;
-//cerr << "SET ZOOM:" << endl;
-//cerr << "       image->rotation == " << image->rotation << endl;
-//cerr << "    photo->cw_rotation == " << photo->cw_rotation << endl;
+/*
+cerr << "^^^^^^^^^^^^               View::update_image_to_zoom()" << endl;
+cerr << "SET ZOOM:" << endl;
+cerr << "       image->rotation == " << image->rotation << endl;
+cerr << "    photo->cw_rotation == " << photo->cw_rotation << endl;
+*/
 	int vp_w = viewport_w + viewport_padding_x;
 	int vp_h = viewport_h + viewport_padding_y;
 
@@ -868,18 +848,6 @@ void View::update_rotation(bool clockwise) {
 }
 
 void View::resizeEvent(QResizeEvent *event) {
-	QSize viewport = QSize(viewport_w, viewport_h);
-	if(resize_ignore_sb_x == viewport) {
-		resize_ignore_sb_x = QSize(-1, -1);
-		return;
-	}
-	if(resize_ignore_sb_y == viewport) {
-		resize_ignore_sb_y = QSize(-1, -1);
-		return;
-	}
-	if(viewport_w == event->size().width() && viewport_h == event->size().height())
-		return;
-
 //cerr << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~              resizeEvent(): from " << viewport_w << "x" << viewport_h << " to " << event->size().width() << "x" << event->size().height() << endl;
 	double im_x, im_y;
 	image->viewport_to_image(im_x, im_y, viewport_w / 2, viewport_h / 2);
@@ -887,9 +855,8 @@ void View::resizeEvent(QResizeEvent *event) {
 	viewport_h = event->size().height();
 	if(!image->is_empty) {
 		image->lock.lock();
-//cerr << "resize_event ---" << endl;
 		bool update = true;
-		QSize size_prev = image->size_scaled;
+		const QSize size_prev = image->size_scaled;
 		update_image_to_zoom(im_x, im_y, false);
 		if(image->zoom_type == zoom_t::zoom_fit) {
 			if(size_prev != image->size_scaled)
@@ -1256,42 +1223,39 @@ void View::normalize_offset(void) {
 	// The main idea that should be implemented:
 	// - realign offset if image size is larger than viewport _AND_ viewport is lying outside of image;
 	// - don't touch if image size smaller or equal to size of viewport.
-//cerr << "________________________          ::normalize_offset(): offset was: " << image->offset_x << " - " << image->offset_y << endl;
-//cerr << "viewport: " << viewport_w << " x " << viewport_h << endl;
-//	bool lock_flag = image->lock.tryLock();
 	image->lock.lock();
-	int sw = image->size_scaled.width();
-	int sh = image->size_scaled.height();
-//cerr << "   image: " << sw << " x " << sh << endl;
+	const int sw = image->size_scaled.width();
+	const int sh = image->size_scaled.height();
 	if(image->zoom_type == zoom_t::zoom_fit) {
-//	if(image->zoom_type != zoom_t::zoom_100) {
 		if(viewport_w >= sw)
 			image->offset_x = (viewport_w - sw) / 2;
 		if(viewport_h >= sh)
 			image->offset_y = (viewport_h - sh) / 2;
 	} else {
-//cerr << "rotation == " << image->rotation << "; sixe_scales.width() == " << sw << "; viewport_w == " << viewport_w << endl;
 		if(sw > viewport_w) {
+			ddr::clip(image->offset_x, viewport_w - sw, 0);
+/*
 			if(image->offset_x > 0)
 				image->offset_x = 0;
-			if(-image->offset_x > sw - viewport_w)
-				image->offset_x = -(sw - viewport_w);
+			if(image->offset_x < viewport_w - sw)
+				image->offset_x = viewport_w - sw;
+*/
 		} else {
 			image->offset_x = (viewport_w - sw) / 2;
 		}
 		if(sh > viewport_h) {
+			ddr::clip(image->offset_y, viewport_h - sh, 0);
+/*
 			if(image->offset_y > 0)
 				image->offset_y = 0;
-			if(-image->offset_y > sh - viewport_h)
-				image->offset_y = -(sh - viewport_h);
+			if(image->offset_y < viewport_h - sh)
+				image->offset_y = viewport_h - sh);
+*/
 		} else {
 			image->offset_y = (viewport_h - sh) / 2;
 		}
 	}
-//	if(lock_flag)
-//		image->lock.unlock();
 	image->lock.unlock();
-//cerr << "________________________          ::normalize_offset(): offset now: " << image->offset_x << " - " << image->offset_y << endl;
 }
 
 //------------------------------------------------------------------------------
@@ -1309,8 +1273,9 @@ void View::view_refresh(void) {
 // Should be called from Edit each time when asked process not from View to process deferred tiles
 // Don't do an actual reset because some tiles could be still processed in 'Process'
 void View::reset_deferred_tiles(void) {
+//cerr << "-------------------- reset_deferred_tiles()" << endl;
 //	tiles_descriptor.reset();
-	tiles_descriptor.is_empty = true;
+//	tiles_descriptor.is_empty = true;
 }
 
 void View::process_deferred_tiles(void) {
@@ -1448,50 +1413,49 @@ void View::leaveEvent(QEvent *event) {
 
 void View::wheelEvent(QWheelEvent *event) {
 	event->accept();
+
 //cerr << "____ View::wheelEvent(QWheelEvent *event)" << endl;
 	image->lock.lock();
 	if(image->is_empty) {
 		image->lock.unlock();
 		return;
 	}
-	// how much wheel steps are needed to switch zoom from '1:1' to 'fit'
-	const int steps_count = ZOOM_WHEEL_STEPS_COUNT;
-	int steps = event->angleDelta().y() / 120;
 	int im_w = image->dimensions_unscaled.width();
 	int im_h = image->dimensions_unscaled.height();
 	if(image->rotation == 90 || image->rotation == 270)
 		std::swap(im_w, im_h);
-	int s_w = image->size_scaled.width();
-	int s_h = image->size_scaled.height();
+	const int scaled_w = image->size_scaled.width();
+	const int scaled_h = image->size_scaled.height();
 	image->lock.unlock();
-	int s_max = im_w;
-	int s_min = viewport_w;
-	float s_now = s_w;
-	if(im_w < im_h) {
-		s_max = im_h;
-		s_min = viewport_h;
-		s_now = s_h;
-	}
+
+	bool use_width = im_w > im_h;
+	if(scaled_w == viewport_w && scaled_h < viewport_h)
+		use_width = true;
+	if(scaled_h == viewport_h && scaled_w < viewport_w)
+		use_width = false;
+	float scaled_now = use_width ? scaled_w : scaled_h;
+	int scaled_max = use_width ? im_w : im_h;
+	int scaled_min = use_width ? viewport_w : viewport_h;
+
+	// how much wheel steps are needed to switch zoom from '1:1' to 'fit'
+	const int steps_count = ZOOM_WHEEL_STEPS_COUNT;
+	int steps = event->angleDelta().y() / 120;
+
 	// pixels linear steps
-	float s_step = s_max - s_min;
-	s_step /= steps_count;
-	int i = (s_now - s_min) / s_step + 0.5;
-	float s_new = s_min + s_step * (i + steps);
-	//--
-//cerr << "  i == " << i << "; steps == " << steps << "; s_max == " << s_max << "; s_now == " << s_now << "; s_new == " << s_new << endl;
+	float scaled_step = float(scaled_max - scaled_min) / steps_count;
+	int i = (scaled_now - scaled_min) / scaled_step + 0.5;
+	float scaled_new = scaled_min + scaled_step * (i + steps);
+
 	zoom_t new_zoom = zoom_t::zoom_custom;
-	float new_scale = s_new / s_max;
-	if(s_new >= s_max) {
+	float new_scale = scaled_new / scaled_max;
+	if(scaled_new >= scaled_max) {
 		new_zoom = zoom_t::zoom_100;
 		new_scale = 1.0;
 	}
-	if(s_new <= s_min) {
+	if(scaled_new <= scaled_min) {
 		new_zoom = zoom_t::zoom_fit;
-		new_scale = s_min / s_max;
+		new_scale = scaled_min / scaled_max;
 	}
-//cerr << "new_scale == " << new_scale << endl;
-	//--
-//cerr << "mouse wheel: set_zoom(" << new_zoom << ", " << new_scale * 100.0 << ")" << endl;
 	set_zoom(new_zoom, new_scale * 100.0, false, event->x(), event->y());
 	emit signal_zoom_ui_update();
 //cerr << "mouse wheel: done" << endl;
@@ -1536,44 +1500,27 @@ void View::reconnect_scrollbar_y(bool to_connect) {
 }
 
 void View::scrollbars_update(void) {
-	int im_w = image->size_scaled.width();
-	int im_h = image->size_scaled.height();
-/*
-cerr << "________ View::scrollbars_update() >>>>>>>>______________________     >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>" << endl;
-cerr << "im_w == " << im_w << endl;
-cerr << "im_h == " << im_h << endl;
-*/
-	bool reconnect_x = sb_x->isVisible();
-	bool reconnect_y = sb_y->isVisible();
-	if(reconnect_x)
-		reconnect_scrollbar_x(false);
-	if(reconnect_y)
-		reconnect_scrollbar_y(false);
-	if(viewport_w >= im_w) {
-		sb_x->setMaximum(0);
-		sb_x->setPageStep(im_w);
-		sb_x->setValue(0);
-	} else {
-		sb_x->setMaximum(im_w - viewport_w);
-		sb_x->setPageStep(viewport_w);
-		if(sb_x->value() != -image->offset_x) {
-			sb_x->setValue(-image->offset_x);
+	QScrollBar *sb[2] = {sb_x, sb_y};
+	double image_offset[2] = {image->offset_x, image->offset_y};
+	int image_scaled[2] = {image->size_scaled.width(), image->size_scaled.height()};
+	int viewport_s[2] = {viewport_w, viewport_h};
+	for(int i = 0; i < 2; ++i) {
+		bool reconnect = sb[i]->isVisible();
+		if(reconnect)
+			(i == 0) ? reconnect_scrollbar_x(false) :  reconnect_scrollbar_y(false);
+		if(viewport_s[i] >= image_scaled[i]) {
+			sb[i]->setMaximum(0);
+			sb[i]->setPageStep(image_scaled[i]);
+			sb[i]->setValue(0);
+		} else {
+			sb[i]->setMaximum(image_scaled[i] - viewport_s[i]);
+			sb[i]->setPageStep(viewport_s[i]);
+			if(sb[i]->value() != -image_offset[i])
+				sb[i]->setValue(-image_offset[i]);
 		}
+		if(reconnect)
+			(i == 0) ? reconnect_scrollbar_x(true) :  reconnect_scrollbar_y(true);
 	}
-	if(viewport_h >= im_h) {
-		sb_y->setMaximum(0);
-		sb_y->setPageStep(im_h);
-		sb_y->setValue(0);
-	} else {
-		sb_y->setMaximum(im_h - viewport_h);
-		sb_y->setPageStep(viewport_h);
-		if(sb_y->value() != -image->offset_y)
-			sb_y->setValue(-image->offset_y);
-	}
-	if(reconnect_x)
-		reconnect_scrollbar_x(true);
-	if(reconnect_y)
-		reconnect_scrollbar_y(true);
 }
 
 //------------------------------------------------------------------------------
@@ -1698,7 +1645,6 @@ cerr << "  px_size_y == " << d->position.px_size_y << endl;
 	if(rotation == 90 || rotation == 270)
 		std::swap(w, h);
 	image->size_unscaled = QSize(w, h);
-//cerr << "register_forward_dimensions --- " << endl;
 	update_image_to_zoom();
 	normalize_offset();	// 1:1 image size can be changed - like with 'F_Distortion' and 'clip'
 	image->lock.unlock();

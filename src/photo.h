@@ -92,10 +92,9 @@ public:
 // photo processing result for View/Export class
 class PhotoProcessed_t {
 public:
-	PhotoProcessed_t(void) {is_empty = true;};
-	bool is_empty;
-	int rotation;
-	bool update;
+	bool is_empty = true;
+	int rotation = 0;
+	bool update = false;
 };
 
 //------------------------------------------------------------------------------

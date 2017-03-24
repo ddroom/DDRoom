@@ -24,6 +24,7 @@
  */
 
 #include <iostream>
+#include <iomanip>
 
 #include "browser.h"
 #include "config.h"
@@ -41,7 +42,7 @@
 #include "f_demosaic.h"
 #include "f_chromatic_aberration.h"
 #include "f_projection.h"
-#include "f_distortion.h"
+//#include "f_distortion.h"
 #include "f_shift.h"
 #include "f_rotation.h"
 #include "f_crop.h"
@@ -60,27 +61,78 @@
 using namespace std;
 
 //------------------------------------------------------------------------------
+class Process_Runner {
+
+public:
+	Process_Runner(class Process *);
+	virtual ~Process_Runner();
+	void queue(void *ptr, std::shared_ptr<Photo_t>, class TilesReceiver *tiles_receiver, bool is_inactive);
+
+protected:
+	class Process *const process;
+
+	class task_t;
+	void run(void);
+	std::mutex tasks_lock;
+	std::list<std::unique_ptr<task_t>> tasks;
+	std::condition_variable cv_tasks;
+	std::thread *tasks_thread = nullptr;
+	bool tasks_abort = false;
+	std::atomic_int tasks_semaphore;
+
+	static void run_task(Process *process, task_t *task);
+};
+
 class Process_Runner::task_t {
 public:
+	~task_t();
 	void *ptr;
 	std::shared_ptr<Photo_t> photo;
 	int request_ID;
 	class TilesReceiver *tiles_receiver;
 	bool is_inactive;
-	map<class Filter *, std::shared_ptr<PS_Base> > map_ps_base;
+	std::map<class Filter *, std::shared_ptr<PS_Base>> map_ps_base;
+
+	bool in_progress = false;
+	bool is_complete = false;
+	// results
+	bool success = false;
+	std::mutex *lock = nullptr;
+	std::condition_variable *cv = nullptr;
+	std::thread *_thread = nullptr;
+	std::atomic_int *semaphore = nullptr;
 };
 
-Process_Runner::Process_Runner(Process *process) {
-	this->process = process;
-	auto obj = this;
-	std_thread = new std::thread( [obj](void){obj->run();} );
+Process_Runner::task_t::~task_t() {
+	if(_thread) {
+		_thread->join();
+		delete _thread;
+		_thread = nullptr;
+	}
+}
+
+//------------------------------------------------------------------------------
+Process_Runner::Process_Runner(Process *_process) : process(_process) {
+	tasks_abort = false;
+	tasks_semaphore.store(0);
+	tasks_thread = new std::thread( [=](void){ run(); } );
 }
 
 Process_Runner::~Process_Runner() {
-	if(std_thread != nullptr) {
-		std_thread->join();
-		delete std_thread;
+	if(tasks_thread != nullptr) {
+		std::unique_lock<std::mutex> lock(tasks_lock);
+		tasks_abort = true;
+		lock.unlock();
+		cv_tasks.notify_all();
+		tasks_thread->join();
+		delete tasks_thread;
 	}
+	for(auto it = tasks.begin(); it != tasks.end(); ++it)
+		if((*it)->_thread != nullptr) {
+			(*it)->_thread->join();
+			delete (*it)->_thread;
+			(*it)->_thread = nullptr;
+		}
 }
 
 void Process_Runner::queue(void *ptr, std::shared_ptr<Photo_t> photo, TilesReceiver *tiles_receiver, bool is_inactive) {
@@ -92,49 +144,121 @@ void Process_Runner::queue(void *ptr, std::shared_ptr<Photo_t> photo, TilesRecei
 		request_ID_to_abort = tiles_receiver->set_request_ID(request_ID);
 	Process::ID_request_abort(request_ID_to_abort);
 
-	map<Filter *, std::shared_ptr<PS_Base> > map_ps_base;
-	for(auto el : photo->map_ps_base_current) {
-		map_ps_base[el.first] = std::shared_ptr<PS_Base>(el.first->newPS());
-		map_ps_base[el.first]->load(&photo->map_dataset_current[el.first]);
-	}
 	auto new_task = std::unique_ptr<task_t>(new task_t);
 	new_task->ptr = ptr;
 	new_task->photo = photo;
 	new_task->request_ID = request_ID;
 	new_task->tiles_receiver = tiles_receiver;
 	new_task->is_inactive = is_inactive;
-	new_task->map_ps_base = map_ps_base;
+	auto &map_ps_base = new_task->map_ps_base;
+	for(auto el : photo->map_ps_base_current) {
+		map_ps_base[el.first] = std::shared_ptr<PS_Base>(el.first->newPS());
+		map_ps_base[el.first]->load(&photo->map_dataset_current[el.first]);
+	}
+	new_task->in_progress = false;
+	new_task->lock = &tasks_lock;
+	new_task->cv = &cv_tasks;
+	new_task->semaphore = &tasks_semaphore;
 
 	// disable other records for the same tiles_receiver, as deprecated now
-	task_lock.lock();
-	tasks_list.emplace_front(std::move(new_task));
-	auto it = ++tasks_list.begin();
-	while(it != tasks_list.end()) {
-		if(*it != nullptr)
-			if((*it)->photo.get() == photo.get() || (*it)->tiles_receiver == tiles_receiver)
-				(*it).reset(nullptr);
-		++it;
+	tasks_lock.lock();
+#if 0
+	bool in_progress = false;
+	for(auto it = tasks.begin(); it != tasks.end(); ++it) {
+		if(*it != nullptr) {
+			if((*it)->in_progress == false) {
+				if((*it)->photo.get() == photo.get() || (*it)->tiles_receiver == tiles_receiver)
+					(*it).reset(nullptr);
+			} else {
+				if((*it)->photo.get() == photo.get())
+					in_progress = true;
+			}
+		}
 	}
-	task_lock.unlock();
-	process_wait.notify_all();
+	if(in_progress)
+		tasks.push_back(std::move(new_task));
+	else
+		tasks.push_front(std::move(new_task));
+#else
+	std::list<std::unique_ptr<task_t>> tasks_new;
+	for(auto it = tasks.begin(); it != tasks.end(); ++it) {
+		bool keep = false;
+		if((*it)->in_progress == true)
+			keep = true;
+		else
+			if((*it)->photo.get() != photo.get() && (*it)->tiles_receiver != tiles_receiver)
+				keep = true;
+		if(keep) {
+			tasks_new.push_back(std::unique_ptr<task_t>());
+			tasks_new.back().swap(*it);
+		}
+	}
+	tasks_new.push_back(std::move(new_task));
+	tasks.swap(tasks_new);
+	tasks_semaphore.fetch_add(1);
+#endif
+	tasks_lock.unlock();
+	cv_tasks.notify_all();
+//cerr << "queue " << request_ID << ", ... 4" << endl;
 //cerr << "wake up all; request_ID == " << request_ID << "; to_abort == " << request_ID_to_abort << endl;
 }
 
 void Process_Runner::run(void) {
 	while(true) {
-		std::unique_lock<std::mutex> locker(task_lock);
-		if(tasks_list.empty())
-			process_wait.wait(locker, [this]{ return !tasks_list.empty(); });
-		auto t = std::move(tasks_list.back());
-		tasks_list.pop_back();
-		locker.unlock();
-		if(t == nullptr)
-			continue;
+		std::unique_lock<std::mutex> locker(tasks_lock);
+		if((tasks.empty() == true || tasks_semaphore.load() == 0) && tasks_abort == false)
+			cv_tasks.wait(locker, [this]{ return ((tasks.empty() == false && tasks_semaphore.load() != 0) || tasks_abort == true); });
+		if(tasks_abort)
+			return;
 
-//cerr << "call process->process_online(...) for request_ID: " << t->request_ID << endl;
-		process->process_online(t->ptr, t->photo, t->request_ID, t->is_inactive, t->tiles_receiver, t->map_ps_base);
-//cerr << "call process->process_online(...) for request_ID: " << t->request_ID << " - done!" << endl;
+		tasks_semaphore.store(0);
+		std::set<Photo_t *> in_progress;
+		auto it = tasks.begin();
+//cerr << endl << "...1" << endl;
+		while(it != tasks.end()) {
+			auto task = (*it).get();
+			if(task->is_complete) {
+//cerr << "__ remove completed task: " << (unsigned long)task << " -> " << (unsigned long)task->photo.get() << endl;
+				// TODO: check 'task->success', process OOM case
+				tasks.erase(it);
+				it = tasks.begin();
+				continue;
+			}
+			if(task->in_progress == true) {
+//cerr << "__ task just in progress: " << (unsigned long)task << " -> " << (unsigned long)task->photo.get() << endl;
+				in_progress.insert(task->photo.get());
+			} else {
+				if(in_progress.find(task->photo.get()) == in_progress.end()) {
+//cerr << "__ -- run  task: " << (unsigned long)task << " -> " << (unsigned long)task->photo.get() << endl;
+					task->in_progress = true;
+					task->_thread = new std::thread( [=]{Process_Runner::run_task(process, task);} );
+				} else {
+//cerr << "__ .. skip task: " << (unsigned long)task << " -> " << (unsigned long)task->photo.get() << endl;
+				}
+			}
+			++it;
+//cerr << "...2" << endl;
+		}
+//cerr << endl;
 	}
+}
+
+void Process_Runner::run_task(Process *process, task_t *task) {
+//cerr << "task == " << (unsigned long)task << " -> " << (unsigned long)task->photo.get() << endl;
+	bool success = false;
+	try {
+		success = process->process_online(task->ptr, task->photo, task->request_ID, task->is_inactive, task->tiles_receiver, task->map_ps_base);
+	} catch(...) {
+		// should never happen ?
+		terminate();
+	}
+	task->lock->lock();
+	task->success = success;
+	task->is_complete = true;
+	task->semaphore->fetch_add(1);
+	std::condition_variable *cv = task->cv;
+	task->lock->unlock();
+	cv->notify_all();
 }
 
 //------------------------------------------------------------------------------
@@ -276,7 +400,9 @@ Edit::~Edit() {
 	Config::instance()->set(CONFIG_SECTION_VIEW, "views_layout_2_orientation", views_orientation[0]);
 	Config::instance()->set(CONFIG_SECTION_VIEW, "views_layout_3_orientation", views_orientation[1]);
 	Config::instance()->set(CONFIG_SECTION_VIEW, "views_layout_4_orientation", views_orientation[2]);
-	//--
+
+	delete process_runner;
+
 	for(int i = 0; i < sessions.size(); ++i) {
 		if(sessions[i]->photo) {
 cerr << "close photo " << sessions[i]->photo->photo_id.get_export_file_name() << endl;
@@ -448,8 +574,9 @@ QWidget *Edit::get_views_widget(QWidget *_views_parent) {
 	return views_widget;
 }
 
-void Edit::slot_process_complete(void *ptr, PhotoProcessed_t *photo_processed) {
+void Edit::slot_process_complete(void *ptr, class PhotoProcessed_t *photo_processed_ptr) {
 	EditSession_t *session = (EditSession_t *)ptr;
+	std::unique_ptr<PhotoProcessed_t> photo_processed(photo_processed_ptr);
 	if(!session->photo) {
 		session->is_loading = false;
 		return;
@@ -457,7 +584,8 @@ void Edit::slot_process_complete(void *ptr, PhotoProcessed_t *photo_processed) {
 	Photo_ID photo_id = session->photo->photo_id;
 	bool is_loaded = true;
 	if(photo_processed->is_empty == false) {
-		slot_controls_enable(true);
+		if(session->view->is_active())
+			slot_controls_enable(true);
 //		emit signal_controls_enable(true);
 //		cerr << "Edit::slot_process_complete(); photo != nullptr" << endl;
 	} else {
@@ -465,12 +593,13 @@ void Edit::slot_process_complete(void *ptr, PhotoProcessed_t *photo_processed) {
 		// photo object was destroyed at Process class
 		is_loaded = false;
 		session->photo.reset();
-		slot_controls_enable(false);
+		if(session->view->is_active())
+			slot_controls_enable(false);
 //		emit signal_controls_enable(false);
 //		cerr << "Edit::slot_process_done(); photo == nullptr" << endl;
 	}
 	browser->photo_loaded(photo_id, is_loaded);
-	session->view->photo_open_finish(photo_processed);
+	session->view->photo_open_finish(photo_processed.get());
 	session->is_loading = false;
 	session->is_loaded = is_loaded;
 }
@@ -620,7 +749,7 @@ void Edit::slot_view_active(void *data) {
 //cerr << "Edit::slot_view_active(), photo_prev->photo_id == \"" << photo_prev->photo_id << "\"" << endl;
 			for(Filter *f : filters_list)
 				f->saveFS(photo_prev->map_fs_base[f]);
-			filters_control_clear();
+//			filters_control_clear();
 		}
 		if(photo) {
 //cerr << "Edit::slot_view_active(), photo_id == \"" << photo->photo_id << "\"" << endl;
@@ -640,7 +769,8 @@ void Edit::slot_view_active(void *data) {
 //			emit signal_controls_enable(true);
 		} else {
 			// disable and reset filter's controls
-//			filters_control_clear();
+			if(photo_prev)
+				filters_control_clear();
 		}
 		edit_history->set_current_photo(photo);
 	}
@@ -752,7 +882,6 @@ cerr << "metadata->exiv2_lens_model == " << metadata->exiv2_lens_model << endl;
 	for(Filter *f : filters_list)
 		f->set_PS_and_FS(photo->map_ps_base[f], photo->map_fs_base[f], args);
 	// update view
-//	view->photo_open_start(photo_name, thumbnail_icon, photo);
 	view->photo_open_start(thumbnail_icon, photo);
 	//
 	edit_history->set_current_photo(photo);
@@ -952,15 +1081,8 @@ QWidget *Edit::get_controls_widget(QWidget *parent) {
 	page_widgets[2].push_back(fstore->f_crop->controls());
 	page_widgets[2].push_back(fstore->f_shift->controls());
 	page_widgets[2].push_back(fstore->f_rotation->controls());
-	page_widgets[2].push_back(fstore->f_distortion->controls());
+//	page_widgets[2].push_back(fstore->f_distortion->controls());
 	page_widgets[2].push_back(fstore->f_projection->controls());
-/*
-	page_widgets[2].push_back(fstore->f_shift->controls());
-	page_widgets[2].push_back(fstore->f_rotation->controls());
-	page_widgets[2].push_back(fstore->f_projection->controls());
-	page_widgets[2].push_back(fstore->f_distortion->controls());
-	page_widgets[2].push_back(fstore->f_crop->controls());
-*/
 	page_widgets[3].push_back(fstore->f_unsharp->controls());
 	page_widgets[3].push_back(fstore->f_soften->controls());
 	page_widgets[4].push_back(fstore->f_crgb_to_cm->controls());
@@ -968,8 +1090,6 @@ QWidget *Edit::get_controls_widget(QWidget *parent) {
 	page_widgets[5].push_back(fstore->f_cm_lightness->controls());
 	page_widgets[6].push_back(fstore->f_cm_rainbow->controls());
 	page_widgets[6].push_back(fstore->f_cm_sepia->controls());
-//	page_widgets[6].push_back(fstore->f_curve->controls());
-//	page_widgets[7].push_back(fstore->f_cm_rainbow->controls());
 
 	for(int i = 0; i < pages_count; ++i) {
 		QWidget *page = new QWidget();
@@ -1082,6 +1202,7 @@ void Edit::slot_update(void *session_id, int process_id, void *_filter, void *_p
 	}
 	if(photo->process_source != ProcessSource::s_view_tiles)
 		session->view->reset_deferred_tiles();
+//cerr << "           process_runner->queue                                                ++++++++ slot_update by " << process_id << endl;
 	process_runner->queue((void *)session, photo, session->view, is_inactive);
 }
 

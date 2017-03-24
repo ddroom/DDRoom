@@ -6,7 +6,6 @@ HEADERS	= \
 \
 	src/config.h \
 	src/system.h \
-	src/db.h \
 	src/mt.h \
 	src/memory.h \
 	src/area.h \
@@ -39,7 +38,6 @@ HEADERS	= \
 	src/f_demosaic.h \
 	src/f_demosaic_int.h \
 	src/f_chromatic_aberration.h \
-	src/f_distortion.h \
 	src/f_shift.h \
 	src/f_projection.h \
 	src/f_rotation.h \
@@ -82,6 +80,8 @@ HEADERS	= \
 	src/export.h \
 \
 	src/profiler_vignetting.h
+#	src/db.h \
+#	src/f_distortion.h \
 
 
 SOURCES	= \
@@ -90,7 +90,6 @@ SOURCES	= \
 \
 	src/config.cpp \
 	src/system.cpp \
-	src/db.cpp \
 	src/mt.cpp \
 	src/memory.cpp \
 	src/area.cpp \
@@ -124,7 +123,6 @@ SOURCES	= \
 	src/f_demosaic_dg.cpp \
 	src/f_demosaic_ahd.cpp \
 	src/f_chromatic_aberration.cpp \
-	src/f_distortion.cpp \
 	src/f_shift.cpp \
 	src/f_projection.cpp \
 	src/f_rotation.cpp \
@@ -166,6 +164,8 @@ SOURCES	= \
 	src/export.cpp \
 \
 	src/profiler_vignetting.cpp
+#	src/db.cpp \
+#	src/f_distortion.cpp \
 
 
 mac {
@@ -178,9 +178,10 @@ win32 {
 	LIBS += -L/local/lib -lws2_32 # for htonl etc...
 }
 
-LIBS += -lOpenCL
-LIBS += -lexiv2 -ljpeg -lpng -lz -ltiff -lopenjp2 -llensfun
 #LIBS += -lexiv2 -ljpeg -lpng -lz -ltiff -lopenjpeg -llensfun
+LIBS += -lexiv2
+LIBS += -ljpeg -lpng -lz -ltiff -lopenjp2
+LIBS += -lOpenCL
 
 # suppress 'unused-result' for dcraw.cpp
 QMAKE_CXXFLAGS_WARN_ON = -Wall -Wno-sign-compare -Wno-unused-result
@@ -202,6 +203,7 @@ QMAKE_CFLAGS_DEBUG += -ggdb
 QMAKE_CFLAGS_DEBUG += -g
 
 QMAKE_CXXFLAGS_RELEASE += -pedantic
+QMAKE_CXXFLAGS_DEBUG += -pedantic
 
 CONFIG += debug_and_release
 #CONFIG += debug

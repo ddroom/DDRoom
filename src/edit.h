@@ -26,25 +26,6 @@
 #include "photo.h"
 
 //------------------------------------------------------------------------------
-class Process_Runner {
-
-public:
-	Process_Runner(class Process *);
-	virtual ~Process_Runner();
-	void queue(void *ptr, std::shared_ptr<Photo_t>, class TilesReceiver *tiles_receiver, bool is_inactive);
-
-protected:
-	class task_t;
-	void run(void);
-	std::list<std::unique_ptr<task_t>> tasks_list;
-	class Process *process;
-	std::thread *std_thread = nullptr;
-	std::mutex task_lock;
-	std::condition_variable process_wait;
-	std::mutex process_lock;
-};
-
-//------------------------------------------------------------------------------
 // manage View's
 // transfer request from View to Process
 // reconnect filters GUI to active View and state of open Photo

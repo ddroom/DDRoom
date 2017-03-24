@@ -16,7 +16,7 @@
 #include "f_demosaic.h"
 #include "f_chromatic_aberration.h"
 #include "f_projection.h"
-#include "f_distortion.h"
+//#include "f_distortion.h"
 #include "f_shift.h"
 #include "f_rotation.h"
 #include "f_crop.h"
@@ -250,12 +250,11 @@ Filter_Store::Filter_Store(void) {
 	// geometry
 	f_chromatic_aberration = new F_ChromaticAberration(ProcessSource::s_chromatic_aberration);
 	f_projection = new F_Projection(ProcessSource::s_projection);
-	f_distortion = new F_Distortion(ProcessSource::s_distortion);
+//	f_distortion = new F_Distortion(ProcessSource::s_distortion);
 	f_shift = new F_Shift(ProcessSource::s_shift);
 	f_rotation = new F_Rotation(ProcessSource::s_rotation);
 	f_crop = new F_Crop(ProcessSource::s_crop);
 	f_soften = new F_Soften(ProcessSource::s_soften);
-//	f_scale = new F_Scale(ProcessSource::s_scale);
 	// colors
 	f_wb = new F_WB(ProcessSource::s_wb);
 	f_crgb_to_cm = new F_cRGB_to_CM(ProcessSource::s_crgb_to_cm);
@@ -265,8 +264,6 @@ Filter_Store::Filter_Store(void) {
 	f_cm_colors = new F_CM_Colors(ProcessSource::s_cm_colors);
 	f_unsharp = new F_Unsharp(ProcessSource::s_unsharp);
 	f_cm_to_cs = new F_CM_to_CS(ProcessSource::s_cm_to_cs);
-//	f_curve = new F_Curve(ProcessSource::s_curve);
-//	f_invert = new F_Invert(ProcessSource::s_invert);
 
 	//--
 	// offline list
@@ -279,15 +276,13 @@ Filter_Store::Filter_Store(void) {
 	filters_list_offline.push_back(f_wb);
 	// geometry
 	filters_list_offline.push_back(f_chromatic_aberration);
-	filters_list_offline.push_back(f_distortion);
+//	filters_list_offline.push_back(f_distortion);
 	filters_list_offline.push_back(f_projection);
 	filters_list_offline.push_back(f_shift);
 	filters_list_offline.push_back(f_rotation);
 	filters_list_offline.push_back(f_crop);
 	filters_list_offline.push_back(f_soften);
-//	filters_list_offline.push_back(f_scale);
 	// colors
-//	filters_list_offline.push_back(f_wb);
 	filters_list_offline.push_back(f_crgb_to_cm);
 	filters_list_offline.push_back(f_unsharp);
 	filters_list_offline.push_back(f_cm_lightness);
@@ -298,28 +293,6 @@ Filter_Store::Filter_Store(void) {
 	//--
 	// online list
 	filters_list_online = filters_list_offline;
-/*
-	filters_list_online.push_back(f_process);
-	filters_list_online.push_back(f_demosaic);
-	// geometry
-	filters_list_online.push_back(f_chromatic_aberration);
-	filters_list_online.push_back(f_projection);
-	filters_list_online.push_back(f_distortion);
-	filters_list_online.push_back(f_shift);
-	filters_list_online.push_back(f_rotation);
-	filters_list_online.push_back(f_crop);
-	filters_list_online.push_back(f_soften);
-//	filters_list_online.push_back(f_scale);
-	// colors
-	filters_list_online.push_back(f_wb);
-	filters_list_online.push_back(f_crgb_to_cm);
-	filters_list_online.push_back(f_cm_lightness);
-	filters_list_online.push_back(f_cm_colors);
-	filters_list_online.push_back(f_cm_rainbow);
-	filters_list_online.push_back(f_cm_sepia);
-	filters_list_online.push_back(f_unsharp);
-	filters_list_online.push_back(f_cm_to_cs);
-*/
 	// 'color picker' for white balance
 //	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_wb, f_wb));
 //	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_projection, f_projection));

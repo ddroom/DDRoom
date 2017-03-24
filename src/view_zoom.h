@@ -21,6 +21,7 @@ public:
 
 	void fill_toolbar(QToolBar *t);
 	void set_View(class View *_view);
+	// ask current state from View if any and update UI
 	void update(void);
 
 protected slots:

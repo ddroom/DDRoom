@@ -11,11 +11,16 @@
 #include "system.h"
 
 //------------------------------------------------------------------------------
-Flow::Flow(void (*f_ptr)(void *, class SubFlow *, void *), void *f_object, void *f_data, int _threads_count) {
+decltype(Flow::run_flows) Flow::run_flows = decltype(Flow::run_flows)();
+std::mutex Flow::run_flows_lock;
+
+Flow::Flow(priority_t priority, void (*f_ptr)(void *, class SubFlow *, void *), void *f_object, void *f_data, int _threads_count)
+	: _priority(priority)
+{
 	threads_count = _threads_count;
 	if(_threads_count <= 0)
 		threads_count = System::instance()->cores();
-	subflows = new SubFlow *[threads_count];
+	subflows.resize(threads_count);
 
 	for(int i = 0; i < threads_count; ++i) {
 		SubFlow *subflow = new SubFlow(this, i, threads_count);
@@ -32,6 +37,9 @@ Flow::Flow(void (*f_ptr)(void *, class SubFlow *, void *), void *f_object, void 
 		subflow->b_flag_main_wakeup = &b_flag_main_wakeup;
 		subflow->b_flag_abort = &b_flag_abort;
 
+		subflow->b_flag_pause = &b_flag_pause;
+		subflow->cv_pause = &cv_pause;
+
 		subflow->f_ptr = f_ptr;
 		subflow->f_object = f_object;
 		subflow->f_data = f_data;
@@ -39,18 +47,28 @@ Flow::Flow(void (*f_ptr)(void *, class SubFlow *, void *), void *f_object, void 
 }
 
 Flow::~Flow(void) {
-	for(int i = 0; i < threads_count; ++i)
-		subflows[i]->wait();
-	for(int i = 0; i < threads_count; ++i)
-		delete subflows[i];
-	delete[] subflows;	
+	for(auto subflow : subflows) {
+		subflow->wait();
+		delete subflow;
+	}
 }
 
 void Flow::flow(void) {
-	for(int i = 0; i < threads_count; ++i)
-		subflows[i]->start();
-	for(int i = 0; i < threads_count; ++i)
-		subflows[i]->wait();
+	b_flag_pause.store(0);
+	run_flows_add(this);
+	// there is no need to run already paused subflows
+	std::unique_lock<std::mutex> lock(m_lock);
+	while(b_flag_pause)
+		cv_pause.wait(lock, [this]{return b_flag_pause.load() == 0;});
+	lock.unlock();
+
+	// 
+	for(auto subflow : subflows)
+		subflow->start();
+	for(auto subflow : subflows)
+		subflow->wait();
+
+	run_flows_remove(this);
 }
 
 void Flow::set_private(void **priv_data) {
@@ -66,6 +84,51 @@ void *Flow::get_private(int thread_index) {
 	return subflows[thread_index]->_target_private;
 }
 
+void Flow::run_flows_add(Flow *flow) {
+	std::unique_lock<std::mutex> lock(run_flows_lock);
+	run_flows.insert(std::pair<Flow::priority_t, Flow *>(flow->_priority, flow));
+	rerun_flows();
+}
+
+void Flow::run_flows_remove(Flow *flow) {
+	std::unique_lock<std::mutex> lock(run_flows_lock);
+	auto it = run_flows.find(flow->_priority);
+	while(it != run_flows.end() && flow != it->second)
+		++it;
+	if(it != run_flows.end())
+		run_flows.erase(it);
+	rerun_flows();
+}
+
+void Flow::rerun_flows(void) {
+	// run first, pause all other flows
+	bool first = true;
+	for(auto el : run_flows) {
+		if(first) {
+			first = false;
+			el.second->resume();
+		} else {
+			el.second->pause();
+		}
+	}
+}
+
+void Flow::pause(void) {
+//	std::unique_lock<std::mutex> lock(m_lock);
+	b_flag_pause.store(1);
+}
+
+void Flow::resume(void) {
+/*
+//	std::unique_lock<std::mutex> lock(m_lock);
+	b_flag_pause.store(0);
+//	lock.unlock();
+	cv_pause.notify_all()
+*/
+	if(b_flag_pause.exchange(0) == 1)
+		cv_pause.notify_all();
+}
+
 //------------------------------------------------------------------------------
 SubFlow::SubFlow(Flow *parent, int _id, int threads_count) 
 	:_parent(parent), i_id(_id), i_threads_count(threads_count) {
@@ -73,9 +136,9 @@ SubFlow::SubFlow(Flow *parent, int _id, int threads_count)
 }
 
 SubFlow::~SubFlow() {
-	if(std_thread != nullptr) {
-		std_thread->join();
-		delete std_thread;
+	if(sf_thread != nullptr) {
+		sf_thread->join();
+		delete sf_thread;
 	}
 }
 
@@ -101,10 +164,10 @@ void SubFlow::wait(void) {
 	if(i_threads_count == 1)
 		return;
 
-	if(std_thread != nullptr) {
-		std_thread->join();
-		delete std_thread;
-		std_thread = nullptr;
+	if(sf_thread != nullptr) {
+		sf_thread->join();
+		delete sf_thread;
+		sf_thread = nullptr;
 	}
 }
 
@@ -128,12 +191,12 @@ void SubFlow::start(void) {
 		return;
 	}
 
-	if(std_thread != nullptr) {
-		std_thread->join();
-		delete std_thread;
+	if(sf_thread != nullptr) {
+		sf_thread->join();
+		delete sf_thread;
 	}
 	if(f_ptr != nullptr) {
-		std_thread = new std::thread( [this](void){this->thread_wrapper();} );
+		sf_thread = new std::thread( [=]{ thread_wrapper(); } );
 	}
 }
 
@@ -151,8 +214,12 @@ void SubFlow::sync_point(void) {
 	if(i_threads_count == 1)
 		return;
 
-	// wait till all threads leave barrier if any
+	// pause if necessary
 	std::unique_lock<std::mutex> lock(*m_lock);
+	if(b_flag_pause->load() != 0)
+		cv_pause->wait(lock, [this]{return b_flag_pause->load() == 0;});
+
+	// wait till all threads leave barrier if any
 	if(*b_counter_out != 0) {
 		*b_flag_out = true;
 		cv_out->wait(lock, [this]{return (*b_flag_out == false || *b_flag_abort);});
@@ -194,9 +261,13 @@ void SubFlow::sync_point(void) {
 bool SubFlow::sync_point_pre(void) {
 	if(i_threads_count == 1)
 		return true;
+	std::unique_lock<std::mutex> lock(*m_lock);
+
+	// pause if necessary
+	if(b_flag_pause->load() != 0)
+		cv_pause->wait(lock, [this]{return b_flag_pause->load() == 0;});
 
 	// wait till all threads leave barrier if any
-	std::unique_lock<std::mutex> lock(*m_lock);
 	if(*b_counter_out != 0) {
 		*b_flag_out = true;
 		cv_out->wait(lock, [this]{return (*b_flag_out == false || *b_flag_abort);});

@@ -90,8 +90,8 @@ public:
 	std::string lens_model;
 	std::string exiv2_lens_model;
 	std::string exiv2_lens_footprint;
-	std::string lensfun_lens_maker;
-	std::string lensfun_lens_model;
+//	std::string lensfun_lens_maker;
+//	std::string lensfun_lens_model;
 
 	// Exiv2 metadata
 	// TODO: use metadata from Exif to fill short metadata list above

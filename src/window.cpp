@@ -8,7 +8,7 @@
  */
 
 #include <iostream>
-#include <lensfun/lensfun.h>
+//#include <lensfun/lensfun.h>
 #include <exiv2/exiv2.hpp>
 #include <exiv2/version.hpp>
 
@@ -306,9 +306,9 @@ void Window::create_menu(void) {
 	QAction *act_tools_vignetting_profiler = new QAction(tr("&Vignetting profiler"), this);
 	connect(act_tools_vignetting_profiler, SIGNAL(triggered()), this, SLOT(menu_tools_vignetting_profiler()));
 
+# if 0
 	menu_tools = menuBar()->addMenu(tr("&Tools"));
 	menu_tools->addAction(act_tools_lens_links_editor);
-# if 0
 	menu_tools->addSeparator();
 	menu_tools->addAction(act_tools_vignetting_profiler);
 #endif
@@ -380,7 +380,7 @@ void Window::menu_help_about(void) {
 //	about += tr("<br>Contact author for feedback or donations on: <i><b>ddroom.spectr@gmail.com</b></i>");
 	about += QString("<br><br>Qt toolkit version: %1").arg(qVersion());
 	about += QString("<br>Program \"dcraw\" version: %1").arg(DCRaw::get_version().c_str());
-	about += QString("<br>Library \"lensfun\" version: %1.%2.%3").arg(LF_VERSION_MAJOR).arg(LF_VERSION_MINOR).arg(LF_VERSION_MICRO);
+//	about += QString("<br>Library \"lensfun\" version: %1.%2.%3").arg(LF_VERSION_MAJOR).arg(LF_VERSION_MINOR).arg(LF_VERSION_MICRO);
 	about += QString("<br>Library \"exiv2\" version: %1").arg(Exiv2::versionString().c_str());
 	QString about_title = tr("About");
 	string about_title_str = " ";
@@ -405,7 +405,7 @@ void Window::menu_view_toggle_view(void) {
 }
 
 void Window::menu_tools_lens_links_editor(void) {
-	DB_lens_links::instance()->UI_browse_lens_links(this);
+//	DB_lens_links::instance()->UI_browse_lens_links(this);
 //	Profiler_Vignetting *profiler_vignetting = new Profiler_Vignetting();
 //	profiler_vignetting->process(folder);
 //	delete profiler_vignetting;
