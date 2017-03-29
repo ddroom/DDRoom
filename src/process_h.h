@@ -33,6 +33,39 @@ public:
 	bool at_open_stage;
 };
 
+class Filter_process_desc_t {
+public:
+	Filter_process_desc_t(Filter *_filter) : filter(_filter) {}
+	class Filter *filter = nullptr;
+	bool use_tiling = true;
+	// right now not used if 'use_tiling == true'
+	bool cache_result = false;
+};
+
+class Process_task_t {
+public:
+	// arguments
+	std::shared_ptr<Photo_t> photo;
+	int request_ID = 0;
+
+	bool update;
+	Area::format_t out_format;
+	bool is_offline;
+	Flow::priority_t priority = Flow::priority_lowest;
+	TilesReceiver *tiles_receiver = nullptr;
+
+	// Set of (all) filters settings for processing
+	std::map<class Filter *, std::shared_ptr<PS_Base>> map_ps_base;
+	std::vector<class Filter_process_desc_t> filters_desc;
+
+	// results
+	bool failed = false;
+	bool failed_oom = false;
+	bool failed_at_import = false;
+	int result_cw_rotation = 0;
+	int result_update;
+};
+
 class Process : public QObject {
 	Q_OBJECT
 
@@ -40,14 +73,14 @@ public:
 	Process(void);
 	virtual ~Process();
 
+	static bool process(Process_task_t *process_task);
 	// should be reentrant
 	// ptr - pointer for signal 'signal_process_complete'
 	// Photo_t - photo to be processed
-	// is_inactive - flag, "some filters should know how process is run - like for histogram update etc..."
 	// TilesReceiver * - receiver of resulting thumbnail/tiles
 	// map<...> - processing settings for filters
 	// Return 'false' if failed - like out-of-memory etc...
-	bool process_online(void *ptr, std::shared_ptr<class Photo_t>, int request_ID, bool is_inactive, class TilesReceiver *, class std::map<class Filter *, std::shared_ptr<PS_Base> >);
+	bool process_edit(void *ptr, std::shared_ptr<class Photo_t>, int request_ID, class TilesReceiver *, class std::map<class Filter *, std::shared_ptr<PS_Base> >);
 	bool process_export(Photo_ID photo_id, std::string fname_export, class export_parameters_t *ep);
 
 	static void quit(void);
@@ -75,13 +108,13 @@ protected:
 	static void subflow_run_mt(void *obj, SubFlow *subflow, void *data);
 	static void run_mt(SubFlow *subflow, void *data);
 
-	static void process_demosaic(SubFlow *subflow, void *data);
-	static void process_size_forward(Process::task_run_t *task, std::list<class filter_record_t> &pl_filters, class Area::t_dimensions &d_out);
-	static void process_size_backward(Process::task_run_t *task, std::list<class filter_record_t> &pl_filters, const Area::t_dimensions &);
-	static void process_filters(SubFlow *subflow, Process::task_run_t *task, std::list<class filter_record_t> &pl_filters, bool is_thumb, class Profiler *prof);
+	static void process_size_forward(Area::t_dimensions &d_out, Process::task_run_t *task, std::vector<class filter_record_t> &pl_filters, Area::t_dimensions *d_in_ptr);
+	static void process_size_backward(Process::task_run_t *task, std::vector<class filter_record_t> &pl_filters, const Area::t_dimensions &);
+	static void process_filters(SubFlow *subflow, Process::task_run_t *task, std::vector<class filter_record_t> &pl_filters, bool is_thumb, class Profiler *prof);
 
-	static void assign_filters(std::list<class filter_record_t> &filters, class task_run_t *task);
-	static void allocate_process_caches(std::list<class filter_record_t> &filters, std::shared_ptr<class Photo_t> photo_ptr);
+	static void wrap_filters(const std::vector<class filter_record_t> &filters, class task_run_t *task);
+	static void allocate_process_caches(const std::vector<class filter_record_t> &filters, std::shared_ptr<class Photo_t> photo_ptr);
+	static class Area *prepare_cached_area(std::vector<filter_record_t> &filter_records, class task_run_t *task, const int pass, const bool is_main);
 
 protected:
 	class Filter_Store *fstore;

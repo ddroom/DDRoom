@@ -82,7 +82,7 @@ public:
 
 	void set_key(const string &_key) {
 		key = _key;
-		if(name == "")
+		if(name.empty())
 			name = _key;
 	}
 

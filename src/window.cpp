@@ -190,7 +190,7 @@ Window::Window(void) {
 	for(int i = 0; i < l.size(); ++i) {
 		QString entry = l[i].toLower();
 		if(!styles_blacklist.contains(entry))
-			cerr << "Style: \"" << l[i].toLocal8Bit().constData() << "\"" << endl;
+			cerr << "Style: \"" << l[i].toStdString() << "\"" << endl;
 	}
 */
 //	System::instance()->qt_style_default = new QStyle();
@@ -536,10 +536,10 @@ void Window::slot_OOM_notification(void *data) {
 cerr << "slot OOM" << endl;
 	OOM_desc_t *desc = (OOM_desc_t *)data;
 	QString title = tr("Out of memory.");
-	QString photo_name = QString::fromLocal8Bit(desc->photo_id.get_export_file_name().c_str());
+	QString photo_name = QString::fromStdString(desc->photo_id.get_export_file_name());
 	QString action = tr("export");
 	if(desc->at_export == false) {
-		photo_name = QString::fromLocal8Bit(desc->photo_id.get_file_name().c_str());
+		photo_name = QString::fromStdString(desc->photo_id.get_file_name());
 		photo_name += QString(" (%1)").arg(desc->photo_id.get_version_index());
 		if(desc->at_open_stage)
 			action = tr("open");

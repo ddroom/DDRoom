@@ -30,7 +30,8 @@ public:
 		priority_UI = 0,
 		priority_online_interactive,
 		priority_online_open,
-		priority_offline
+		priority_offline,
+		priority_lowest
 	};
 
 	Flow(Flow::priority_t priority, void (*f_ptr)(void *obj, class SubFlow *subflow, void *data), void *f_object, void *f_data, int _threads_count = 0);

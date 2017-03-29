@@ -524,16 +524,16 @@ void PhotoList::set_thumbnail_size(QSize thumbnail_size) {
 }
 
 void PhotoList::slot_item_clicked(const QModelIndex &_index) {
-	QImage image;
-	int index = _index.row();
-	items_lock.lock();
-	if(index >= items.size() || edit->version_is_open(items[index].photo_id)) {
-		items_lock.unlock();
+	const int index = _index.row();
+
+	std::unique_lock<std::mutex> lock(items_lock);
+	if(index >= items.size() || edit->version_is_open(items[index].photo_id))
 		return;
-	}
+	QImage image;
 	if(items[index].image.isNull() == false)
 		image = items[index].image;
 //	emit item_clicked(items[index].photo_id, items[index].name, image);
+
 	// create cache of opened photo
 	thumbnail_desc_t desc;
 	desc.photo_id = items[index].photo_id;
@@ -541,7 +541,8 @@ void PhotoList::slot_item_clicked(const QModelIndex &_index) {
 	desc.index = index;
 	desc.image = image;
 	thumbnails_cache[desc.photo_id] = desc;
-	items_lock.unlock();
+	lock.unlock();
+
 	emit item_clicked(items[index].photo_id, items[index].name, image);
 //	cerr << "clicked: " << _index.row() << endl;
 }
@@ -559,7 +560,7 @@ QVariant PhotoList::data(const QModelIndex &index, int role) const {
 		QString s;
 		if(index.row() < items.size())
 			s = items[index.row()].tooltip;
-		if(s != "")
+		if(!s.isEmpty())
 			return QVariant(s);
 	}
 	return QVariant();
@@ -607,7 +608,7 @@ void PhotoList::set_folder(QString id, std::string scroll_to_file) {
 	view->clearSelection();
 	setup_folder_lock.lock();
 	setup_folder_id = id;
-	if(scroll_to_file != "")
+	if(!scroll_to_file.empty())
 		scroll_list_to = scroll_to_file;
 	thumbnail_loader->stop();
 	thumbnail_loader->wait();
@@ -637,9 +638,10 @@ void PhotoList::set_folder(QString id, std::string scroll_to_file) {
 void PhotoList::set_folder_f(void) {
 //cerr << "set_folder_f thread id: " << (unsigned long)QThread::currentThreadId() << endl;
 //cerr << "scroll_list_to == " << scroll_list_to << endl;
-	const static string separator = QDir::toNativeSeparators("/").toLocal8Bit().constData();
+	const string separator = QDir::toNativeSeparators("/").toStdString();
 	std::list<thumbnail_record_t> *list_whole = nullptr;
 	bool folder_not_empty = false;
+
 	setup_folder_lock.lock();
 	QString folder_id = setup_folder_id;
 	setup_folder_id = QString();
@@ -647,15 +649,13 @@ void PhotoList::set_folder_f(void) {
 
 	int index_scroll_to = -1;
 	QStringList filter;
-	QList<QString> list_import = Import::extensions();
-	for(QList<QString>::iterator it = list_import.begin(); it != list_import.end(); ++it)
-		filter << QString("*.") + *it;
+	for(auto el : Import::extensions())
+		filter << QString("*.") + QString::fromStdString(el);
 	do {
 		if(list_whole != nullptr)
 			delete list_whole;
 		folder_not_empty = false;
 		// check for new items
-//cerr << "thread: folder == " << folder_id.toLocal8Bit().constData() << endl;
 		QDir dir(folder_id);
 		dir.setNameFilters(filter);
 		dir.setFilter(QDir::Files);
@@ -667,7 +667,7 @@ void PhotoList::set_folder_f(void) {
 		setup_folder_lock.lock();
 		QString verify_id = setup_folder_id;
 		setup_folder_lock.unlock();
-		current_folder_id = folder_id.toLocal8Bit().constData();
+		current_folder_id = folder_id.toStdString();
 		if(verify_id == QString()) {
 			// otherwise, list was clear by folder click
 			if(file_list.size() != 0) {
@@ -679,8 +679,7 @@ void PhotoList::set_folder_f(void) {
 				long index = 0;
 				for(int i = 0; i < file_list.size(); ++i) {
 					QFileInfo file_info = file_list.at(i);
-					string name = file_info.fileName().toLocal8Bit().constData();
-//					string file_name = current_folder_id.toLocal8Bit().constData();
+					string name = file_info.fileName().toStdString();
 					string file_name = current_folder_id;
 					file_name += separator;
 					file_name += name;
@@ -693,7 +692,7 @@ void PhotoList::set_folder_f(void) {
 //cerr << "file: " << name.c_str() << endl;
 //cerr << "file: " << name.c_str();
 						// should be read from .ddr photo settings, or file name if none
-						item.name = QString::fromLocal8Bit(name.c_str());
+						item.name = QString::fromStdString(name);
 						item.file_name = file_name;
 						item.photo_id = Photo_ID(file_name, *it);
 						item.flag_edit = false;
@@ -707,10 +706,9 @@ void PhotoList::set_folder_f(void) {
 						record.folder_id = current_folder_id;
 						record.index = index;
 						record.data = (void *)&items.last();
-//						record.data = (void *)&items[index];
 						list_whole->push_back(record);
 
-						if(scroll_list_to != "") {
+						if(!scroll_list_to.empty()) {
 							if(scroll_list_to == file_name) {
 								index_scroll_to = index;
 								scroll_list_to = "";
@@ -722,6 +720,7 @@ void PhotoList::set_folder_f(void) {
 			}
 		}
 		items_lock.unlock();
+
 		// check for a new update, if exist - do all again
 		// if missed - turn thread flag down before exit
 		setup_folder_lock.lock();
@@ -731,6 +730,7 @@ void PhotoList::set_folder_f(void) {
 			setup_folder_flag = false;
 		setup_folder_lock.unlock();
 	} while(setup_folder_flag);
+
 	if(folder_not_empty) {
 		thumbnail_loader->list_whole_set(list_whole);
 		// so, here thumbnail_loader is busy, and view can finally show new photos, with 'empty' icons for now
@@ -776,7 +776,7 @@ void PhotoList::update_item(PhotoList_Item_t *item, int index, std::string folde
 			items[index].image = image_thumb_empty;
 		else
 			items[index].image = item->image;
-		if(item->tooltip != "")
+		if(!item->tooltip.isEmpty())
 			items[index].tooltip = item->tooltip;
 		items[index].flag_edit = item->flag_edit;
 		items[index].is_loaded = true;

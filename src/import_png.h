@@ -9,7 +9,6 @@
  *
  */
 
-
 #include <string>
 
 #include "import.h"
@@ -17,7 +16,7 @@
 //------------------------------------------------------------------------------
 class Import_PNG : public Import_Performer {
 public:
-	static QList<QString> extensions(void);
+	static std::list<std::string> extensions(void);
 	Import_PNG(std::string fname);
 	QImage thumb(Metadata *metadata, int thumb_width, int thumb_height);
 	std::unique_ptr<Area> image(class Metadata *metadata);

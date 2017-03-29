@@ -28,7 +28,6 @@ public:
 
 	// process
 	Filter::type_t type(void);
-	Filter::flags_t flags(void);
 	bool get_ps_field_desc(std::string field_name, class ps_field_desc_t *desc);
 	FilterProcess *getFP(void);
 

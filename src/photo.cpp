@@ -20,15 +20,13 @@ using namespace std;
 //------------------------------------------------------------------------------
 Photo_t::Photo_t(void) {
 	process_source = ProcessSource::s_none;
-	metadata = nullptr;
-	cache_process = nullptr;
 	EditHistory::photo_constructor(this);
-//cerr << "_____________________________________________________________________________________________________________________________ Photo::Photo() - constructor for " << (unsigned long)this << endl;
 }
 
 Photo_t::~Photo_t(void) {
 cerr << "~Photo()" << endl;
-	if(metadata != nullptr)	delete metadata;
+	if(metadata != nullptr)
+		delete metadata;
 	for(map<class Filter *, class PS_Base *>::iterator it = map_ps_base.begin(); it != map_ps_base.end(); ++it) {
 		if((*it).second != nullptr)
 			delete (*it).second;
@@ -48,7 +46,7 @@ cerr << "delete cache_process" << endl;
 }
 
 QString Photo_t::photo_name_with_versions(Photo_ID _photo_id, int v_count) {
-	QString _name = QString::fromLocal8Bit(_photo_id.get_file_name().c_str());
+	QString _name = QString::fromStdString(_photo_id.get_file_name());
 	if(v_count <= 1)
 		return _name;
 	int v_index = _photo_id.get_version_index();
@@ -81,9 +79,9 @@ int Photo_ID::get_version_index(void) {
 std::string Photo_ID::get_export_file_name(void) {
 	if(_version == 0)
 		return _file_name;
-	QString fn = QString::fromLocal8Bit(_file_name.c_str());
+	QString fn = QString::fromStdString(_file_name);
 	QString t = QString("-ver%1").arg(_version);
-	return (fn + t).toLocal8Bit().constData();
+	return (fn + t).toStdString();
 }
 
 bool Photo_ID::operator == (const Photo_ID &other) const {
@@ -101,7 +99,7 @@ bool Photo_ID::operator < (const Photo_ID &other) const {
 }
 
 bool Photo_ID::is_empty(void) {
-	return (_file_name == "");
+	return (_file_name.empty());
 }
 
 //------------------------------------------------------------------------------

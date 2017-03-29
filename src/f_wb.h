@@ -21,14 +21,6 @@
 #include <vector>
 
 //------------------------------------------------------------------------------
-class f_wb_preset {
-public:
-	std::string id;
-	bool is_preset;
-	float temp;
-	f_wb_preset(std::string _id, bool _is_preset, float _temp) : id(_id), is_preset(_is_preset), temp(_temp) {}
-};
-
 class F_WB : public Filter {
 	Q_OBJECT
 
@@ -57,8 +49,6 @@ public slots:
 	void slot_checkbox_auto_alignment(int state);
 	void slot_checkbox_auto_white(int state);
 	void slot_checkbox_auto_black(int state);
-//	void changed_temp_kelvin(double value);
-//	void changed_temp_tint(double value);
 	void changed_ct(double v_cct, double v_duv);
 	void slot_radio_wb(int index);
 	void slot_wb_picker(bool checked);
@@ -97,7 +87,7 @@ protected:
 	class GuiSliderWB *slider_auto_black_edge;
 
 	// WB presets, in Kelvin, w/o camera specific data
-	std::vector<f_wb_preset> wb_presets;
+	std::vector<class f_wb_preset> wb_presets;
 
 	// current temp, runtime UI only
 	double temp_kelvin;

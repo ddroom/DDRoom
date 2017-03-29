@@ -26,14 +26,20 @@ Profiler_Vignetting::Profiler_Vignetting(void) {
 }
 
 void Profiler_Vignetting::process(string folder) {
-	const static string separator = QDir::toNativeSeparators("/").toLocal8Bit().constData();
+	const string separator = QDir::toNativeSeparators("/").toStdString();
 	cerr << "Profiler_Vignetting::process(\"" << folder << "\")" << endl;
 
+#if 0
 	QStringList filter;
 	QList<QString> list_import = Import::extensions();
 	for(QList<QString>::iterator it = list_import.begin(); it != list_import.end(); ++it)
 		filter << QString("*.") + *it;
-	QString folder_id = QString::fromLocal8Bit(folder.c_str());
+#else
+	QStringList filter;
+	for(auto el : Import::extensions())
+		filter << QString("*.") + QString::fromStdString(el);
+#endif
+	QString folder_id = QString::fromStdString(folder);
 	QDir dir(folder_id);
 	dir.setNameFilters(filter);
 	dir.setFilter(QDir::Files);
@@ -42,8 +48,7 @@ void Profiler_Vignetting::process(string folder) {
 	QMap<float, std::string> map_fn_to_fl;
 	for(int i = 0; i < file_list.size(); ++i) {
 		QFileInfo file_info = file_list.at(i);
-		string name = file_info.fileName().toLocal8Bit().constData();
-//		string file_name = current_folder_id.toLocal8Bit().constData();
+		string name = file_info.fileName().toStdString();
 		string file_name = folder;
 		file_name += separator;
 		file_name += name;

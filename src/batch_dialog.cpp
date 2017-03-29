@@ -310,7 +310,7 @@ Batch_Dialog::Batch_Dialog(export_parameters_t *_ep, QWidget *parent) : QDialog(
 	check_tiff_alpha->setCheckState(ep->t_tiff_alpha ? Qt::Checked : Qt::Unchecked);
 
 	set_folder(ep->folder);
-	QString name = QString::fromLocal8Bit(ep->get_file_name().c_str());
+	QString name = QString::fromStdString(ep->get_file_name());
 	if(ep->process_single)
 		line_file_name->setText(name);
 
@@ -368,7 +368,7 @@ Batch_Dialog::Batch_Dialog(export_parameters_t *_ep, QWidget *parent) : QDialog(
 
 void Batch_Dialog::set_folder(string folder) {
 	ep->folder = folder;
-	line_folder->setText(QString::fromLocal8Bit(ep->folder.c_str()));
+	line_folder->setText(QString::fromStdString(ep->folder));
 }
 
 void Batch_Dialog::slot_image_type_clicked(int id) {
@@ -380,15 +380,15 @@ void Batch_Dialog::slot_image_type_clicked(int id) {
 	if(ep->image_type == export_parameters_t::image_type_tiff)
 		stack_type->setCurrentWidget(tab_tiff);
 	if(ep->process_single) {
-		QString name = QString::fromLocal8Bit(ep->get_file_name().c_str());
+		QString name = QString::fromStdString(ep->get_file_name());
 		line_file_name->setText(name);
 	}
 }
 
 void Batch_Dialog::slot_button_folder_pressed(void) {
-	QString q_folder = QFileDialog::getExistingDirectory(this, tr("Select destination folder"), QString::fromLocal8Bit(ep->folder.c_str()), QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+	QString q_folder = QFileDialog::getExistingDirectory(this, tr("Select destination folder"), QString::fromStdString(ep->folder), QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
 	line_folder->setText(q_folder);
-	ep->folder = q_folder.toLocal8Bit().constData();
+	ep->folder = q_folder.toStdString();
 }
 
 void Batch_Dialog::slot_png_bits(int id) {
@@ -443,8 +443,8 @@ void Batch_Dialog::slot_png_compression(double _value) {
 
 void Batch_Dialog::slot_line_file_name(void) {
 	QString text = line_file_name->text();
-	ep->cut_and_set_file_name(text.toLocal8Bit().constData());
-	QString name = QString::fromLocal8Bit(ep->get_file_name().c_str());
+	ep->cut_and_set_file_name(text.toStdString());
+	QString name = QString::fromStdString(ep->get_file_name());
 	line_file_name->setText(name);
 }
 
@@ -504,11 +504,11 @@ void Batch_Dialog::slot_line_folder(void) {
 		QMessageBox::warning(this, tr("Folder does not exist"), error);
 	}
 */
-	ep->folder = new_folder.toLocal8Bit().constData();
+	ep->folder = new_folder.toStdString();
 }
 
 void Batch_Dialog::slot_button_ok(void) {
-	QString qs_folder = QString::fromLocal8Bit(ep->folder.c_str());
+	QString qs_folder = QString::fromStdString(ep->folder);
 	QFileInfo fi(qs_folder);
 	if(fi.isDir() == false) {
 		QString error = tr("Folder <b>\"%1\"</b> does not exist, please change destination folder.");

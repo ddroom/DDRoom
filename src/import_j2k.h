@@ -17,7 +17,7 @@
 //------------------------------------------------------------------------------
 class Import_J2K : public Import_Performer {
 public:
-	static QList<QString> extensions(void);
+	static std::list<std::string> extensions(void);
 	Import_J2K(std::string fname);
 	QImage thumb(Metadata *metadata, int thumb_width, int thumb_height);
 	std::unique_ptr<Area> image(class Metadata *metadata);

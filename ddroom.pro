@@ -34,9 +34,9 @@ HEADERS	= \
 	src/import_png.h \
 	src/import_tiff.h \
 \
-	src/f_process.h \
 	src/f_demosaic.h \
 	src/f_demosaic_int.h \
+	src/f_vignetting.h \
 	src/f_chromatic_aberration.h \
 	src/f_shift.h \
 	src/f_projection.h \
@@ -117,11 +117,11 @@ SOURCES	= \
 	src/import_tiff.cpp \
 	src/import_png.cpp \
 \
-	src/f_process.cpp \
 	src/f_demosaic.cpp \
 	src/f_demosaic_ca.cpp \
 	src/f_demosaic_dg.cpp \
 	src/f_demosaic_ahd.cpp \
+	src/f_vignetting.cpp \
 	src/f_chromatic_aberration.cpp \
 	src/f_shift.cpp \
 	src/f_projection.cpp \

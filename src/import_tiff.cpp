@@ -26,11 +26,11 @@
 using namespace std;
 
 //------------------------------------------------------------------------------
-QList<QString> Import_TIFF::extensions(void) {
+std::list<std::string> Import_TIFF::extensions(void) {
 	QList<QString> l;
-	l.push_back("tiff");
-	l.push_back("tif");
-	return l;
+	return std::list<std::string> {
+		"tiff", "tif"
+	};
 }
 
 Import_TIFF::Import_TIFF(string fname) {

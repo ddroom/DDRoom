@@ -145,6 +145,7 @@ bool PS_ChromaticAberration::save(DataSet *dataset) {
 }
 
 //------------------------------------------------------------------------------
+// map scale_RC/scale_BY into pixels and back
 class _CA_MappingFunction : public MappingFunction {
 public:
 	_CA_MappingFunction(const class Metadata *metadata);

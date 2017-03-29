@@ -7,12 +7,6 @@
  *
  */
 
-/*
- * TODO:
-	- add automatic registration/selection of import classes
-	- move work with thumbnails here (and use Import_Raw for dcraw possible thumbnails)
- */
-
 #include "area.h"
 #include "metadata.h"
 #include "import.h"
@@ -37,47 +31,57 @@
 #define THUMBNAIL_SIZE 384
 
 using namespace std;
-//------------------------------------------------------------------------------
-std::unique_ptr<Area> Import_Performer::image(class Metadata *metadata) {
-	return std::unique_ptr<Area>(nullptr);
-}
-
-QImage Import_Performer::thumb(class Metadata *metadata, int thumb_width, int thumb_height) {
-	return QImage();
-}
 
 //------------------------------------------------------------------------------
-QList<QString> Import::extensions(void) {
-	QList<QString> l;
+static void test_to_lower(const std::list<std::string> &contatiner) {
+	for(auto el : contatiner) {
+		if(el != ddr::to_lower(el)) {
+			std::string exception = "Import: extension \"";
+			exception += el;
+			exception += "\" not in lower case.";
+			throw(exception);
+		}
+	}
+}
+
+void Import::unit_test(void) {
+	// all extensions in the list should be in the lower case: 'jpeg' is OK, 'Jpeg' is not.
+	test_to_lower(Import_Raw::extensions());
+	test_to_lower(Import_Jpeg::extensions());
+	test_to_lower(Import_J2K::extensions());
+	test_to_lower(Import_PNG::extensions());
+	test_to_lower(Import_TIFF::extensions());
+}
+
+//------------------------------------------------------------------------------
+std::list<std::string> Import::extensions(void) {
+	std::list<std::string> l;
 	l = Import_Raw::extensions();
-	l += Import_Jpeg::extensions();
-	l += Import_J2K::extensions();
-	l += Import_PNG::extensions();
-	l += Import_TIFF::extensions();
+	l.splice(l.end(), Import_Jpeg::extensions());
+	l.splice(l.end(), Import_J2K::extensions());
+	l.splice(l.end(), Import_PNG::extensions());
+	l.splice(l.end(), Import_TIFF::extensions());
 	return l;
 }
 
 Import_Performer *Import::import_performer(std::string file_name) {
-	Import_Performer *performer = nullptr;
-	// --==--
-	const char *c = file_name.c_str();
 	std::string extension;
-	for(int i = file_name.length(); i > 0; i--) {
-		if(c[i] == '.') {
-			extension = &c[i + 1];
-			break;
-		}
-	}
-	QString ext = QString::fromLocal8Bit(extension.c_str()).toLower();
-	if(Import_Raw::extensions().contains(ext)) {
+	auto const pos = file_name.find_last_of('.');
+	if(pos != std::string::npos)
+		extension = ddr::to_lower(file_name.substr(pos + 1));
+	if(extension.empty())
+		return nullptr;
+
+	Import_Performer *performer = nullptr;
+	if(ddr::contains(Import_Raw::extensions(), extension)) {
 		performer = new Import_Raw(file_name);
-	} else if(Import_Jpeg::extensions().contains(ext)) {
+	} else if(ddr::contains(Import_Jpeg::extensions(), extension)) {
 		performer = new Import_Jpeg(file_name);
-	} else if(Import_J2K::extensions().contains(ext)) {
+	} else if(ddr::contains(Import_J2K::extensions(), extension)) {
 		performer = new Import_J2K(file_name);
-	} else if(Import_PNG::extensions().contains(ext)) {
+	} else if(ddr::contains(Import_PNG::extensions(), extension)) {
 		performer = new Import_PNG(file_name);
-	} else if(Import_TIFF::extensions().contains(ext)) {
+	} else if(ddr::contains(Import_TIFF::extensions(), extension)) {
 		performer = new Import_TIFF(file_name);
 	}
 	return performer;
@@ -95,7 +99,6 @@ std::unique_ptr<Area> Import::image(std::string file_name, class Metadata *metad
 }
 
 bool Import::load_metadata(std::string file_name, class Metadata *metadata) {
-	// try to fill 'raw' fields
 	Import_Raw *raw = new Import_Raw(file_name);
 	raw->load_metadata(metadata);
 	delete raw;
@@ -103,9 +106,7 @@ bool Import::load_metadata(std::string file_name, class Metadata *metadata) {
 		metadata->width = 0;
 		metadata->height = 0;
 	}
-	// then - exiv2
-//	bool ok = fill_metadata(file_name, metadata);
-//	return ok;
+
 	bool ok = Exiv2_load_metadata(file_name, metadata);
 	return ok;
 }
@@ -113,32 +114,28 @@ bool Import::load_metadata(std::string file_name, class Metadata *metadata) {
 // used only for ::image(...)
 bool Import::fill_metadata(std::string file_name, class Metadata *metadata) {
 	bool exiv2_ok = false;
+
+	// just use some image to keep exifData
+	metadata->_exif_image = Exiv2::ImageFactory::create(Exiv2::ImageType::jpeg);
 	Exiv2::Image::AutoPtr exif_image;
 	try {
 		exif_image = Exiv2::ImageFactory::open(file_name);
 		exif_image->readMetadata();
 		exiv2_ok = true;
+		Exiv2::ExifData& exif_data_out = metadata->_exif_image->exifData();
+		Exiv2::ExifData& exif_data_in = exif_image->exifData();
+		for(auto it : exif_data_in)
+			if(it.size() < 0xFFFF)
+				exif_data_out.add(it);
 	} catch(...) {
-		// failed...
 		std::cerr << "failed to load metadata for file \"" << file_name << "\"" << std::endl;
-	}
-	// just use some image to hold exifData
-	metadata->_exif_image = Exiv2::ImageFactory::create(Exiv2::ImageType::jpeg);
-	if(exiv2_ok) {
-		Exiv2::ExifData& exif_data = exif_image->exifData();
-		Exiv2::ExifData& exif_data_n = metadata->_exif_image->exifData();
-		Exiv2::ExifData::iterator end = exif_data.end();
-		// don't copy enormously big fields - was noticed in photos by 'MAMIYA ZD'
-		for(Exiv2::ExifData::iterator i = exif_data.begin(); i != end; ++i) {
-			if(i->size() < 0xFFFF)
-				exif_data_n.add(*i);
-		}
 	}
 	return exiv2_ok;
 }
 
 class QImage *Import::thumb(Photo_ID photo_id, class Metadata *metadata, int &thumb_rotation, int thumb_width, int thumb_height) {
 	QImage *thumbnail = nullptr;
+
 	// try to load thumbnail from .ddr
 	PS_Loader ps_loader(photo_id);
 	bool thumb_rotation_defined = false;
@@ -155,6 +152,7 @@ class QImage *Import::thumb(Photo_ID photo_id, class Metadata *metadata, int &th
 			thumb_rotation_defined = true;
 		}
 	}
+
 	// Exiv2 metadata is necessary for thumbnail
 	Import_Performer *performer = import_performer(photo_id.get_file_name());
 	if(performer != nullptr) {

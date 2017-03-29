@@ -10,7 +10,7 @@
 /*
  *	Notes:
  *		- The real colors scaling happens at "filter_gp" right now, before image sampling.
- *		- Used mutators: '_p_thumb', '_s_raw_colors'.
+ *		- Used mutators: '_p_thumb'.
  *
 */
 
@@ -50,6 +50,14 @@ using namespace std;
 
 //------------------------------------------------------------------------------
 void color_temp_to_XYZ(float *XYZ, float temp, float tint);
+
+class f_wb_preset {
+public:
+	std::string id;
+	bool is_preset;
+	float temp;
+	f_wb_preset(std::string _id, bool _is_preset, float _temp) : id(_id), is_preset(_is_preset), temp(_temp) {}
+};
 
 //------------------------------------------------------------------------------
 class PS_WB : public PS_Base {
@@ -981,9 +989,7 @@ if(subflow->is_main())
 
 		bool is_thumb = false;
 		process_obj->mutators->get("_p_thumb", is_thumb);
-		bool _s_raw_colors = false;
-		process_obj->mutators->get("_s_raw_colors", _s_raw_colors);
-		if((fp_cache->is_empty || is_thumb == true) && _s_raw_colors == false) {
+		if(fp_cache->is_empty || is_thumb == true) {
 			// is critical for export with processing w/o thumbnails
 			fp_cache->is_empty = false;
 			double scale[3] = {1.0, 1.0, 1.0};
@@ -1099,11 +1105,6 @@ if(subflow->is_main())
 		// import_raw at final stage will apply multiplier metadata->c_scale_ref to each pixel - this
 		// scale will improve results of demosaic processing;
 		// then demosaic, if any, would remove that scale back, so it would be applied here again.
-		if(_s_raw_colors) {
-			for(int i = 0; i < 3; ++i)
-				fp_cache->scale[i] = 1.0 / metadata->c_scale_ref[i];
-			fp_cache->offset = 0.0;
-		}
 		double *scale = fp_cache->scale;
 		double offset = fp_cache->offset;
 		double b = offset / (offset - 1.0);
@@ -1140,6 +1141,7 @@ if(subflow->is_main())
 
 			task->area_in = area_in;
 			task->area_out = area_out.get();
+			task->y_flow = y_flow.get();
 			for(int k = 0; k < 3; ++k) {
 				task->c_scale[k] = metadata->c_scale_ref[k];
 				task->scale[k] = fp_cache->scale[k];
@@ -1153,7 +1155,6 @@ if(subflow->is_main())
 				task->hist_out.resize(256 * 3, 0);
 			}
 			task->offset = fp_cache->offset;
-			task->y_flow = y_flow.get();
 			task->hl_clip = hl_clip;
 
 			subflow->set_private(task, i);
@@ -1203,7 +1204,7 @@ void FP_WB::process_wb(SubFlow *subflow) {
 	const int out_off_x = task->area_out->dimensions()->edges.x1;
 	const int out_off_y = task->area_out->dimensions()->edges.y1;
 
-	int y = 0;
+	int y;
 	while((y = task->y_flow->fetch_add(1)) < in_h) {
 		for(int x = 0; x < in_w; ++x) {
 			const int index_in = (in_mem_w * (in_off_y + y) + in_off_x + x) * 4;
@@ -1280,7 +1281,7 @@ void FP_WB::process_wb(SubFlow *subflow) {
 */
 				}
 			}
-			out[index_out + 3] = in[index_out + 3];
+			out[index_out + 3] = in[index_in + 3];
 		}
 	}
 }
@@ -1322,7 +1323,7 @@ void FP_WB::scale_histogram(QVector<float> &out, int out_1, uint32_t *in, int in
 	}
 }
 
-//==============================================================================
+//------------------------------------------------------------------------------
 WB_Histogram_data::WB_Histogram_data(void) {
 	hist_before = QVector<long>(0);
 	hist_after = QVector<long>(0);
@@ -1414,7 +1415,8 @@ void WB_Histogram::draw(QPainter *_painter) {
 	if(debug)
 		painter->fillRect(QRect(-20, -20, size_w + 40, size_h + 40), QColor(0x3F, 0xFF, 0x3F));
 
-	QColor grid = QColor(0x7F, 0x7F, 0x7F);
+//	QColor grid = QColor(0x7F, 0x7F, 0x7F);
+	QColor grid = QColor(0x5F, 0x5F, 0x5F);
 	painter->setPen(Qt::black);
 	// main box
 	painter->fillRect(QRect(-1, -1, x_max + 2, y_max + 2), QColor(0x2F, 0x2F, 0x2F));
@@ -1427,15 +1429,20 @@ void WB_Histogram::draw(QPainter *_painter) {
 	painter->drawLine(gx_1, 0, gx_1, y_max);
 	painter->drawLine(gx_2, 0, gx_2, y_max);
 	painter->drawLine(gx_3, 0, gx_3, y_max);
+	painter->drawLine(gx_4, 0, gx_4, y_max);
 
+	QLinearGradient linear_grad;
+	QBrush brush(linear_grad);
+#if 0
 	QLinearGradient linear_grad(QPointF(0, 0), QPointF(0, ry_2));
 	linear_grad.setColorAt(0, QColor(0xFF, 0xFF, 0xFF, 0x00));
 	linear_grad.setColorAt(0.5, QColor(0xFF, 0xFF, 0xFF, 0xBF));
 	linear_grad.setColorAt(1, QColor(0xFF, 0xFF, 0xFF, 0x00));
 	linear_grad.setSpread(QGradient::RepeatSpread);
 	QBrush brush(linear_grad);
-	painter->fillRect(QRectF(gx_4 - 0.5, 0, 1, ry_2), brush);
-	painter->fillRect(QRectF(gx_4 - 0.5, ry_2, 1, ry_4), brush);
+	painter->fillRect(QRectF(gx_4, 0.0, 1, ry_2), brush);
+	painter->fillRect(QRectF(gx_4, ry_2, 1, ry_4), brush);
+#endif
 	//
 	linear_grad = QLinearGradient(QPointF(0, 0), QPointF(0, ry_2 + 1));
 	linear_grad.setColorAt(0, QColor(0x00, 0x00, 0x00, 0x00));
@@ -1505,4 +1512,4 @@ void WB_Histogram::draw(QPainter *_painter) {
 	_painter->drawImage(0, 0, image_bg);
 }
 
-//==============================================================================
+//------------------------------------------------------------------------------

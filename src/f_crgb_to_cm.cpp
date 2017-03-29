@@ -199,7 +199,7 @@ void F_cRGB_to_CM::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_ar
 	// output color space
 	int index = combo_output_color_space->findText(QString(DEFAULT_OUTPUT_COLOR_SPACE));
 	string name = CMS_Matrix::instance()->get_cs_string_name(ps->output_color_space);
-	if(name != "") {
+	if(!name.empty()) {
 		int current_index = combo_output_color_space->findText(QString(name.c_str()));
 		if(current_index != -1)
 			index = current_index;

@@ -60,7 +60,7 @@ Browser::Browser(void) {
 	// use home folder if config's folder doesn't exist
 	flag = Config::instance()->get(CONFIG_SECTION_BROWSER, "folder", _folder);
 	if(flag)
-		flag = QDir(QString::fromLocal8Bit(_folder.c_str())).exists();
+		flag = QDir(QString::fromStdString(_folder)).exists();
 	if(!flag)
 		_folder = System::env_home();
 
@@ -266,7 +266,7 @@ void Browser::slot_br_home(void) {
 }
 
 void Browser::set_current_folder(string folder, bool center, std::string scroll_to) {
-	QModelIndex index = fs_model->index(QString::fromLocal8Bit(folder.c_str()));
+	QModelIndex index = fs_model->index(QString::fromStdString(folder));
 	if(index.isValid() == false)
 		photo_list->set_folder(QString(""));
 	photo_list_scroll_to = scroll_to;
@@ -299,7 +299,7 @@ void Browser::history_seek(bool is_forward) {
 }
 
 void Browser::history_push(string record) {
-	if(record == "")
+	if(record.empty())
 		return;
 	history_right.erase(history_right.begin(), history_right.end());
 	action_forward->setDisabled(true);
@@ -310,9 +310,9 @@ void Browser::history_push(string record) {
 //------------------------------------------------------------------------------
 void Browser::folder_collapsed(const QModelIndex &index) {
 	string _f = _folder;
-	string separator = QDir::toNativeSeparators("/").toLocal8Bit().constData();
+	string separator = QDir::toNativeSeparators("/").toStdString();
 	_f += separator;
-	string n = fs_model->filePath(index).toLocal8Bit().constData();
+	string n = fs_model->filePath(index).toStdString();
 	if(n != separator)
 		n += separator;
 	const char *f1 = _f.c_str();
@@ -334,7 +334,7 @@ void Browser::folder_expanded(const QModelIndex &index) {
 
 void Browser::folder_current(const QModelIndex &current, const QModelIndex &prev) {
 	QString qs_folder = fs_model->filePath(current);
-	string n = qs_folder.toLocal8Bit().constData();
+	string n = qs_folder.toStdString();
 	if(n == _folder)
 		return;
 	// update thumbnails to new folder content
@@ -381,12 +381,12 @@ void Browser::slot_browse_to_photo(Photo_ID photo_id) {
 	std::string photo_id_str = photo_id.get_file_name();
 //cerr << "browse to photo: " << photo_id_str << endl;
 	QString separator = QDir::toNativeSeparators("/");
-	QString photo = QDir::toNativeSeparators(QString::fromLocal8Bit(photo_id_str.c_str()));
+	QString photo = QDir::toNativeSeparators(QString::fromStdString(photo_id_str));
 	QStringList f_list = photo.split(separator);
 	QString photo_file = f_list.takeLast();
-	string photo_file_str = photo_file.toLocal8Bit().constData();
+	string photo_file_str = photo_file.toStdString();
 	QString photo_folder = f_list.join(separator);
-	string photo_folder_str = photo_folder.toLocal8Bit().constData();
+	string photo_folder_str = photo_folder.toStdString();
 //cerr << "	photo_file_str == " << photo_file_str << endl;
 //	photo_list->set_folder(photo_folder, photo_file_str);
 //	set_current_folder(photo_folder_str, false, photo_file_str);

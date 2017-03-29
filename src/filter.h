@@ -173,7 +173,6 @@ public:
 	class Filter *filter;
 	class PS_Base *ps_base;
 	class FS_Base *fs_base;
-//	bool fs_base_active;	// == false - for offline or online inactive photo process
 	bool is_offline;
 };
 
@@ -280,10 +279,6 @@ class Filter : public QObject {
 	Q_OBJECT
 
 public:
-	enum flags_t {
-		f_none = 0,
-		f_geometry_update = 1,
-	};
 	enum type_t {
 		t_control,	// i.e. w/o processing, UI only
 		t_import,
@@ -298,27 +293,26 @@ public:
 	std::string id(void);
 	QString name(void);
 	bool is_hidden(void);
-	virtual type_t type(void) {return t_none;}
-	virtual flags_t flags(void) {return f_none;}
-	int get_id(void) {return filter_id;}
+	virtual type_t type(void) { return t_none; }
+	int get_id(void) { return filter_id; }
 
 	virtual bool get_ps_field_desc(std::string field_name, class ps_field_desc_t *);
 
 	Filter(void);
 	virtual ~Filter() {};
 
-	virtual PS_Base *newPS() {return new PS_Base();};
-	virtual FS_Base *newFS(void) {return new FS_Base();};
+	virtual PS_Base *newPS() { return new PS_Base(); };
+	virtual FS_Base *newFS(void) { return new FS_Base(); };
 	virtual void saveFS(FS_Base *fs_base) {};
 	virtual void set_PS_and_FS(PS_Base *new_ps_base, FS_Base *new_fs_base, PS_and_FS_args_t args) {};
 
-	virtual void set_session_id(void *id) {session_id = id;}
+//	virtual void set_session_id(void *id) { session_id = id; }
+	void set_session_id(void *id) { session_id = id; }
 	virtual void reset(void);
 
-	virtual class FilterProcess *getFP(void) {return nullptr;}
+	virtual class FilterProcess *getFP(void) { return nullptr; }
 
 	virtual QWidget *controls(QWidget *parent = nullptr);
-//	virtual QList<QWidget *>controls(QWidget *parent = nullptr);
 
 	virtual void emit_signal_update(void);
 
@@ -339,28 +333,25 @@ protected:
 };
 
 //------------------------------------------------------------------------------
-class Filter_Control : public Filter {
-	Q_OBJECT
-
-public:
-	Filter_Control(void);
-	virtual void get_mutators(class DataSet *dataset, class DataSet *ps_dataset = nullptr);
-};
-
-//------------------------------------------------------------------------------
-// should be replaced with dynamic plugins system
-// TODO: add list of filters by names; return list of all filters; return QList<Filter *> with QList<QString> as arguments - with filter's ids...
 class Filter_Store {
 
 public:
 	static Filter_Store *instance(void);
 
-	std::list<class Filter *> get_filters_list(bool is_online = true);
+//	const std::vector<class Filter *> &get_filters_whole(void) const;
+//	const std::vector<class Filter *> &get_filters_tiled(void) const;
+//	const std::vector<class Filter *> &get_filters(void) const;
+	std::vector<class Filter *> get_filters_whole(void) const;
+	std::vector<class Filter *> get_filters_tiled(void) const;
+	std::vector<class Filter *> get_filters(void) const;
 
 	std::list<std::pair<class FilterEdit *, class Filter *> > filter_edit_list;
+
 	// filters
-	class F_Process *f_process;
 	class F_Demosaic *f_demosaic;
+	class F_Vignetting *f_vignetting;
+	class F_WB *f_wb;
+
 	// geometry
 	class F_ChromaticAberration *f_chromatic_aberration;
 	class F_Projection *f_projection;
@@ -369,11 +360,8 @@ public:
 	class F_Rotation *f_rotation;
 	class F_Crop *f_crop;
 	class F_Soften *f_soften;
-/*
-	class F_Scale *f_scale;
-*/
+
 	// colors
-	class F_WB *f_wb;
 	class F_cRGB_to_CM *f_crgb_to_cm;
 	class F_Unsharp *f_unsharp;
 	class F_CM_Lightness *f_cm_lightness;
@@ -381,17 +369,14 @@ public:
 	class F_CM_Sepia *f_cm_sepia;
 	class F_CM_Colors *f_cm_colors;
 	class F_CM_to_CS *f_cm_to_cs;
-//	class F_Curve *f_curve;
-/*
-	class F_Invert *f_invert;
-*/
 
 protected:
 	Filter_Store(void);
-	static std::unique_ptr<Filter_Store> _this;
+	static class Filter_Store *_this;
 
-	std::list<class Filter *> filters_list_online;
-	std::list<class Filter *> filters_list_offline;
+	std::vector<class Filter *> filters_whole;
+	std::vector<class Filter *> filters_tiled;
+	std::vector<class Filter *> filters;
 };
 
 //------------------------------------------------------------------------------

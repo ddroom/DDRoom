@@ -28,13 +28,10 @@
 using namespace std;
 
 //------------------------------------------------------------------------------
-QList<QString> Import_J2K::extensions(void) {
-	QList<QString> l;
-	l.push_back("j2k");
-	l.push_back("j2c");
-	l.push_back("jp2");
-	l.push_back("jpt");
-	return l;
+std::list<std::string> Import_J2K::extensions(void) {
+	return std::list<std::string>{
+		"j2k", "j2c", "jp2", "jpt"
+	};
 }
 
 Import_J2K::Import_J2K(string fname) {
@@ -112,15 +109,11 @@ std::unique_ptr<Area> Import_J2K::load_image(Metadata *metadata, int reduce, boo
 	was_callback_error = false;
 	// determine codec
 	int j2k_codec = -1;
-	std::string ext;
-	const char *c = file_name.c_str();
-	for(int i = file_name.length(); i > 0; i--) {
-		if(c[i] == '.') {
-			ext= &c[i + 1];
-			break;
-		}
-	}
-	QString extension = QString::fromLocal8Bit(ext.c_str()).toLower();
+
+	std::string extension;
+	auto const pos = file_name.find_last_of('.');
+	if(pos != std::string::npos)
+		extension = ddr::to_lower(file_name.substr(pos + 1));
 	if(extension == "j2k" || extension == "j2c")
 		j2k_codec = OPJ_CODEC_J2K;
 	if(extension == "jp2")

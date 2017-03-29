@@ -38,11 +38,10 @@
 using namespace std;
 
 //------------------------------------------------------------------------------
-QList<QString> Import_PNG::extensions(void) {
-	QList<QString> l;
-	l.push_back("png");
-//	l.push_back("png_b");
-	return l;
+std::list<std::string> Import_PNG::extensions(void) {
+	return std::list<std::string> {
+		"png"
+	};
 }
 
 Import_PNG::Import_PNG(string fname) {
@@ -232,7 +231,7 @@ std::unique_ptr<Area> Import_PNG::load_image(Metadata *metadata, bool is_thumb) 
 		png_destroy_read_struct(&ptr_png_struct, &ptr_png_info, (png_infopp)nullptr);
 	} catch(const char *msg) {
 		if(area != nullptr)
-			area.reset(nullptr);
+			area.reset();
 		// try to process error message if any
 		cerr << "import PNG \"" << file_name.c_str() << "\" failed: " << msg << endl;
 	}
@@ -257,7 +256,7 @@ std::unique_ptr<Area> Import_PNG::load_image(Metadata *metadata, bool is_thumb) 
 				break;
 			}
 		}
-		QString ext = QString::fromLocal8Bit(extension.c_str()).toLower();
+		QString ext = QString::fromStdString(extension).toLower();
 		if(ext == QString("png_b"))
 			area = convert_to_bayer(metadata, area);
 	}

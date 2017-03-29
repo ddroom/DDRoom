@@ -22,6 +22,8 @@
 #include "photo.h"
 #include "filter.h"
 
+#include "import.h"
+
 #include <exiv2/xmp.hpp>
 #include <exiv2/error.hpp>
 
@@ -42,6 +44,17 @@ void init_libraries(void) {
 	// do all initializations, with splash screen, here
 	// TODO: call math initialize here 
 	compression_function(1.0, 1.0);
+}
+
+void unit_tests(void) {
+	try {
+		Import::unit_test();
+	} catch(std::string error) {
+		cerr << endl;
+		cerr << "FATAL, test failed: " << error << endl;
+		cerr << endl;
+		terminate();
+	}
 }
 
 //------------------------------------------------------------------------------
@@ -74,7 +87,8 @@ int main(int argc, char *argv[]) {
 	#endif
 #endif
 */
-		//
+		unit_tests();
+
 		init_libraries();
 		if(argc != 1) {
 			if(parse_arguments(argc, argv))

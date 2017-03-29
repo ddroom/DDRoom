@@ -596,17 +596,17 @@ void Saturation_Gamut::_sgt_save(void) {
 	QString cm_name = CM::get_type_name(cm_type).c_str();
 	QString sgt_folder = Config::get_cache_location();
 	// skip save to avoid conflicts with "sgt_viewer"
-	if(sgt_folder == "")
+	if(sgt_folder.isEmpty())
 		return;
 	
 	QString ofile_name = sgt_folder + cm_name + "-" + cs_name.c_str() + GAMUT_SATURATION_TABLE_FS_EXT;
-//cerr << "save to: \"" << ofile_name.toLocal8Bit().data() << "\"" << endl;
+//cerr << "save to: \"" << ofile_name.toStdString() << "\"" << endl;
 	QFile ofile(ofile_name);
 	if(!ofile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
 		cerr << "can't save SGT" << endl;
 		return;
 	}
-//cerr << "save to: \"" << ofile_name.toLocal8Bit().data() << "\"" << endl;
+//cerr << "save to: \"" << ofile_name.toStdString() << "\"" << endl;
 
 	QXmlStreamWriter sgt(&ofile);
 	sgt.setAutoFormatting(true);
@@ -709,21 +709,21 @@ bool Saturation_Gamut::_sgt_load(CM::cm_type_en _cm_type, std::string _cs_name) 
 				size_J = attributes.value("resolution_J").toString().toInt(&ok);
 				if(!ok)
 					return false;
-//				cerr << "table size_J == " << attributes.value("resolution_J").toString().toLocal8Bit().data() << endl;;
+//				cerr << "table size_J == " << attributes.value("resolution_J").toString().toStdString() << endl;;
 			}
 			if(attributes.hasAttribute("resolution_s")) {
 				bool ok = false;
 				size_s = attributes.value("resolution_s").toString().toInt(&ok);
 				if(!ok)
 					return false;
-//				cerr << "table size_s == " << attributes.value("resolution_s").toString().toLocal8Bit().data() << endl;;
+//				cerr << "table size_s == " << attributes.value("resolution_s").toString().toStdString() << endl;;
 			}
 			if(attributes.hasAttribute("resolution_h")) {
 				bool ok = false;
 				size_h = attributes.value("resolution_h").toString().toInt(&ok);
 				if(!ok)
 					return false;
-//				cerr << "table size_h == " << attributes.value("resolution_h").toString().toLocal8Bit().data() << endl;;
+//				cerr << "table size_h == " << attributes.value("resolution_h").toString().toStdString() << endl;;
 			}
 			continue;
 		}

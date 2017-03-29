@@ -17,7 +17,7 @@
 //------------------------------------------------------------------------------
 class Import_Raw : public Import_Performer {
 public:
-	static QList<QString> extensions(void);
+	static std::list<std::string> extensions(void);
 	Import_Raw(std::string file_name);
 	QImage thumb(Metadata *metadata, int thumb_width, int thumb_height);
 	std::unique_ptr<Area> image(class Metadata *metadata);

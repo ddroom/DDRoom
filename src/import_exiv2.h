@@ -14,7 +14,6 @@
 #include <exiv2/preview.hpp>
 
 #include <string>
-//#include <stdint.h>
 
 uint8_t *Exiv2_load_thumb(std::string filename, int thumb_width, int thumb_height, long &length, class Metadata *metadata = nullptr);
 bool Exiv2_load_metadata(std::string file_name, class Metadata *metadata);

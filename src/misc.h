@@ -29,8 +29,9 @@ public:
 		s_demosaic,
 		s_wb,
 		s_chromatic_aberration,
-		s_projection,
+		s_vignetting,
 		s_distortion,
+		s_projection,
 		s_shift,
 		s_rotation,
 		s_crop,
@@ -54,13 +55,19 @@ public:
 
 //--
 namespace ddr {
-/*
-template<class T> inline void swap(T &arg1, T &arg2) {
-	T t = arg1;
-	arg1 = arg2;
-	arg2 = t;
+
+template<class T, class V> bool contains(const T &container, const V &value) {
+	return std::find(container.cbegin(), container.cend(), value) != container.cend();
 }
-*/
+
+inline std::string to_lower(const std::string &in) {
+	const size_t l = in.length();
+	std::string out(l, ' ');
+	for(int i = 0; i < l; ++i)
+		out[i] = std::tolower(in[i]);
+	return out;
+}
+
 template<class T> inline const T& max(const T& arg1, const T& arg2) {
 	return (arg1 > arg2 ? arg1 : arg2);
 }

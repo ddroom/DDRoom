@@ -9,7 +9,7 @@
 
 /*
  * NOTE:
-	- generated mutators: '_p_online' -> bool, '_p_thumb' -> bool;
+	- generated mutators: '_p_thumb' -> bool;
 
  * TODO:
 	- do a real cache - remember the last source of reprocessing and for the next time
@@ -111,75 +111,65 @@ void Process::quit(void) {
 //------------------------------------------------------------------------------
 class filter_record_t {
 public:
-	filter_record_t(void);
-	Filter *filter;
-	FilterProcess *fp;
-	FilterProcess_2D *fp_2d;
+	Filter *filter = nullptr;
+	FilterProcess *fp = nullptr;
+	FilterProcess_2D *fp_2d = nullptr;
 	std::shared_ptr<PS_Base> ps_base;
-	bool fp_is_wrapper;
+	std::shared_ptr<FilterProcess> wrapper_holder;
+	bool use_tiling = true;
+	bool cache_result = false;
 };
-
-filter_record_t::filter_record_t(void) {
-	filter = nullptr;
-	fp = nullptr;
-	fp_2d = nullptr;
-	fp_is_wrapper = false;
-}
 
 class Process::task_run_t {
 public:
-	~task_run_t();
-
-	bool bad_alloc = false;
-
 	bool update;
-	Area *area_transfer = nullptr;
-	std::shared_ptr<Photo_t> photo;
-	TilesReceiver *tiles_receiver = nullptr;
-	bool scale_override = false;
-	Area::format_t out_format;
 	bool is_offline;
-	bool is_inactive;	// some filters should know how process is run - like for histogram update etc...
+	std::shared_ptr<Photo_t> photo;
+	Area *area_transfer = nullptr;
+	TilesReceiver *tiles_receiver = nullptr;
+	Area::format_t out_format;
 
 	int request_ID = 0;	// ID of request
 	volatile bool to_abort = false;	// shared flag of abortion
-	Process_t *process_obj = nullptr;
+//	Process_t *process_obj = nullptr;
+	std::unique_ptr<Process_t> process_obj;
 
-	// TODO: change to vector, with 0 initial size
-	list<filter_record_t> filter_records[2];	// 0 - thumbnail, 1 - tiles
+	// results
+	bool bad_alloc = false;
+
+	// inner
+	// 0 - For thumbnail and 'size_forward' processing, 'whole' and wrapped 'tiled' enabled filters.
+	// 1 - For tiles (deferred too) processing, wrapped 'tiled' enabled filters.
+	std::vector<filter_record_t> filter_records[2];
 	DataSet *mutators = nullptr;
 	DataSet *mutators_multipass = nullptr;
 	TilesDescriptor_t *tiles_request = nullptr;
 	int tile_index = -1;
 
-	bool _s_raw_colors = false;
 };
-
-Process::task_run_t::~task_run_t() {
-	// delete all FilterProcess_CP_Wrapper
-	for(int fi = 0; fi < 2; ++fi) {
-		for(list<filter_record_t>::iterator it = filter_records[fi].begin(); it != filter_records[fi].end(); ++it)
-			if((*it).fp_is_wrapper)
-				delete (*it).fp;
-	}
-}
 
 //------------------------------------------------------------------------------
 class ProcessCache_t : public PhotoCache_t {
 public:
-	std::unique_ptr<Area> area_demosaic;
-	// specialized cache for F_WB, should it be replaced with 'generalized' caching system (?)
-	std::unique_ptr<Area> area_wb;
+	map<class FilterProcess *, std::shared_ptr<Area>> filters_area_cache;
 	map<class FilterProcess *, std::unique_ptr<FP_Cache_t>> filters_cache;
+
+	class FilterProcess *cache_fp_for_second_pass = nullptr;
+	std::shared_ptr<Area> cached_area_for_second_pass; // could hold Area from 'filters_area_cache'
+
+	void local_clear(void); // release pass-between area cache ASAP
 };
 
+void ProcessCache_t::local_clear(void) {
+	cache_fp_for_second_pass = nullptr;
+	cached_area_for_second_pass.reset();
+}
+
 //void Process::allocate_process_caches(list<filter_record_t> &filters, Photo_t *photo) {
-void Process::allocate_process_caches(list<filter_record_t> &filters, std::shared_ptr<Photo_t> photo) {
-	// cache for this process routine
-	if(photo->cache_process == nullptr) {
+void Process::allocate_process_caches(const std::vector<filter_record_t> &filters, std::shared_ptr<Photo_t> photo) {
+	if(photo->cache_process == nullptr)
 		photo->cache_process = new ProcessCache_t();
-	}
-//cerr << "allocated photo->cache_process == " << (unsigned long)photo->cache_process << endl;
+
 	// create caches for filters here - transfer to filters caches via ready pointers;
 	// here - obtain cache pointers from filters via virtual method of Filter::
 	ProcessCache_t *pc = (ProcessCache_t *)photo->cache_process;
@@ -194,17 +184,43 @@ void Process::allocate_process_caches(list<filter_record_t> &filters, std::share
 //  - change values of pixel;
 //  - change input pixel coordinates for resampling (rotation and other field deformations);
 // and those filters don't need to know values (coordinates or actual values) of neighbors.
-void Process::assign_filters(list<filter_record_t> &filters, task_run_t *task) {
+//void Process::wrap_filters(const std::list<filter_record_t> &filters, task_run_t *task) {
+void Process::wrap_filters(const std::vector<filter_record_t> &filters, task_run_t *task) {
+	// prepare list of 'whole' filters for thumbnail processing
+	for(auto el : filters) {
+		const bool is_thumb = true;
+		if(el.use_tiling == false && el.fp->fp_type(is_thumb) == FilterProcess::fp_type_2d) {
+			filter_record_t r = el;
+			bool enabled = r.fp->is_enabled(r.ps_base.get());
+			if(!enabled)
+				continue;
+			r.fp_2d = (FilterProcess_2D *)r.fp->get_ptr(is_thumb); // get fp as for thumb
+			task->filter_records[0].push_back(r);
+//			task->filters_whole.push_back(r);
+		}
+	}
+
+	// prepare list of 'tiled' filters
 	ProcessCache_t *process_cache = (ProcessCache_t *)task->photo->cache_process;
+//	const int pass_max = task->thumbnail_only ? 1 : 2;
+//	const int pass_max = 2;
+//	for(int pass = 0; pass < pass_max; ++pass) {
 	for(int pass = 0; pass < 2; ++pass) {
-		vector<class FP_GP_Wrapper_record_t> gp_wrapper_records = vector<class FP_GP_Wrapper_record_t>();
-		vector<class FP_CP_Wrapper_record_t> cp_wrapper_records = vector<class FP_CP_Wrapper_record_t>();
+		vector<class FP_GP_Wrapper_record_t> gp_wrapper_records;
+		vector<class FP_CP_Wrapper_record_t> cp_wrapper_records;
 		bool gp_wrapper_resampling = false;
 		bool gp_wrapper_force = false;
-		bool flag_crgb = false;
-		for(list<filter_record_t>::const_iterator it = filters.begin(); true; ++it) {
+//		bool flag_crgb = false;
+		bool flag_crgb = true;
+		for(vector<filter_record_t>::const_iterator it = filters.cbegin(); true; ++it) {
+			if(it != filters.cend()) {
+				if(!(*it).use_tiling) {
+//cerr << "skip FP: " << (*it).fp->name() << endl;
+					continue;
+				}
+			}
 			FilterProcess::fp_type_en filter_type = FilterProcess::fp_type_unknown;
-			if(it != filters.end())
+			if(it != filters.cend())
 				filter_type = (*it).fp->fp_type(pass == 0);
 			// check if we need to add GP_Wrapper for resampling
 			if(!gp_wrapper_resampling) {
@@ -214,33 +230,31 @@ void Process::assign_filters(list<filter_record_t> &filters, task_run_t *task) {
 					gp_wrapper_resampling = true;
 				}
 			}
-			// create a new GP wrapper if necessary, and add into processing chain
-//`			if(gp_wrapper_force || (gp_wrapper_records.size() > 0 && filter_type != FilterProcess::fp_type_gp && filter_type != FilterProcess::fp_type_2d)) {
+
+			// create a new GP wrapper
 			if(gp_wrapper_force || (gp_wrapper_records.size() > 0 && filter_type != FilterProcess::fp_type_gp)) {
-//				gp_wrapper_resampling = true;
+//cerr << "!!! gp_wrapper_force !!! " << endl;
 				gp_wrapper_force = false;
-				FilterProcess_GP_Wrapper *wrapper = new FilterProcess_GP_Wrapper(gp_wrapper_records);
-//cerr << "==============================  add wrapper for filters: " << cp_wrapper_records.size() << " and pass == " << pass << endl;
-				gp_wrapper_records = vector<class FP_GP_Wrapper_record_t>();
 				filter_record_t r;
-				r.fp_is_wrapper = true;
+				r.wrapper_holder.reset(new FilterProcess_GP_Wrapper(gp_wrapper_records));
+				gp_wrapper_records.clear();
 				r.filter = nullptr;
-				r.fp = wrapper;
+				r.fp = r.wrapper_holder.get();
 				r.fp_2d = (FilterProcess_2D *)r.fp->get_ptr(pass == 0);
 				task->filter_records[pass].push_back(r);
 			}
-			// create a new CP wrapper if necessary, and add into processing chain
+
+			// create a new CP wrapper
 			if(cp_wrapper_records.size() > 0 && filter_type != FilterProcess::fp_type_cp) {
-				FilterProcess_CP_Wrapper *wrapper = new FilterProcess_CP_Wrapper(cp_wrapper_records);
-//cerr << "==============================  add wrapper for filters: " << cp_wrapper_records.size() << " and pass == " << pass << endl;
-				cp_wrapper_records = vector<class FP_CP_Wrapper_record_t>();
 				filter_record_t r;
-				r.fp_is_wrapper = true;
+				r.wrapper_holder.reset(new FilterProcess_CP_Wrapper(cp_wrapper_records));
+				cp_wrapper_records.clear();
 				r.filter = nullptr;
-				r.fp = wrapper;
+				r.fp = r.wrapper_holder.get();
 				r.fp_2d = (FilterProcess_2D *)r.fp->get_ptr(pass == 0);
 				task->filter_records[pass].push_back(r);
 			}
+
 			// analyze next filter if any
 			if(it == filters.end())
 				break;
@@ -272,106 +286,215 @@ void Process::assign_filters(list<filter_record_t> &filters, task_run_t *task) {
 			// add 2D filter into processing chain
 			if(filter_type == FilterProcess::fp_type_2d) {
 				filter_record_t r = *it;
-				r.fp_is_wrapper = false;
 				r.fp_2d = (FilterProcess_2D *)r.fp->get_ptr(pass == 0);
 				task->filter_records[pass].push_back(r);
 			}
-//			flag_crgb = ((*it).filter->id() == string("F_Demosaic"));
-			flag_crgb = ((*it).filter->id() == string("F_WB"));
-//			flag_crgb |= ((*it).filter->id() == string("F_WB"));
+//			flag_crgb = ((*it).filter->id() == std::string("F_WB"));
 		}
 	}
 }
 
 //------------------------------------------------------------------------------
-// call from Edit
-bool Process::process_online(void *ptr, std::shared_ptr<Photo_t> photo, int request_ID, bool is_inactive, TilesReceiver *tiles_receiver, map<Filter *, std::shared_ptr<PS_Base> > map_ps_base) {
-	ID_add(request_ID);
-	// TODO: register (thread-safe, with lock) tasks in some list, and then use flag to abort processing at request (i.e. UI parameters change during slow tiles processing)
-	// use request ID to identify process to abort
-//cerr << "   run() on " << photo->file_name << endl;
-//cerr << "   process_online()" << endl;
-//cerr << "   request_ID == " << request_ID << endl;
-	Process::task_run_t task;
-	task.update = true;
-	task.out_format = Area::format_t::bgra_8;
-	task.is_offline = false;
-	task.is_inactive = is_inactive;
-	task.tiles_receiver = tiles_receiver;
-	task.request_ID = request_ID;
+// Helper for 'edit'.
+// Should be moved somewhere outside.
+bool Process::process_edit(void *ptr, std::shared_ptr<Photo_t> photo, int request_ID, TilesReceiver *tiles_receiver, std::map<Filter *, std::shared_ptr<PS_Base>> map_ps_base) {
+	Process_task_t process_task;
+	process_task.photo = photo;
+	process_task.request_ID = request_ID;
+	process_task.tiles_receiver = tiles_receiver;
+
+	std::vector<class Filter_process_desc_t> &filters_desc = process_task.filters_desc;
+	for(auto el : fstore->get_filters_whole()) {
+		Filter_process_desc_t desc{el};
+		desc.use_tiling = false;
+		desc.cache_result = false;
+//		if(el->id() == "F_WB" || el->id() == "F_Demosaic")
+		if(el->get_id() == ProcessSource::s_wb || el->get_id() == ProcessSource::s_demosaic)
+			desc.cache_result = true;
+		filters_desc.push_back(desc);
+	}
+	for(auto el : fstore->get_filters_tiled()) {
+		Filter_process_desc_t desc{el};
+		desc.use_tiling = true;
+		filters_desc.push_back(desc);
+	}
+
+	process_task.map_ps_base = map_ps_base;
+
+	process_task.update = true;
+	process_task.is_offline = false;
+	process_task.out_format = Area::format_t::bgra_8;
 
 	PhotoProcessed_t *photo_processed = new PhotoProcessed_t();
 	photo_processed->is_empty = true;
 
+	process_task.priority = Flow::priority_online_interactive;
+	if(photo->process_source == ProcessSource::s_load)
+		process_task.priority = Flow::priority_online_open;
+
+	Process::process(&process_task);
+
+	photo_processed->is_empty = process_task.failed;
+	photo_processed->rotation = process_task.result_cw_rotation;
+	photo_processed->update = process_task.result_update;
+	emit signal_process_complete(ptr, photo_processed);
+	if(process_task.failed) {
+		if(process_task.failed_oom) {
+			OOM_desc_t *OOM_desc = new OOM_desc_t;
+			OOM_desc->photo_id = photo->photo_id;
+			OOM_desc->at_export = false;
+			OOM_desc->at_open_stage = process_task.failed_at_import;
+			emit signal_OOM_notification((void *)OOM_desc);
+		}
+	}
+	return !process_task.failed;
+}
+
+//------------------------------------------------------------------------------
+// Helper for 'export'.
+// Should be moved somewhere outside.
+bool Process::process_export(Photo_ID photo_id, string fname_export, export_parameters_t *ep) {
+	if(photo_id.is_empty())
+		return false;
+
+	Profiler prof(string("Batch for ") + photo_id.get_export_file_name());
+	prof.mark("export");
+
+	std::shared_ptr<Photo_t> photo(new Photo_t());
+	photo->process_source = ProcessSource::s_process_export;
+	photo->photo_id = photo_id;
+
+	Process_task_t process_task;
+	process_task.photo = photo;
+	process_task.request_ID = Process::newID();
+
+	std::vector<class Filter_process_desc_t> &filters_desc = process_task.filters_desc;
+	for(auto el : fstore->get_filters_whole()) {
+		Filter_process_desc_t desc{el};
+		desc.use_tiling = false;
+		desc.cache_result = false;
+		filters_desc.push_back(desc);
+	}
+	for(auto el : fstore->get_filters_tiled()) {
+		Filter_process_desc_t desc{el};
+		desc.use_tiling = true;
+		filters_desc.push_back(desc);
+	}
+
+	process_task.update = false;
+	process_task.is_offline = true;
+	process_task.priority = Flow::priority_offline;
+	const bool ep_alpha = ep->alpha();
+	const int ep_bits = ep->bits();
+	if(ep_alpha)
+		process_task.out_format = ((ep_bits == 16) ? Area::format_t::rgba_16 : Area::format_t::rgba_8);
+	else
+		process_task.out_format = ((ep_bits == 16) ? Area::format_t::rgb_16 : Area::format_t::rgb_8);
+
+	// load filter settings
+	std::unique_ptr<PS_Loader> ps_loader(new PS_Loader(photo_id));
+	if(!ps_loader->cw_rotation_empty())
+		photo->cw_rotation = ps_loader->get_cw_rotation();
+	else {
+		// TODO: think how to load just CW rotation in here
+		Metadata metadata;
+		Import::load_metadata(photo_id.get_file_name(), &metadata);
+		photo->cw_rotation = metadata.rotation;
+		ps_loader->set_cw_rotation(photo->cw_rotation);
+	}
+	std::unique_ptr<TilesReceiver> tiles_receiver;
+	if(ep->scaling_force)
+		tiles_receiver = std::unique_ptr<TilesReceiver>(new TilesReceiver(!ep->scaling_to_fill, ep->scaling_width, ep->scaling_height));
+	else
+		tiles_receiver = std::unique_ptr<TilesReceiver>(new TilesReceiver());
+	process_task.tiles_receiver = tiles_receiver.get();
+	process_task.tiles_receiver->use_tiling(true, photo->cw_rotation, process_task.out_format);
+	process_task.tiles_receiver->set_request_ID(process_task.request_ID);
+
+	std::map<Filter *, std::shared_ptr<PS_Base>> &map_ps_base = process_task.map_ps_base;
+	for(auto el : process_task.filters_desc) {
+		Filter *filter = el.filter;
+		PS_Base *ps = filter->newPS();
+		DataSet *dataset = ps_loader->get_dataset(filter->id());
+		ps->load(dataset);
+		map_ps_base[filter] = std::move(std::shared_ptr<PS_Base>(ps));
+	}
+	ps_loader.reset();
+
+	Process::process(&process_task);
+	photo->area_raw.reset();
+
+	if(process_task.failed) {
+		if(process_task.failed_oom) {
+			OOM_desc_t *OOM_desc = new OOM_desc_t;
+			OOM_desc->photo_id = photo->photo_id;
+			OOM_desc->at_export = false;
+			OOM_desc->at_open_stage = process_task.failed_at_import;
+			emit signal_OOM_notification((void *)OOM_desc);
+		}
+	} else {
+		Export::export_photo(fname_export, tiles_receiver->area_image, tiles_receiver->area_thumb, ep, photo->cw_rotation, photo->metadata);
+	}
+	prof.mark("");
+	return !process_task.failed;
+}
+
+//------------------------------------------------------------------------------
+bool Process::process(Process_task_t *process_task) {
+	ID_add(process_task->request_ID);
+
+	Process::task_run_t task;
+	task.request_ID = process_task->request_ID;
+	task.photo = process_task->photo;
+	task.update = process_task->update;
+	task.out_format = process_task->out_format;
+	task.is_offline = process_task->is_offline;
+	task.tiles_receiver = process_task->tiles_receiver;
+
 	// import photo if necessary
-	bool bad_alloc;
-	if(photo->process_source == ProcessSource::s_load) {
-		photo->metadata = new Metadata;
-		// TODO: move to the one place
-		bad_alloc = false;
+	bool bad_alloc = false;
+	bool import = false;
+	import |= (task.photo->process_source == ProcessSource::s_load);
+	import |= (task.photo->process_source == ProcessSource::s_process_export);
+	if(import || task.photo->area_raw == nullptr) {
 		try {
-			photo->area_raw = std::unique_ptr<Area>(Import::image(photo->photo_id.get_file_name(), photo->metadata));
+			if(task.photo->metadata == nullptr)
+				task.photo->metadata = new Metadata;
+			task.photo->area_raw = std::unique_ptr<Area>(Import::image(task.photo->photo_id.get_file_name(), task.photo->metadata));
 		} catch(Area::bad_alloc) {
 			bad_alloc = true;
 		} catch(std::bad_alloc) {
 			bad_alloc = true;
 		}
-		if(bad_alloc) {
-			OOM_desc_t *OOM_desc = new OOM_desc_t;
-			OOM_desc->photo_id = photo->photo_id;
-			OOM_desc->at_export = false;
-			OOM_desc->at_open_stage = (photo->process_source == ProcessSource::s_load);
-			emit signal_OOM_notification((void *)OOM_desc);
-		}
-//cerr << "photo->area_raw == " << (unsigned long)photo->area_raw << endl;
-		if(photo->area_raw == nullptr || bad_alloc) {
-cerr << "decline processing task, failed to import \"" << photo->photo_id.get_export_file_name() << "\"" << endl;
-			emit signal_process_complete(ptr, photo_processed);
+		if(task.photo->area_raw == nullptr || bad_alloc) {
+			process_task->failed = true;
+			process_task->failed_oom = bad_alloc;
+			process_task->failed_at_import = true;
+cerr << "decline processing task, failed to import \"" << task.photo->photo_id.get_export_file_name() << "\"" << endl;
+			ID_remove(process_task->request_ID);
 			return false;
 		}
 		task.update = false;
 	}
-	task.photo = photo;
 
-	// check control filter for skipping some other filters
-	DataSet controls;
-	std::list<Filter *> filters_list = fstore->get_filters_list();
-	for(auto el : filters_list) {
-		if(el->type() == Filter::t_control) {
-			Filter_Control *fc = (Filter_Control *)el;
-			fc->get_mutators(&controls);
-		}
-	}
-	controls.get("_s_raw_colors", task._s_raw_colors);
-
-	// create filters list
-	list<filter_record_t> filter_records;
-	for(auto el : filters_list) {
-		if(el->type() == Filter::t_control)
-			continue;
-		if(task._s_raw_colors)
-			if(el->type() == Filter::t_color || el->type() == Filter::t_wb)
-				continue;
+	// prepare filters list
+	std::vector<filter_record_t> filter_records;
+	for(auto el : process_task->filters_desc) {
 		filter_record_t filter_record;
-		filter_record.filter = el;
-		filter_record.fp = el->getFP();
-		// TODO: separate edit update and real process; move edit to size_forward routine, or somewhere else...
-		//	- check on 'f_crop'
-		filter_record.ps_base = map_ps_base[el];
-		// here filter can determine its passes tpe - single or two;
+		filter_record.filter = el.filter;
+		filter_record.fp = el.filter->getFP();
+		filter_record.ps_base = process_task->map_ps_base[el.filter];
+		filter_record.use_tiling = el.use_tiling;
+		filter_record.cache_result = el.cache_result;
 		filter_records.push_back(filter_record);
 	}
-	allocate_process_caches(filter_records, photo);
-	assign_filters(filter_records, &task);
-//cerr << "task == " << (unsigned long)(void *)(task) << endl;
-//cerr << "photo == " << (unsigned long)(void *)(photo) << endl;
-//cerr << "photo->area_raw == " << (unsigned long)(void *)(task->photo->area_raw) << endl;
+	allocate_process_caches(filter_records, task.photo);
+	wrap_filters(filter_records, &task);
 
+	// apply filters
 	bad_alloc = false;
 	try {
-		// apply filters
-		Flow::priority_t priority = task.update ? Flow::priority_online_interactive : Flow::priority_online_open;
-		Flow flow(priority, Process::subflow_run_mt, nullptr, (void *)&task);
+		Flow flow(process_task->priority, Process::subflow_run_mt, nullptr, (void *)&task);
 		flow.flow();
 		bad_alloc = task.bad_alloc;
 	} catch(Area::bad_alloc) {
@@ -380,152 +503,15 @@ cerr << "decline processing task, failed to import \"" << photo->photo_id.get_ex
 		bad_alloc = true;
 	}
 
-	// a real result should be handled by View via TilesReceiver; signal 'signal_process_complete' should be send from the other place
-	photo_processed->is_empty = false;
-	photo_processed->rotation = photo->cw_rotation;
-	photo_processed->update = task.update;
-	emit signal_process_complete(ptr, photo_processed);
 	ID_remove(task.request_ID);
-//	delete task;
+
 	if(bad_alloc) {
-		OOM_desc_t *OOM_desc = new OOM_desc_t;
-		OOM_desc->photo_id = photo->photo_id;
-		OOM_desc->at_export = false;
-		OOM_desc->at_open_stage = (photo->process_source == ProcessSource::s_load);
-		emit signal_OOM_notification((void *)OOM_desc);
+		process_task->failed = true;
+		process_task->failed_oom = true;
 		return false;
 	}
-	return true;
-}
-
-//------------------------------------------------------------------------------
-bool Process::process_export(Photo_ID photo_id, string fname_export, export_parameters_t *ep) {
-	if(photo_id.is_empty())
-		return false;
-//Mem::state_reset();
-//cerr << "process_export() on " << photo_id << endl;
-	Process::task_run_t task;
-	task.is_offline = true;
-	task.update = false;
-//	task.out_format = Area::format_t::rgb_8;
-	task.request_ID = Process::newID();
-	ID_add(task.request_ID);
-	const bool ep_alpha = ep->alpha();
-	const int ep_bits = ep->bits();
-	if(ep_alpha)
-		task.out_format = ((ep_bits == 16) ? Area::format_t::rgba_16 : Area::format_t::rgba_8);
-	else
-		task.out_format = ((ep_bits == 16) ? Area::format_t::rgb_16 : Area::format_t::rgb_8);
-
-Profiler prof(string("Batch for ") + photo_id.get_export_file_name());
-prof.mark("load RAW");
-
-	std::shared_ptr<Photo_t> photo(new Photo_t());
-	task.photo = photo;
-	photo->process_source = ProcessSource::s_process_export;
-	photo->metadata = new Metadata;
-	photo->photo_id = photo_id;
-	bool bad_alloc = false;
-	try {
-		photo->area_raw = std::unique_ptr<Area>(Import::image(photo->photo_id.get_file_name(), photo->metadata));
-	} catch(Area::bad_alloc) {
-		bad_alloc = true;
-	} catch(std::bad_alloc) {
-		bad_alloc = true;
-	}
-	if(bad_alloc) {
-		OOM_desc_t *OOM_desc = new OOM_desc_t;
-		OOM_desc->photo_id = photo->photo_id;
-		OOM_desc->at_export = true;
-		emit signal_OOM_notification((void *)OOM_desc);
-	}
-	if(photo->area_raw == nullptr || bad_alloc) {
-		delete task.tiles_receiver;
-		return false;
-	}
-
-	// check control filter for skipping some other filters
-	PS_Loader *ps_loader = new PS_Loader(photo_id);	// load settings
-
-	photo->cw_rotation = photo->metadata->rotation;
-	if(!ps_loader->cw_rotation_empty())
-		photo->cw_rotation = ps_loader->get_cw_rotation();
-	else
-		ps_loader->set_cw_rotation(photo->cw_rotation);
-
-
-	if(ep->scaling_force) {
-		task.tiles_receiver = new TilesReceiver(!ep->scaling_to_fill, ep->scaling_width, ep->scaling_height);
-		task.scale_override = true;
-	} else {
-		task.tiles_receiver = new TilesReceiver();
-	}
-	task.tiles_receiver->use_tiling(true, photo->cw_rotation, task.out_format);
-	task.tiles_receiver->set_request_ID(task.request_ID);
-
-//cerr << "offline ps_loader->serialize() == " << ps_loader->serialize() << endl;
-	DataSet controls;
-	std::list<Filter *> filters_list = fstore->get_filters_list(false);
-	for(auto el : filters_list) {
-		if(el->type() == Filter::t_control) {
-			DataSet *ps_dataset = ps_loader->get_dataset(el->id());
-			Filter_Control *fc = (Filter_Control *)el;
-			fc->get_mutators(&controls, ps_dataset);
-		}
-	}
-	controls.get("_s_raw_colors", task._s_raw_colors);
-
-	// create filters list
-	list<filter_record_t> filter_records;
-	for(auto el : filters_list) {
-		if(el->type() == Filter::t_control)
-			continue;
-		if(task._s_raw_colors)
-			if(el->type() == Filter::t_color || el->type() == Filter::t_wb)
-				continue;
-		filter_record_t filter_record;
-		filter_record.filter = el;
-		filter_record.fp = el->getFP();
-		filter_record.ps_base = std::shared_ptr<PS_Base>(el->newPS());
-		DataSet *dataset = ps_loader->get_dataset(el->id());
-		filter_record.ps_base->load(dataset);
-		filter_records.push_back(filter_record);
-	}
-	allocate_process_caches(filter_records, photo);
-	assign_filters(filter_records, &task);
-	delete ps_loader;
-
-prof.mark("filters");
-	bad_alloc = false;
-	try {
-		Flow flow(Flow::priority_offline, Process::subflow_run_mt, nullptr, (void *)&task);
-		flow.flow();
-		bad_alloc = task.bad_alloc;
-	} catch(Area::bad_alloc) {
-		bad_alloc = true;
-	} catch(std::bad_alloc) {
-		bad_alloc = true;
-	}
-
-	photo->area_raw.reset(nullptr);
-
-prof.mark("export");
-	// TODO: check Area geometry
-	if(!bad_alloc)
-		Export::export_photo(fname_export, task.tiles_receiver->area_image, task.tiles_receiver->area_thumb, ep, photo->cw_rotation, photo->metadata);
-
-prof.mark("");
-	ID_remove(task.request_ID);
-	delete task.tiles_receiver;
-//Mem::state_print();
-//Mem::state_reset(false);
-	if(bad_alloc) {
-		OOM_desc_t *OOM_desc = new OOM_desc_t;
-		OOM_desc->photo_id = photo->photo_id;
-		OOM_desc->at_export = true;
-		emit signal_OOM_notification((void *)OOM_desc);
-		return false;
-	}
+	process_task->result_cw_rotation = process_task->photo->cw_rotation;
+	process_task->result_update = task.update;
 	return true;
 }
 
@@ -544,221 +530,168 @@ void Process::subflow_run_mt(void *obj, SubFlow *subflow, void *data) {
 		task_run_t *task = (task_run_t *)data;
 		task->bad_alloc = true;
 	}
-}
-
-//------------------------------------------------------------------------------
-// return PS_Base for Filter
-PS_Base *ps_fr(Filter *filter, list<filter_record_t> &filter_records) {
-	for(list<filter_record_t>::iterator it = filter_records.begin(); it != filter_records.end(); ++it) {
-		if((*it).filter == filter)
-			return (*it).ps_base.get();
+	// clean up
+	if(subflow->is_main()) {
+		task_run_t *task = (task_run_t *)data;
+		((ProcessCache_t *)task->photo->cache_process)->local_clear();
 	}
-	return nullptr;
 }
 
 //------------------------------------------------------------------------------
-void Process::process_demosaic(SubFlow *subflow, void *data) {
-	Process::task_run_t *task = (Process::task_run_t *)data;
+// Determine cached area to be used, update filters list to process,
+// determine filter that result of should be cached between first and second passes.
+class Area *Process::prepare_cached_area(std::vector<filter_record_t> &filter_records, class task_run_t *task, const int pass, const bool is_main) {
+	const bool is_thumb = (pass == 0);
+	Area *last_cached_area = nullptr;
+
 	ProcessCache_t *process_cache = (ProcessCache_t *)task->photo->cache_process;
+	const ProcessSource::process process_source = task->photo->process_source;
+	std::vector<filter_record_t> &task_filter_records = task->filter_records[pass];
 
-	std::unique_ptr<Process_t> process_obj;
-	if(subflow->sync_point_pre()) {
-		// offline, for thumbnail processing
-		process_cache->area_demosaic.reset(nullptr);
-
-		task->area_transfer = task->photo->area_raw.get();
-		task->mutators = new DataSet();
-		task->mutators->set("_s_raw_colors", task->_s_raw_colors);
-
-		process_obj = std::unique_ptr<Process_t>(new Process_t);
-		process_obj->area_in = task->area_transfer;
-		process_obj->metadata = task->photo->metadata;
-		process_obj->mutators = task->mutators;
-		process_obj->allow_destructive = false;
-		task->process_obj = process_obj.get();
-	}
-	subflow->sync_point_post();
-
-	// ----
-//	Filter *demosaic = nullptr;
-	FilterProcess_2D *fp_demosaic = nullptr;
-//	PS_Base *ps_base;
-	// TODO: use different types of demosaic for thumbnail and thumbs
-	for(list<filter_record_t>::iterator it = task->filter_records[0].begin(); it != task->filter_records[0].end(); ++it) {
-		if((*it).filter->id() == string("F_Demosaic")) {
-//			demosaic = (*it).filter;
-			fp_demosaic = (*it).fp_2d;
-//			ps_base = (*it).ps_base.ptr();
+	// Determine what possible cached area use as input.
+	// TODO: add support of the caches for 'tiled' area too
+	filter_records.reserve(task_filter_records.size());
+	bool skip_cache = false;
+	int index = 0;
+	int index_cached_filter = -1;
+	for(int i = 0; i < task_filter_records.size(); ++i) {
+		if(task_filter_records[i].use_tiling) {
+			if(!is_thumb)
+				index = i;
 			break;
 		}
+		if(task_filter_records[i].filter->get_id() == process_source)
+			skip_cache = true;
+		// remember filter to cache from in the first pass for the second one
+		// and cache it even if there would be no other usable cached areas
+		if(!is_thumb && process_cache->cache_fp_for_second_pass == task_filter_records[i].fp)
+			index_cached_filter = i;
+		if(is_thumb && is_main)
+			process_cache->cache_fp_for_second_pass = task_filter_records[i].fp;
+		// get last accessible cache and reset now deprecated
+		if(task_filter_records[i].cache_result) {
+			auto cache_result = process_cache->filters_area_cache.find(task_filter_records[i].fp);
+			if(cache_result != process_cache->filters_area_cache.end()) {
+				if(skip_cache) {
+					process_cache->filters_area_cache.erase(cache_result);
+				} else {
+					last_cached_area = (*cache_result).second.get();
+//cerr << "last_cached_area for FP == " << task_filter_records[i].fp << " is: " << last_cached_area << endl;
+					index = i + 1;
+				}
+			}
+		}
 	}
-
-	MT_t mt_obj;
-	mt_obj.subflow = subflow;
-	Filter_t filter_obj;
-	Filter_Store *f_store = Filter_Store::instance();
-	filter_obj.ps_base = ps_fr((Filter *)f_store->f_demosaic, task->filter_records[0]);
-	filter_obj.filter = f_store->f_demosaic;
-
-//	std::unique_ptr<Area> u_ptr = fp_demosaic->process(&mt_obj, task->process_obj, &filter_obj);
-//	Area *a_demosaic = u_ptr.release();
-	std::unique_ptr<Area> a_demosaic = fp_demosaic->process(&mt_obj, task->process_obj, &filter_obj);
-
-	if(subflow->sync_point_pre()) {
-		process_cache->area_demosaic = std::move(a_demosaic);
-		delete task->mutators;
-//		cerr << "after demosaic size == " << a_demosaic->dimensions()->width() << " x " << a_demosaic->dimensions()->height() << endl;
+	if(index_cached_filter > index) {
+		index = index_cached_filter;
+		last_cached_area = process_cache->cached_area_for_second_pass.get();
 	}
-	subflow->sync_point_post();
+	// if there was no other caches for tiles use this one
+	if(!is_thumb && last_cached_area == nullptr) {
+		last_cached_area = process_cache->cached_area_for_second_pass.get();
+	}
+	if(last_cached_area != nullptr) {
+		if(is_thumb && is_main) {
+			process_cache->cache_fp_for_second_pass = nullptr;
+			if(process_cache->cached_area_for_second_pass == nullptr)
+				process_cache->cached_area_for_second_pass.reset(new Area(*last_cached_area));
+		}
+		// copy filters to process
+		for(int i = index; i < task_filter_records.size(); ++i) {
+			filter_records.push_back(task_filter_records[i]);
+		}
+	} else {
+		// no cache was found - process all filters
+		filter_records = task_filter_records;
+	}
+	return last_cached_area;
 }
 
 //------------------------------------------------------------------------------
 void Process::run_mt(SubFlow *subflow, void *data) {
 	Process::task_run_t *task = (Process::task_run_t *)data;
 	const bool is_main = subflow->is_main();
-	const bool online = !task->is_offline;
 	const ProcessSource::process process_source = task->photo->process_source;
+	std::unique_ptr<DataSet> mutators_multipass;
 	//--------------------------------------------------------------------------
 	Profiler *prof = nullptr;
 	if(subflow->sync_point_pre()) {
 		prof = new Profiler("Process");
-		Mem::state_reset();
-		task->mutators_multipass = new DataSet();
+//		Mem::state_reset();
+		mutators_multipass.reset(new DataSet());
+		task->mutators_multipass = mutators_multipass.get();
 	}
 	subflow->sync_point_post();
 	if(to_quit.load() != 0)
 		return;
+
 	ProcessCache_t *process_cache = (ProcessCache_t *)task->photo->cache_process;
-	//--------------------------------------------------------------------------
-	// do demosaic
-	bool to_process_demosaic = false;
-	if(process_source == ProcessSource::s_process_export || process_source == ProcessSource::s_load || process_source == ProcessSource::s_demosaic)
-		to_process_demosaic = true;
-	if(to_process_demosaic) {
-		// clean up demosaic and WB caches if any
-		if(is_main) {
-			process_cache->area_demosaic.reset(nullptr);
-			process_cache->area_wb.reset(nullptr);
-			prof->mark("Demosaic");
-			task->tiles_receiver->long_wait(true);
-		}
-		process_demosaic(subflow, data);
-		if(is_main) {
-			task->tiles_receiver->long_wait(false);
-		}			
-	}
-	//--------------------------------------------------------------------------
-	// NOTE WB: reset WB cache if necessary
-	bool process_wb = (process_source == ProcessSource::s_wb);
-	process_wb |= to_process_demosaic;
-	process_wb |= task->is_offline;
-	if(is_main && process_wb && process_cache->area_wb != nullptr)
-		process_cache->area_wb.reset(nullptr);
-	// create list of enabled filters: 
-	//   0 - thumbnail, 1 - tiles; (filters processing only)
-	//   2 - tiles & demosaic; ('size_forward' only)
-	list<class filter_record_t> pl_filters[3];
-	for(int fi = 0; fi < 3; ++fi) {
-		const int fr_i = (fi == 0) ? 0 : 1;
-//		cerr << "filters list, iteration == " << fi << endl;
-		for(list<filter_record_t>::iterator it = task->filter_records[fr_i].begin(); it != task->filter_records[fr_i].end(); ++it) {
-			Filter *filter = (*it).filter;
-			// skip demosaic filter
-			if(filter != nullptr) {
-				if(filter->type() == Filter::t_demosaic && fi != 2)
-					continue;
-				// NOTE WB: skip f_wb
-//				if(!process_wb && filter->id() == string("F_WB"))
-				if(filter->id() == string("F_WB")) {
-//				if(filter->id() == string("F_WB_2D")) {
-					if(!process_wb)	continue;
-//					if(!task->is_offline && fi != 0)	continue;
-					// use cached result of the F_WB thumb processing with tiles processing
-					if(fi == 1)	continue;
-				}
-			}
-			if((*it).fp->is_enabled((*it).ps_base.get())) {
-				// check type - 'CP' or '2D'; create wrapper for 'CP'
-				if((*it).fp->fp_type(fi == 0) == FilterProcess::fp_type_2d) {
-					pl_filters[fi].push_back(*it);
-//cerr << "  " << (*it).fp->name() << endl;
-				} else {
-				}
-			} else {
-			}
-		}
-	}
-	//--------------------------------------------------------------------------
-	// TODO: use this processing workflow:
-	//	1. process thumbnail with result size 256x256; in online mode - push result to View;
-	//	2.	- for online processing: ask view about desired size (according to the view scale)
-	//		- for offline processing: process with 1:1 desired scale
-	// adapt step 2 for tiles usage
-	// TODO: check process_source == s_view_tiles - dont'd update geometry, scales etc - just ask tiles via get_tiles and process them
-	Area::t_dimensions d_full_forward; // determine size of processed full-size image; used in View for correct Thumb rescaling
-	bool process_view_tiles = false; // true for deferred process of tiles that was out of view before signal 's_view_refresh'
-	if(process_source == ProcessSource::s_view_tiles)
-		process_view_tiles = true;
-	// ** call "size_forward()" through all enabled filters; result is geometry of photo as after processing with scale 1:1
-	// ** then register it at tiles receiver to be able correctly determine desired scaling factor later.
-	if(process_view_tiles == false) {
+	const bool process_deferred_tiles = (process_source == ProcessSource::s_view_tiles);
+
+	// determine size of processed full-size image; used in View for correct Thumb rescaling
+	Area::t_dimensions d_full_forward; // used from the 'main' thread
+
+	// true for deferred process of tiles that was out of view before signal 's_view_refresh'
+	if(process_deferred_tiles == false) {
 		if(subflow->sync_point_pre()) {
-			task->mutators = new DataSet();
-			task->mutators->set("_p_online", online);
+			// call "size_forward()" through all enabled filters; result is geometry of photo as after processing with scale 1:1
+			// then register it at tiles receiver to be able correctly determine desired scaling factor later.
+			DataSet mutators;
+			task->mutators = &mutators;
 			task->mutators->set("_p_thumb", false);
-			task->area_transfer = process_cache->area_demosaic.get();
-			// NOTE WB: use wb cache if any
-			if(process_cache->area_wb != nullptr)
-				task->area_transfer = process_cache->area_wb.get();
-			Area::t_dimensions d;
+
 			// image size will be as after processing with 1:1 scale
-			process_size_forward(task, pl_filters[2], d_full_forward);
+			Area::t_dimensions *d_in_ptr = task->photo->area_raw.get()->dimensions();
+			process_size_forward(d_full_forward, task, task->filter_records[0], d_in_ptr);
 			task->tiles_receiver->register_forward_dimensions(&d_full_forward);
-			delete task->mutators;
 			task->mutators = nullptr;
 		}
 		subflow->sync_point_post();
 	}
-	//  request set of tiles (from TilesReceiver) and process each in a line, in a two passes
+
+	//  Request set of tiles (from TilesReceiver) and process each in a line, in a two passes.
 	//  first pass - process thumbnail _THUMBNAIL_SIZE x _THUMBNAIL_SIZE on CPU only
 	//  second pass - process requested tiles
-	int iteration = (process_view_tiles) ? 1 : 0;
-	for(; iteration < 2; ++iteration) {
-//		if(is_main) cerr << "iteration == " << iteration << endl;
-		// NOTE: some ideas about possible tiles cache: useless for geometry filters, useful - for colors
+	int pass = (process_deferred_tiles) ? 1 : 0;
+	for(; pass < 2; ++pass) {
+		const bool is_thumb = (pass == 0);
+
+		auto &task_filter_records = task->filter_records[pass];
+		if(task_filter_records.size() == 0) {
+			if(is_thumb)
+				task->tiles_request->receiver->process_done(is_thumb);
+			continue;
+		}
+
+		std::vector<filter_record_t> filter_records;
+		Area *last_cached_area = prepare_cached_area(filter_records, task, pass, is_main);
+
+		// Prepare tiles.
+		std::unique_ptr<DataSet> mutators;
 		if(subflow->sync_point_pre()) {
-			task->mutators = new DataSet();
-			task->mutators->set("_p_online", online);
-			task->mutators->set("_p_thumb", (bool)(iteration == 0));
-			// was used for prepare_scaled_area, but now leads to memory leaks
-			task->area_transfer = process_cache->area_demosaic.get();
-			// NOTE WB: use wb cache if any
-			if(process_cache->area_wb != nullptr)
-				task->area_transfer = process_cache->area_wb.get();
-			D_AREA_PTR(task->area_transfer)
-			if(process_view_tiles == false) { // ** generate a new complete tiles request for a whole photo
+			task->area_transfer = task->photo->area_raw.get();
+			if(last_cached_area != nullptr)
+				task->area_transfer = last_cached_area;
+
+			mutators.reset(new DataSet());
+			task->mutators = mutators.get();
+			task->mutators->set("_p_thumb", is_thumb);
+			if(process_deferred_tiles == false) { // ** generate a new complete tiles request for a whole photo
 				Area::t_dimensions target_dimensions;
 //cerr << "size == " << d_full_forward.width() << "x" << d_full_forward.height() << endl;
 				target_dimensions = d_full_forward;
-				if(iteration == 0) {
+				if(is_thumb) {
 					const int thumbnail_w = _THUMBNAIL_SIZE;
 					const int thumbnail_h = _THUMBNAIL_SIZE;
 					Area::scale_dimensions_to_size_fit(&target_dimensions, thumbnail_w, thumbnail_h);
-/*
-cerr << "preview size: " << preview_size_w << " x " << preview_size_h << endl;
-cerr << "  px_size is: " << target_dimensions.position.px_size_x << ", " << target_dimensions.position.px_size_y << endl;
-cerr << " position is: " << target_dimensions.position.x << ", " << target_dimensions.position.y << endl;
-cerr << "     size is: " << target_dimensions.width() << " x " << target_dimensions.height() << endl;
-*/					
 				}
 				// get_tiles, asked rescaled size is inside tiles_request, and tiles exactly inside of that size
-				task->tiles_request = task->tiles_receiver->get_tiles(&target_dimensions, task->photo->cw_rotation, (iteration == 0));
+				task->tiles_request = task->tiles_receiver->get_tiles(&target_dimensions, task->photo->cw_rotation, is_thumb);
 				target_dimensions.position.px_size_x = task->tiles_request->scale_factor_x;
 				target_dimensions.position.px_size_y = task->tiles_request->scale_factor_y;
 //cerr << "target_dimensions.px_size == " << target_dimensions.position.px_size << endl;
-					// necessary for F_Rotation; is determination of {px_size with 'iteration == 0'} is deprecated now ??
-				// ** prepare input sizes for tiles processing
-				process_size_backward(task, pl_filters[iteration], target_dimensions);
+				// prepare input sizes for tiles processing
+				process_size_backward(task, filter_records, target_dimensions);
 			} else { // ** use already created tiles request, w/o creation a new set of tiles
 //cerr << "process: get_tiles()...2" << endl;
 				task->tiles_request = task->tiles_receiver->get_tiles();
@@ -768,14 +701,9 @@ cerr << "     size is: " << target_dimensions.width() << " x " << target_dimensi
 		subflow->sync_point_post();
 //		if(is_main)
 //			cerr << "process_filters - start" << endl;
-		if(subflow->sync_point_pre()) {
-			task->mutators->set("_s_raw_colors", task->_s_raw_colors);
-		}
-		subflow->sync_point_post();
 
-		bool is_thumb = (iteration == 0);
 		try {
-			process_filters(subflow, task, pl_filters[iteration], is_thumb, prof);
+			process_filters(subflow, task, filter_records, is_thumb, prof);
 		} catch(...) {
 			if(is_main) // can be OOM - release task receiver
 				task->tiles_request->receiver->process_done(is_thumb);
@@ -786,8 +714,9 @@ cerr << "     size is: " << target_dimensions.width() << " x " << target_dimensi
 //			cerr << "process_filters - done, now clean up" << endl;
 		// clean
 		subflow->sync_point();
+
 		if(is_main) {
-			delete task->mutators;
+//			delete task->mutators;
 			task->mutators = nullptr;
 			// TODO: handle that to tiles_receiver (?)
 			task->tiles_request = nullptr;
@@ -806,17 +735,17 @@ cerr << "     size is: " << target_dimensions.width() << " x " << target_dimensi
 	if(subflow->sync_point_pre()) {
 		prof->mark("");
 		delete prof;
-//		Mem::state_print();
-//		Mem::state_reset(false);
-		Mem::state_reset();
-		delete task->mutators_multipass;
+		Mem::state_print();
+//		Mem::state_reset();
+		// remove inter-pass caches if any
+		process_cache->local_clear();
 	}
 	subflow->sync_point_post();
 }
 
 //------------------------------------------------------------------------------
-void Process::process_size_forward(Process::task_run_t *task, list<class filter_record_t> &pl_filters, Area::t_dimensions &d_out) {
-	Area::t_dimensions d_in = *task->area_transfer->dimensions();
+void Process::process_size_forward(Area::t_dimensions &d_out, Process::task_run_t *task, std::vector<class filter_record_t> &pl_filters, Area::t_dimensions *d_in_ptr) {
+	Area::t_dimensions d_in = *d_in_ptr;
 	d_in.size.w = d_in.width();
 	d_in.size.h = d_in.height();
 	d_in.edges.x1 = 0;
@@ -831,22 +760,26 @@ cerr << "  d_in.position == " << d_in.position.x << " x " << d_in.position.y << 
 cerr << "      d_in.size == " << d_in.width() << " x " << d_in.height() << endl;
 cerr << "       d_in.w&h == " << d_in.size.w << " x " << d_in.size.h << endl;
 */
-	list<filter_record_t>::iterator it;
-	for(it = pl_filters.begin(); it != pl_filters.end(); ++it) {
-		FP_size_t fp_size((*it).ps_base.get());
+//	list<filter_record_t>::iterator it;
+//	for(it = pl_filters.begin(); it != pl_filters.end(); ++it) {
+	for(auto el : pl_filters) {
+//		FP_size_t fp_size((*it).ps_base.get());
+		FP_size_t fp_size(el.ps_base.get());
 		fp_size.metadata = task->photo->metadata;
 		fp_size.mutators = task->mutators;
 		fp_size.mutators_multipass = task->mutators_multipass;
 		fp_size.cw_rotation = task->photo->cw_rotation;
 		// allow edit mode for online processing
 		if(!task->is_offline)
-			fp_size.filter = (*it).filter;
+			fp_size.filter = el.filter;
+//			fp_size.filter = (*it).filter;
 		d_out = d_in;
-		(*it).fp_2d->size_forward(&fp_size, &d_in, &d_out);
+		el.fp_2d->size_forward(&fp_size, &d_in, &d_out);
+//		(*it).fp_2d->size_forward(&fp_size, &d_in, &d_out);
 		d_in = d_out;
 /*
-cerr << "after size_forward with FP_2D \"" << (*it).fp_2d->name() << "\" area == " << d_out.width() << "x" << d_out.height() << endl;
-cerr << "    \"" << (*it).fp_2d->name() << "\"" << endl;
+cerr << "after size_forward with FP_2D \"" << el.fp_2d->name() << "\" area == " << d_out.width() << "x" << d_out.height() << endl;
+cerr << "    \"" << el.fp_2d->name() << "\"" << endl;
 cerr << "..................... d_out-> size == " << d_out.width() << "x" << d_out.height() << endl;
 cerr << "..................... d_out->  w&h == " << d_out.size.w << "x" << d_out.size.h << endl;
 */
@@ -862,7 +795,7 @@ cerr << endl;
 }
 
 //------------------------------------------------------------------------------
-void Process::process_size_backward(Process::task_run_t *task, list<class filter_record_t> &pl_filters, const Area::t_dimensions &target_dimensions) {
+void Process::process_size_backward(Process::task_run_t *task, std::vector<class filter_record_t> &pl_filters, const Area::t_dimensions &target_dimensions) {
 	Area::t_dimensions d_in;
 	Area::t_dimensions d_out;
 	TilesDescriptor_t *tiles_request = task->tiles_request;
@@ -884,7 +817,7 @@ cerr << "  position: " << target_dimensions.position.x << "-" << target_dimensio
 			d_in = tiles_request->tiles[i - 1].dimensions_post;
 		}
 		// backward
-		list<filter_record_t>::iterator it = pl_filters.end();
+		auto it = pl_filters.end();
 		if(it != pl_filters.begin()) {
 			do {
 				--it;
@@ -893,7 +826,6 @@ cerr << "  position: " << target_dimensions.position.x << "-" << target_dimensio
 				fp_size.mutators = task->mutators;
 				fp_size.mutators_multipass = task->mutators_multipass;
 				fp_size.cw_rotation = task->photo->cw_rotation;
-//				fp_size.is_tile = (i != 0);
 				d_out = d_in;
 				if(i > 0) {
 					// cache position and size of dimensions_after so at process time we can send exactly dimensions that are expecting by next filters and tiles receiver
@@ -904,7 +836,6 @@ cerr << "  position: " << target_dimensions.position.x << "-" << target_dimensio
 					tp.height = d_in.height();
 					tp.px_size_x = d_in.position.px_size_x;
 					tp.px_size_y = d_in.position.px_size_y;
-//					tiles_request->tiles[i - 1].fp_position[(void *)((*it).fp_2d)] = tp;
 					tiles_request->tiles[i - 1].fp_position[(*it).fp_2d->name()] = tp;
 				}
 				// allow edit mode for online processing
@@ -934,7 +865,7 @@ cerr << "  position: " << d_out.position.x << ", " << d_out.position.y << endl;
 }
 
 //------------------------------------------------------------------------------
-void Process::process_filters(SubFlow *subflow, Process::task_run_t *task, std::list<class filter_record_t> &pl_filters, bool is_thumb, Profiler *prof) {
+void Process::process_filters(SubFlow *subflow, Process::task_run_t *task, std::vector<class filter_record_t> &pl_filters, bool is_thumb, Profiler *prof) {
 	TilesDescriptor_t *tiles_request = task->tiles_request;
 	const bool is_main = subflow->is_main();
 	ProcessCache_t *process_cache = (ProcessCache_t *)task->photo->cache_process;
@@ -983,69 +914,76 @@ void Process::process_filters(SubFlow *subflow, Process::task_run_t *task, std::
 
 		//-- process tile
 		Tile_t *tile = &tiles_request->tiles[index];
-		Area *area_in = nullptr;
 		if(subflow->sync_point_pre()) {
 			tile->request_ID = task->request_ID;
-//			area_in = AreaHelper::crop(area_original, tile->dimensions_pre);
-//cerr << "area mem size == " << area_original->mem_width() << " x " << area_original->mem_height() << endl;
-//cerr << "area     size == " << area_original->dimensions()->width() << " x " << area_original->dimensions()->height() << endl;
-			area_in = new Area(*area_original);
-			task->area_transfer = area_in;
+			task->area_transfer = new Area(*area_original);
 		}
 		subflow->sync_point_post();
-		for(list<filter_record_t>::iterator it = pl_filters.begin(); it != pl_filters.end(); ++it) {
+		bool flag_long_wait = false;
+		for(auto it = pl_filters.begin(); it != pl_filters.end(); ++it) {
 			// process current tile with each FilterProcess_2D
-			Filter *filter = (*it).filter;
-			PS_Base *ps = (*it).ps_base.get();
-			if(is_main)
+			if(is_main) {
 				prof->mark((*it).fp->name());
-			MT_t mt_obj;
-			mt_obj.subflow = subflow;
-//			Process_t *process_obj = nullptr;
-			Filter_t filter_obj;
-			filter_obj.ps_base = ps;
-			filter_obj.fs_base = nullptr;
+				if(flag_long_wait == false) {
+					if((*it).use_tiling == false) {
+						flag_long_wait = true;
+						task->tiles_receiver->long_wait(true);
+					}
+				} else {
+					if((*it).use_tiling == true) {
+						flag_long_wait = false;
+						task->tiles_receiver->long_wait(false);
+					}
+				}
+			}
+
 			if(subflow->sync_point_pre()) {
 				Process_t *process_obj = new Process_t;
+				task->process_obj.reset(process_obj);
 				process_obj->area_in = task->area_transfer;
 				process_obj->position = tile->fp_position[(*it).fp_2d->name()];
 				process_obj->metadata = task->photo->metadata;
 				process_obj->allow_destructive = allow_destructive;
 				process_obj->mutators = task->mutators;
 				process_obj->mutators_multipass = task->mutators_multipass;
-				// looks like map operator [] is not thread-safe... Do below only from master thread
 				process_obj->fp_cache = nullptr;
-				task->process_obj = process_obj;
 				//--
 				auto it_cache = process_cache->filters_cache.find((*it).fp);
 				if(it_cache != process_cache->filters_cache.end())
 					task->process_obj->fp_cache = (*it_cache).second.get();
 			}
 			subflow->sync_point_post();
-//			process_obj = task->process_obj;
-			filter_obj.filter = task->is_offline ? nullptr : filter;
+			MT_t mt_obj;
+			mt_obj.subflow = subflow;
+			Filter_t filter_obj;
+			filter_obj.ps_base = (*it).ps_base.get();
+			filter_obj.fs_base = nullptr;
+			filter_obj.filter = task->is_offline ? nullptr : (*it).filter;
 			filter_obj.is_offline = task->is_offline;
-			filter_obj.fs_base = task->photo->map_fs_base[filter];
+			filter_obj.fs_base = task->photo->map_fs_base[(*it).filter];
 //			if(is_main)
 //				cerr << "process filter: \"" << (*it).fp_2d->name() << "\"" << endl;
-//			Area *area_rez = (*it).fp_2d->process(&mt_obj, task->process_obj, &filter_obj);
-			std::unique_ptr<Area> u_ptr = (*it).fp_2d->process(&mt_obj, task->process_obj, &filter_obj);
-			Area *area_rez = u_ptr.release();
+			std::unique_ptr<Area> u_ptr = (*it).fp_2d->process(&mt_obj, task->process_obj.get(), &filter_obj);
+			Area *result_area = u_ptr.release();
 			if(subflow->sync_point_pre()) {
-				// NOTE WB: cache area if result of WB filter
-//				if(process_cache->area_wb == nullptr && !task->is_offline) {
-				if(process_cache->area_wb == nullptr) {
-					if((*it).fp_2d->name() == "F_WB_2D") {
-//cerr << "__ filter \"F_WB_2D\"..." << endl;
-//cerr << "__             process_cache->area_wb == " << std::hex << (unsigned long)process_cache->area_wb << std::dec << endl;
-						process_cache->area_wb = std::unique_ptr<Area>(new Area(*area_rez));
-//						process_cache->area_wb = new Area(*area_rez);
+				const bool result_is_empty = (result_area == nullptr);
+				if(result_area == nullptr)
+					result_area = new Area(*task->area_transfer);
+				// cache 'whole' filters
+				if(is_thumb && (*it).use_tiling == false) {
+					if((*it).cache_result) {
+						if(!result_is_empty)
+							process_cache->filters_area_cache[(*it).fp] = std::shared_ptr<Area>{new Area(*result_area)};
+						if(process_cache->cache_fp_for_second_pass == nullptr)
+							process_cache->cached_area_for_second_pass = process_cache->filters_area_cache[(*it).fp];
+					}
+					if(process_cache->cache_fp_for_second_pass == (*it).fp) {
+						process_cache->cached_area_for_second_pass.reset(new Area(*result_area));
 					}
 				}
-				task->area_transfer = area_rez;
-				delete area_in;
-				area_in = task->area_transfer;
-				delete task->process_obj;
+				delete task->area_transfer;
+				task->area_transfer = result_area;
+				task->process_obj.reset(nullptr);
 			}
 			subflow->sync_point_post();
 		}
@@ -1058,25 +996,19 @@ void Process::process_filters(SubFlow *subflow, Process::task_run_t *task, std::
 		int insert_pos_y = 0;
 		if(!is_thumb && is_main)
 			tiled_area = task->tiles_request->receiver->get_area_to_insert_tile_into(insert_pos_x, insert_pos_y, tile);
-//		area_out = AreaHelper::convert_mt(subflow, area_in, task->out_format, task->photo->cw_rotation);
 		if(tiled_area != nullptr) {
-			AreaHelper::convert_mt(subflow, area_in, task->out_format, task->photo->cw_rotation, tiled_area, insert_pos_x, insert_pos_y);
+			AreaHelper::convert_mt(subflow, task->area_transfer, task->out_format, task->photo->cw_rotation, tiled_area, insert_pos_x, insert_pos_y);
 			area_out = tiled_area;
-		} else
-			area_out = AreaHelper::convert_mt(subflow, area_in, task->out_format, task->photo->cw_rotation).release();
-/*
-		if(tiled_area != nullptr)
-			area_out = AreaHelper::convert_mt(subflow, area_in, task->out_format, task->photo->cw_rotation, tiled_area, insert_pos_x, insert_pos_y);
-		else
-			area_out = AreaHelper::convert_mt(subflow, area_in, task->out_format, task->photo->cw_rotation);
-*/
+		} else {
+			area_out = AreaHelper::convert_mt(subflow, task->area_transfer, task->out_format, task->photo->cw_rotation).release();
 			// here 'area_out' will be the 'area_to_insert' if the last one wasn't 'nullptr'
+		}
 		if(subflow->sync_point_pre()) {
 			// delete 'type_float_p4' area
-			delete area_in;
+			delete task->area_transfer;
 			// update thumbnail for PS_Loader
 			if(is_thumb)
-				task->photo->thumbnail = std::move(std::unique_ptr<Area>(new Area(*area_out)));
+				task->photo->thumbnail.reset(new Area(*area_out));
 			// send result
 			if(tile->area != nullptr)
 				delete tile->area;

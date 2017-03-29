@@ -64,7 +64,7 @@ public:
 	// TODO: remove that from here and put it in a new class related to processing transaction, not to whole Photo opened for edit;
 	// filter-independent PS_Base storage, to avoid asynchronous delay between PS_Base change by filter and 'signal_update' processing
 	// that map is related to the processing loop and edit history and undo/redo
-	std::map<class Filter *, std::shared_ptr<class PS_Base> > map_ps_base_current;
+	std::map<class Filter *, std::shared_ptr<class PS_Base>> map_ps_base_current;
 	// real PS_Base objects used by filters for interface
 	std::map<class Filter *, class PS_Base *> map_ps_base;
 	// filters GUI cache
@@ -72,20 +72,18 @@ public:
 
 	std::map<class Filter *, class DataSet> map_dataset_initial;
 	std::map<class Filter *, class DataSet> map_dataset_current;
-	void *edit_history;	// should be used only by Edit class
+	void *edit_history = nullptr;	// should be used only by Edit class
 
-//	Process::process process_source;	// TODO
 	ProcessSource::process process_source;
-	long filter_flags; // Filter::flags() return if any, else == 0
-	int cw_rotation;
-	class Metadata *metadata;
+	int cw_rotation = 0;
+	class Metadata *metadata = nullptr;
 	std::unique_ptr<class Area> area_raw;
 	std::unique_ptr<class Area> thumbnail;
 
 	// cache for filters will be stored at 'cache_process' by 'Process' class
 	// once created cache object used by filters at all process iterations
 	// usage example: f_curve - stored curve function table, synchronized with curve points
-	class PhotoCache_t *cache_process;
+	class PhotoCache_t *cache_process = nullptr;
 };
 
 //------------------------------------------------------------------------------

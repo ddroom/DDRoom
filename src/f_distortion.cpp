@@ -152,7 +152,7 @@ bool FP_GP_Distortion::to_clip(void) {
 FP_GP_Distortion::FP_GP_Distortion(const class Metadata *metadata, bool _flag_to_clip, FP_Distortion_Cache_t *cache) {
 	enabled = false;
 	flag_to_clip = _flag_to_clip;
-	if(metadata->lensfun_lens_model == "" || cache == nullptr) {
+	if(metadata->lensfun_lens_model.empty() || cache == nullptr) {
 //cerr << "metadata->lensfun_lens_model == \"" << metadata->lensfun_lens_model << "\"" << endl;
 //cerr << "return - 1!" << endl;
 		return;
@@ -416,7 +416,7 @@ void F_Distortion::reconnect(bool to_connect) {
 }
 
 void F_Distortion::slot_edit_link(bool state) {
-	if(ps->exiv2_lens_footprint != "") {
+	if(!ps->exiv2_lens_footprint.empty()) {
 		DB_lens_links_record_t record;
 		record.footprint = ps->exiv2_lens_footprint;
 		record.camera_maker = ps->camera_maker;

@@ -49,7 +49,7 @@ Batch::Batch(QWidget *parent, class Process *_process, class Edit *_edit, class 
 	// setup destination dir
 	bool flag = Config::instance()->get(CONFIG_SECTION_BATCH, "destination_dir", destination_dir);
 	if(flag)
-		flag = QDir(QString::fromLocal8Bit(destination_dir.c_str())).exists();
+		flag = QDir(QString::fromStdString(destination_dir)).exists();
 	if(!flag)
 		destination_dir = System::env_home();
 }
@@ -119,7 +119,6 @@ void Batch::menu_batch(void) {
 
 void Batch::slot_selection_changed(int count) {
 	selected_photos_count = count;
-//	bool active_photo = (edit->active_photo() != "");
 	bool active_photo = (!edit->active_photo().is_empty());
 	if(!active_photo)
 		action_save_as->setEnabled(count == 1);
@@ -127,7 +126,6 @@ void Batch::slot_selection_changed(int count) {
 }
 
 void Batch::slot_active_photo_changed(void) {
-//	if(edit->active_photo() != "")
 	if(!edit->active_photo().is_empty())
 		action_save_as->setEnabled(true);
 	else {
@@ -465,7 +463,7 @@ void Batch::process_export(list<Photo_ID> _list) {
 		list<Batch::task_t> tasks;
 		if(ep->process_single) {
 			string out_file_name = ep->folder;
-			out_file_name += QDir::toNativeSeparators("/").toLocal8Bit().constData();
+			out_file_name += QDir::toNativeSeparators("/").toStdString();
 			out_file_name += ep->get_file_name();
 			task_t task;
 			task.photo_id = photo_id;
@@ -474,7 +472,7 @@ void Batch::process_export(list<Photo_ID> _list) {
 //			task.ep = std::shared_ptr<export_parameters_t>(ep);
 			tasks.push_back(task);
 		} else {
-			string separator = QDir::toNativeSeparators("/").toLocal8Bit().constData();
+			string separator = QDir::toNativeSeparators("/").toStdString();
 			for(list<Photo_ID>::iterator it = _list.begin(); it != _list.end(); ++it) {
 				// create target filename
 				task_t task;

@@ -144,17 +144,18 @@ void Mem::state_reset(bool _silent) {
 }
 
 void Mem::state_print(void) {
-#ifndef _FORCE_SILENT
+//#ifndef _FORCE_SILENT
 	state_mutex.lock();
 	cerr << "__________________________________" << endl;
 	cerr << "Memory statistics:" << endl;
-	cerr << "    at start == " << mem_start / (1024 * 1024) << "Mb;" << endl;
-	cerr << "         min == " << mem_min / (1024 * 1024) << "Mb;" << endl;
-	cerr << "         max == " << mem_max / (1024 * 1024) << "Mb;" << endl;
-	cerr << "     current == " << mem_total / (1024 * 1024) << "Mb;" << endl;
+	cerr << "    at start == " << mem_start / (1024 * 1024) << " Mb;" << endl;
+	cerr << "         min == " << mem_min / (1024 * 1024) << " Mb;" << endl;
+	cerr << "         max == " << mem_max / (1024 * 1024) << " Mb;" << endl;
+	cerr << "     current == " << mem_total / (1024 * 1024) << " Mb;" << endl;
+	cerr << "     --||--  == " << mem_total << " bytes;" << endl;
 	cerr << "==================================" << endl;
 	state_mutex.unlock();
-#endif
+//#endif
 }
 
 //------------------------------------------------------------------------------

@@ -556,15 +556,16 @@ std::unique_ptr<Area> FP_Demosaic::process(MT_t *mt_obj, Process_t *process_obj,
 		_init();
 	if(flag_process_xtrans == false) {
 		if(!demosaic_pattern_is_bayer(metadata->demosaic_pattern)) {
+/*
 			if(subflow->is_main())
 				area_out = std::unique_ptr<Area>(new Area(*area_in));
+*/
 			return area_out;
 		}
 	}
 
 	bool flag_process_raw = false;
 //	bool flag_process_raw = true;
-	process_obj->mutators->get("_s_raw_colors", flag_process_raw);
 	bool flag_process_DG = true;
 //	bool flag_process_DG = false;
 	bool flag_process_AHD = false;

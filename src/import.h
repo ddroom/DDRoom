@@ -9,9 +9,9 @@
  *
  */
 
-
-#include <string>
+#include <list>
 #include <memory>
+#include <string>
 
 #include <QImage>
 #include <QList>
@@ -22,8 +22,11 @@
 //------------------------------------------------------------------------------
 class Import {
 public:
-	static QList<QString> extensions(void);
-	// fill Metadata and return incapsulated thumbnail if any. TODO: think how to generate thumb if missing;
+	static void unit_test(void);
+
+	static std::list<std::string> extensions(void);
+
+	// Fill Metadata and return incapsulated thumbnail if any.
 	//	- probably using 'void *load_thumb()' and 'Area *generate_thumb()'
 	static class QImage *thumb(Photo_ID photo_id, class Metadata *metadata, int &thumb_rotation, int thumb_width, int thumb_height);
 	// fill Metadata and return decoded image
@@ -40,8 +43,8 @@ protected:
 class Import_Performer {
 public:
 	virtual ~Import_Performer(void){};
-	virtual QImage thumb(class Metadata *metadata, int thumb_width, int thumb_height);
-	virtual std::unique_ptr<Area> image(class Metadata *metadata);
+	virtual QImage thumb(class Metadata *metadata, int thumb_width, int thumb_height) = 0;
+	virtual std::unique_ptr<Area> image(class Metadata *metadata) = 0;
 };
 
 //------------------------------------------------------------------------------

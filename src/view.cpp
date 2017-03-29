@@ -894,7 +894,6 @@ void View::slot_update_image(void) {
 	if(image->thumb_area != nullptr) {
 		if(image->thumb_pixmap != nullptr)
 			delete image->thumb_pixmap;
-//		image->thumb_pixmap = _area_to_qpixmap(image->thumb_area);
 		image->thumb_pixmap = new QPixmap(image->thumb_area->to_qpixmap());
 		image->thumb_scaled = QPixmap();	
 		delete image->thumb_area;
@@ -906,7 +905,6 @@ void View::slot_update_image(void) {
 		if(image->tiles_areas[i] != nullptr) {
 			if(image->tiles_pixmaps[i] != nullptr)
 				delete image->tiles_pixmaps[i];
-//			image->tiles_pixmaps[i] = _area_to_qpixmap(image->tiles_areas[i]);
 			image->tiles_pixmaps[i] = new QPixmap(image->tiles_areas[i]->to_qpixmap());
 			delete image->tiles_areas[i];
 			image->tiles_areas[i] = nullptr;

@@ -261,14 +261,14 @@ string dataset_field_t::serialize(void) const {
 	}
 	if(type == type_int) {
 		QString str;
-		return str.setNum(value.vInt).toLocal8Bit().constData();
+		return str.setNum(value.vInt).toStdString();
 	}
 	if(type == type_2int) {
 		QString str = QString::number(value.v2int.value1) + ", " + QString::number(value.v2int.value2);
-		return str.toLocal8Bit().constData();
+		return str.toStdString();
 	}
 	if(type == type_double) {
-		return __double_to_qstring(value.vDouble).toLocal8Bit().constData();
+		return __double_to_qstring(value.vDouble).toStdString();
 /*
 		QString str;
 		double v = value.vDouble;
@@ -286,17 +286,17 @@ string dataset_field_t::serialize(void) const {
 			if(precision < 0)
 				precision = 0;
 		}
-		return str.setNum(v, 'g', 10).toLocal8Bit().constData();
+		return str.setNum(v, 'g', 10).toStdString();
 */
 /*
-		cerr << "convert of " << v << " to " << str.setNum(v, 'g', precision).toLocal8Bit().constData() << " with precision " << precision << endl;
+		cerr << "convert of " << v << " to " << str.setNum(v, 'g', precision).toStdString() << " with precision " << precision << endl;
 		QString str2;
-		return str2.setNum(v, 'g', precision).toLocal8Bit().constData();
+		return str2.setNum(v, 'g', precision).toStdString();
 */
 	}
 	if(type == type_2double) {
 		QString str = __double_to_qstring(value.v2double.value1) + ", " + __double_to_qstring(value.v2double.value2);
-		return str.toLocal8Bit().constData();
+		return str.toStdString();
 	}
 	if(type == type_vector_float) {
 		QVector<float> &ptr = *((QVector<float> *)value.v_ptr);
@@ -309,12 +309,12 @@ string dataset_field_t::serialize(void) const {
 				v = lv;
 				v /= float(10000000.0);
 			}
-			str.setNum(v, 'g', 10).toLocal8Bit().constData();
+			str.setNum(v, 'g', 10).toStdString();
 			str += ", ";
 			rez += str;
 		}
 		rez.remove(rez.size() - 2, 2);	// remove last ", "
-		return rez.toLocal8Bit().constData();
+		return rez.toStdString();
 	}
 	if(type == type_vector_qpointf) {
 		QVector<QPointF> &ptr = *((QVector<QPointF> *)value.v_ptr);
@@ -327,7 +327,7 @@ string dataset_field_t::serialize(void) const {
 			rez += str.arg(y + 0.000005, 0, 'f', 4);
 		}
 		rez.remove(rez.size() - 2, 2);
-		return rez.toLocal8Bit().constData();
+		return rez.toStdString();
 	}
 	return "";
 // toLower()

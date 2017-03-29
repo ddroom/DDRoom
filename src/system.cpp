@@ -48,7 +48,7 @@ void Profiler::mark(string mark) {
 #else
 	auto now = std::chrono::steady_clock::now();
 #endif
-	if(cr_mark == "") {
+	if(cr_mark.empty()) {
 		cr_time = now;
 	} else {
 		long delta = std::chrono::duration_cast<std::chrono::microseconds>(now - cr_time).count();
@@ -158,7 +158,7 @@ System::System(void) {
 	filters << "*.xml" << "*.XML";
 	QStringList file_list = db_dir.entryList(filters, QDir::Files);
 	for(int i = 0; i < file_list.size(); ++i)
-		_ldb->Load((QDir::toNativeSeparators(path + file_list[i])).toLocal8Bit().constData());
+		_ldb->Load((QDir::toNativeSeparators(path + file_list[i])).toStdString());
 #else
 	_ldb->Load();
 #endif
@@ -209,7 +209,7 @@ string System::env_home(void) {
 	QStringListIterator it(list);
 	while(it.hasNext()) {
 		next = "/Volumes/";
-		next += it.next().toLocal8Bit().constData();
+		next += it.next().toStdString();
 		QDir dir(next.c_str());
 		dir = dir.canonicalPath();
 		if(dir.isRoot())
@@ -219,7 +219,7 @@ string System::env_home(void) {
 	prefix = next;
 #endif
 	string home = prefix;
-	home += QDir::homePath().toLocal8Bit().constData();
+	home += QDir::homePath().toStdString();
 	return home;
 }
 

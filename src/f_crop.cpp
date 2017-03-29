@@ -633,11 +633,6 @@ Filter::type_t F_Crop::type(void) {
 	return Filter::t_geometry;
 }
 
-Filter::flags_t F_Crop::flags(void) {
-// TODO: remove it
-	return Filter::f_geometry_update;
-}
-
 bool F_Crop::get_ps_field_desc(std::string field_name, class ps_field_desc_t *desc) {
 	desc->is_hidden = false;
 	desc->field_name = field_name;
@@ -821,7 +816,7 @@ void F_Crop::slot_checkbox_crop(int state) {
 }
 
 void F_Crop::init_le_aspect_from_photo_aspect(void) {
-	if(le_aspect->text() == "" && ps->photo_aspect != 0.0) {
+	if(le_aspect->text().isEmpty() && ps->photo_aspect != 0.0) {
 //cerr << "init_le_aspect_from_photo_aspect()" << endl;
 		ps->crop_aspect.set(ps->photo_aspect, false);
 		emit signal_set_text_le_aspect(QString(ps->crop_aspect.get(ps->cw_swapped).c_str()));
@@ -854,7 +849,7 @@ void F_Crop::slot_checkbox_aspect(int state) {
 void F_Crop::slot_le_aspect(void) {
 	D_GUI_THREAD_CHECK
 	string aspect_str = le_aspect->text().toStdString();
-	if(aspect_str == "")
+	if(aspect_str.empty())
 		return;
 	if(aspect_str == ps->crop_aspect.get(ps->cw_swapped))
 		return;

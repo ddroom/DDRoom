@@ -12,9 +12,9 @@
 #include "filter.h"
 #include "process_h.h"
 
-#include "f_process.h"
 #include "f_demosaic.h"
 #include "f_chromatic_aberration.h"
+#include "f_vignetting.h"
 #include "f_projection.h"
 //#include "f_distortion.h"
 #include "f_shift.h"
@@ -191,7 +191,7 @@ Filter::Filter(void) {
 	_is_hidden = false;
 }
 
-string Filter::id(void) {
+std::string Filter::id(void) {
 	return _id;
 }
 
@@ -228,35 +228,30 @@ void Filter::reset(void) {
 }
 
 //------------------------------------------------------------------------------
-Filter_Control::Filter_Control(void) : Filter() {
-}
-
-void Filter_Control::get_mutators(class DataSet *dataset, class DataSet *ps_dataset) {
-}
-
-//------------------------------------------------------------------------------
-std::unique_ptr<Filter_Store> Filter_Store::_this;
+class Filter_Store *Filter_Store::_this = nullptr;
 
 Filter_Store *Filter_Store::instance(void) {
-	if(!_this)
-		_this = std::move(std::unique_ptr<Filter_Store>(new Filter_Store()));
-	return _this.get();
+	if(_this == nullptr)
+		_this = new Filter_Store();
+	return _this;
 }
 
 Filter_Store::Filter_Store(void) {
-	// filters
-	f_process = new F_Process(ProcessSource::s_process);
+
 	f_demosaic = new F_Demosaic(ProcessSource::s_demosaic);
+	f_vignetting = new F_Vignetting(ProcessSource::s_vignetting);
+	f_wb = new F_WB(ProcessSource::s_wb);
+
 	// geometry
 	f_chromatic_aberration = new F_ChromaticAberration(ProcessSource::s_chromatic_aberration);
-	f_projection = new F_Projection(ProcessSource::s_projection);
 //	f_distortion = new F_Distortion(ProcessSource::s_distortion);
+	f_projection = new F_Projection(ProcessSource::s_projection);
 	f_shift = new F_Shift(ProcessSource::s_shift);
 	f_rotation = new F_Rotation(ProcessSource::s_rotation);
 	f_crop = new F_Crop(ProcessSource::s_crop);
 	f_soften = new F_Soften(ProcessSource::s_soften);
+
 	// colors
-	f_wb = new F_WB(ProcessSource::s_wb);
 	f_crgb_to_cm = new F_cRGB_to_CM(ProcessSource::s_crgb_to_cm);
 	f_cm_lightness = new F_CM_Lightness(ProcessSource::s_cm_lightness);
 	f_cm_rainbow = new F_CM_Rainbow(ProcessSource::s_cm_rainbow);
@@ -265,48 +260,69 @@ Filter_Store::Filter_Store(void) {
 	f_unsharp = new F_Unsharp(ProcessSource::s_unsharp);
 	f_cm_to_cs = new F_CM_to_CS(ProcessSource::s_cm_to_cs);
 
-	//--
-	// offline list
-	// use 'reconnect' and 'FilterProcess'
-	filters_list_offline.push_back(f_process);
-	filters_list_offline.push_back(f_demosaic);
-	// some cRGB color processing that is best to apply before supersampling - vignetting, WB etc...
-	// actually, should be even placed before demosaic (Bayer, XTrans, but not Foveon),
-	//    with jumping-cached optimizing scheme...
-	filters_list_offline.push_back(f_wb);
+	// before tiling/resampling
+	filters_whole.push_back(f_demosaic);
+//	filters_whole.push_back(f_vignetting);
+	filters_whole.push_back(f_wb);
+
 	// geometry
-	filters_list_offline.push_back(f_chromatic_aberration);
-//	filters_list_offline.push_back(f_distortion);
-	filters_list_offline.push_back(f_projection);
-	filters_list_offline.push_back(f_shift);
-	filters_list_offline.push_back(f_rotation);
-	filters_list_offline.push_back(f_crop);
-	filters_list_offline.push_back(f_soften);
+	filters_tiled.push_back(f_vignetting);
+	filters_tiled.push_back(f_chromatic_aberration);
+//	filters_tiled.push_back(f_distortion);
+	filters_tiled.push_back(f_projection);
+	filters_tiled.push_back(f_shift);
+	filters_tiled.push_back(f_rotation);
+	filters_tiled.push_back(f_crop);
+	filters_tiled.push_back(f_soften);
+
 	// colors
-	filters_list_offline.push_back(f_crgb_to_cm);
-	filters_list_offline.push_back(f_unsharp);
-	filters_list_offline.push_back(f_cm_lightness);
-	filters_list_offline.push_back(f_cm_colors);
-	filters_list_offline.push_back(f_cm_rainbow);
-	filters_list_offline.push_back(f_cm_sepia);
-	filters_list_offline.push_back(f_cm_to_cs);
-	//--
-	// online list
-	filters_list_online = filters_list_offline;
+	filters_tiled.push_back(f_crgb_to_cm);
+	filters_tiled.push_back(f_unsharp);
+	filters_tiled.push_back(f_cm_lightness);
+	filters_tiled.push_back(f_cm_colors);
+	filters_tiled.push_back(f_cm_rainbow);
+	filters_tiled.push_back(f_cm_sepia);
+	filters_tiled.push_back(f_cm_to_cs);
+
+	for(auto el : filters_whole)
+		filters.push_back(el);
+	for(auto el : filters_tiled)
+		filters.push_back(el);
+
+	// UI edit
 	// 'color picker' for white balance
 //	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_wb, f_wb));
-//	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_projection, f_projection));
 	// should be implemented - UI helper for shift
 	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_shift, f_shift));
 	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_rotation, f_rotation));
 	filter_edit_list.push_back(pair<FilterEdit *, Filter *>(f_crop, f_crop));
+
 }
 
-std::list<class Filter *> Filter_Store::get_filters_list(bool is_online) {
-	if(is_online)
-		return filters_list_online;
-	else
-		return filters_list_offline;
+#if 0
+const std::vector<class Filter *> &Filter_Store::get_filters(void) {
+	return filters;
+}
+
+const std::vector<class Filter *> &Filter_Store::get_filters_whole(void) {
+	return filters_whole;
+}
+
+const std::vector<class Filter *> &Filter_Store::get_filters_tiled(void) {
+	return filters_tiled;
+}
+#endif
+
+std::vector<class Filter *> Filter_Store::get_filters(void) const {
+	return filters;
+}
+
+std::vector<class Filter *> Filter_Store::get_filters_whole(void) const {
+	return filters_whole;
+}
+
+std::vector<class Filter *> Filter_Store::get_filters_tiled(void) const {
+	return filters_tiled;
 }
 
 //------------------------------------------------------------------------------

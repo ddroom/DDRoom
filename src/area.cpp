@@ -261,7 +261,7 @@ QPixmap Area::to_qpixmap(void) {
 	QPixmap px = QPixmap(QPixmap::fromImage(QImage((uchar *)ptr(), w, h, w * 4, QImage::Format_ARGB32)));
 	char buf[128];
 	sprintf(buf, "./%04d.jpeg", count);
-	px.save(QString::fromLocal8Bit(buf), "jpeg", 95);
+	px.save(QString::fromStdString(buf), "jpeg", 95);
 	return px;
 #endif
 }

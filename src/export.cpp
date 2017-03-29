@@ -96,7 +96,7 @@ export_parameters_t::image_type_t export_parameters_t::image_name_to_type(std::s
 void export_parameters_t::set_file_name(string file_name) {
 	string new_name = "";
 	const char *ptr = file_name.c_str();
-	char separator = QDir::toNativeSeparators("/").toLocal8Bit().constData()[0];
+	char separator = QDir::toNativeSeparators("/").toStdString()[0];
 	int i = file_name.length();
 	for(; i >= 0; --i)
 		if(ptr[i] == separator)
@@ -120,7 +120,7 @@ void export_parameters_t::cut_and_set_file_name(string file_name) {
 	string new_name = "";
 	const char *ptr = file_name.c_str();
 	// remove possible folder separators
-	char separator = QDir::toNativeSeparators("/").toLocal8Bit().constData()[0];
+	char separator = QDir::toNativeSeparators("/").toStdString()[0];
 	int i = file_name.length();
 	for(; i >= 0; --i)
 		if(ptr[i] == separator)

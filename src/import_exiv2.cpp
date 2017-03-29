@@ -107,7 +107,7 @@ bool Exiv2_load_metadata_image(Exiv2::Image::AutoPtr &image, class Metadata *met
 			long aperture = (it->toFloat() + 0.005) * 100.0;
 			metadata->lens_aperture = float(aperture) / 100.0;
 //			str.sprintf("%d.%01d", int(aperture / 10), int(aperture % 10));
-//			metadata->lens_aperture = str.toLocal8Bit().constData();
+//			metadata->lens_aperture = str.toStdString();
 		}
 		if((it = exifData.findKey(Exiv2::ExifKey("Exif.Photo.ExposureTime"))) != it_end) {
 			Exiv2::Rational exp_r = it->toRational();
@@ -117,7 +117,7 @@ bool Exiv2_load_metadata_image(Exiv2::Image::AutoPtr &image, class Metadata *met
 				float exp = it->toFloat();
 				str.sprintf("%0.1f", exp);
 			}
-			metadata->str_shutter_html = str.toLocal8Bit().constData();
+			metadata->str_shutter_html = str.toStdString();
 			metadata->speed_shutter = it->toFloat();
 		}
 		if((it = exifData.findKey(Exiv2::ExifKey("Exif.Image.Model"))) != it_end) {
@@ -135,7 +135,7 @@ bool Exiv2_load_metadata_image(Exiv2::Image::AutoPtr &image, class Metadata *met
 			metadata->lens_focal_length = float(fl) / 10.0;
 //			long fl = it->toFloat() * 10;
 //			str.sprintf("%d.%01d", int(fl / 10), int(fl % 10));
-//			metadata->lens_focal_length = str.toLocal8Bit().constData();
+//			metadata->lens_focal_length = str.toStdString();
 		}
 #if 0
 		if((it = exifData.findKey(Exiv2::ExifKey("Exif.CanonCs.Lens"))) != it_end)
@@ -169,11 +169,11 @@ bool Exiv2_load_metadata_image(Exiv2::Image::AutoPtr &image, class Metadata *met
 			}
 			if((it = exifData.findKey(Exiv2::ExifKey("Exif.Canon.LensModel"))) != it_end) {
 				std::string it_str = it->toString();
-				if(metadata->exiv2_lens_model == "")
+				if(metadata->exiv2_lens_model.empty())
 					metadata->exiv2_lens_model = it_str;
 //				metadata->lensfun_lens_model = it_str;
 			}
-			if(metadata->exiv2_lens_model != "") {
+			if(!metadata->exiv2_lens_model.empty()) {
 				metadata->exiv2_lens_footprint += " ";
 				metadata->exiv2_lens_footprint += metadata->exiv2_lens_model;
 				lens_footprint = true;
@@ -214,7 +214,7 @@ bool Exiv2_load_metadata_image(Exiv2::Image::AutoPtr &image, class Metadata *met
 					ostringstream oss;
 					it->write(oss, &exifData).flush();
 					metadata->exiv2_lens_model = oss.str();
-					if(metadata->exiv2_lens_model != "") {
+					if(!metadata->exiv2_lens_model.empty()) {
 						metadata->exiv2_lens_footprint = oss.str();
 						lens_footprint = true;
 					}
@@ -241,7 +241,7 @@ bool Exiv2_load_metadata_image(Exiv2::Image::AutoPtr &image, class Metadata *met
 		Exiv2::XmpData::const_iterator it_xmp_end = xmpData.end();
 		// DNG
 		if((it_xmp = xmpData.findKey(Exiv2::XmpKey("Xmp.aux.Lens"))) != it_xmp_end)
-			if(metadata->exiv2_lens_model == "")
+			if(metadata->exiv2_lens_model.empty())
 				metadata->exiv2_lens_model = it_xmp->toString();
 	}
 	if(!lens_footprint)
@@ -251,7 +251,7 @@ bool Exiv2_load_metadata_image(Exiv2::Image::AutoPtr &image, class Metadata *met
 //cerr << "metadata->exiv2_lens_model == " << metadata->exiv2_lens_model.c_str() << endl;
 	// try to load lensfun lens ID
 //cerr << "Exiv2 camera_maker == \"" << metadata->camera_make << "\"; camera model == \"" << metadata->camera_model << "\"; lens footprint: \"" << metadata->exiv2_lens_footprint << "\"" << endl;
-	if(metadata->exiv2_lens_model != "") {
+	if(!metadata->exiv2_lens_model.empty()) {
 		lfDatabase *ldb_lens = System::instance()->ldb();
 		const lfCamera **cameras = ldb_lens->FindCameras(metadata->camera_make.c_str(), metadata->camera_model.c_str());
 		const lfCamera *camera = nullptr;
@@ -288,7 +288,7 @@ bool Exiv2_load_metadata_image(Exiv2::Image::AutoPtr &image, class Metadata *met
 	}
 
 	metadata->lens_model = metadata->exiv2_lens_model;
-	if(metadata->lensfun_lens_model != "")
+	if(!metadata->lensfun_lens_model.empty())
 		metadata->lens_model = metadata->lensfun_lens_model;
 //cerr << "lens model: " << metadata->lens_model << endl;
 	//--

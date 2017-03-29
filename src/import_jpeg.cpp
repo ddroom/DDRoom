@@ -22,11 +22,10 @@
 using namespace std;
 
 //------------------------------------------------------------------------------
-QList<QString> Import_Jpeg::extensions(void) {
-	QList<QString> l;
-	l.push_back("jpeg");
-	l.push_back("jpg");
-	return l;
+std::list<std::string> Import_Jpeg::extensions(void) {
+	return std::list<std::string> {
+		"jpeg", "jpg"
+	};
 }
 
 Import_Jpeg::Import_Jpeg(string fname) {

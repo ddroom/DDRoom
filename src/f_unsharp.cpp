@@ -123,7 +123,7 @@ ocl_t::ocl_t(void) {
 	if(status != CL_SUCCESS) { cerr << "fail to create command quque" << endl;	return;}
 
 	//--
-	QFile ifile(QString::fromLocal8Bit("./f_unsharp.cl"));
+	QFile ifile(QString::fromStdString("./f_unsharp.cl"));
 	ifile.open(QIODevice::ReadOnly);
 	QByteArray program_source = ifile.readAll();
 	ifile.close();

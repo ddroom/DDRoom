@@ -148,7 +148,7 @@ void SubFlow::set_private(void **priv_array) {
 }
 
 void SubFlow::set_private(void *priv_data, int thread_index) {
-	if(_main)
+	if(_main || thread_index == i_id)
 		_parent->set_private(priv_data, thread_index);
 }
 

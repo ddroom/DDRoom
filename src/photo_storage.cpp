@@ -30,12 +30,12 @@ using namespace std;
 using namespace std;
 //------------------------------------------------------------------------------
 bool PhotoStorage::ps_stored(string fs_folder, string fs_filename) {
-	string separator = QDir::toNativeSeparators("/").toLocal8Bit().constData();
+	string separator = QDir::toNativeSeparators("/").toStdString();
 	string fn = fs_folder;
 	fn += separator;
 	fn += fs_filename;
 	fn += PS_SETTINGS_EXT;
-	QString fn_s = QString::fromLocal8Bit(fn.c_str());
+	QString fn_s = QString::fromStdString(fn);
 	return QFile::exists(fn_s);
 }
 
@@ -64,7 +64,7 @@ std::list<int> PS_Loader::versions_list(std::string file_name) {
 					int version_index = 0;
 					const QXmlStreamAttributes &v_attributes = xml.attributes();
 					for(int i = 0; i < v_attributes.size(); ++i) {
-						string key = v_attributes[i].name().toString().toLocal8Bit().constData();
+						string key = v_attributes[i].name().toString().toStdString();
 						QString value = v_attributes[i].value().toString();
 						if(key == "index")
 							version_index = value.toInt();
@@ -118,8 +118,8 @@ void PS_Loader::load(Photo_ID photo_id, bool use_lock) {
 					int version_index = 0;
 					const QXmlStreamAttributes &v_attributes = xml.attributes();
 					for(int i = 0; i < v_attributes.size(); ++i) {
-						string key = v_attributes[i].name().toString().toLocal8Bit().constData();
-						string value = v_attributes[i].value().toString().toLocal8Bit().constData();
+						string key = v_attributes[i].name().toString().toStdString();
+						string value = v_attributes[i].value().toString().toStdString();
 						if(key == "index")
 							version_index = v_attributes[i].value().toString().toInt();
 					}
@@ -139,12 +139,12 @@ void PS_Loader::load(Photo_ID photo_id, bool use_lock) {
 									xml.readNext();
 									if(xml.hasError()) throw("error");
 									if(xml.isStartElement()) {
-										string field_name = xml.name().toString().toLocal8Bit().constData();
+										string field_name = xml.name().toString().toStdString();
 										if(field_name == "cw_rotation") {
 											const QXmlStreamAttributes &attributes = xml.attributes();
 											for(int i = 0; i < attributes.size(); ++i) {
-												string key = attributes[i].name().toString().toLocal8Bit().constData();
-												string value = attributes[i].value().toString().toLocal8Bit().constData();
+												string key = attributes[i].name().toString().toStdString();
+												string value = attributes[i].value().toString().toStdString();
 												if(key == "angle" && (value == "0" || value == "90" || value == "180" || value == "270")) {
 													_cw_rotation_empty = false;
 													cw_rotation = QString(value.c_str()).toInt();
@@ -160,12 +160,12 @@ void PS_Loader::load(Photo_ID photo_id, bool use_lock) {
 									xml.readNext();
 									if(xml.hasError()) throw("error");
 									if(xml.isStartElement()) {
-										string filter_name = xml.name().toString().toLocal8Bit().constData();
+										string filter_name = xml.name().toString().toStdString();
 //										cerr << "---> " << filter_name.c_str() << endl;
 										const QXmlStreamAttributes &attributes = xml.attributes();
 										for(int i = 0; i < attributes.size(); ++i) {
-											string key = attributes[i].name().toString().toLocal8Bit().constData();
-											string value = attributes[i].value().toString().toLocal8Bit().constData();
+											string key = attributes[i].name().toString().toStdString();
+											string value = attributes[i].value().toString().toStdString();
 //											cerr << "----> \"" << key.c_str() << "\" == \"" << value.c_str() << "\"" << endl;
 											dataset_field_t t;
 											t.type = dataset_field_t::type_serialized;
@@ -314,11 +314,11 @@ map<int, PS_Loader *> PS_Loader::versions_load(string file_name, int index_to_sk
 		if(*it == index_to_skip)
 			continue;
 //		QString v_index(QString("%1").arg(*it));
-//		QString id = QString::fromLocal8Bit(file_name.c_str());
+//		QString id = QString::fromStdString(file_name);
 //		id = id + ":" + v_index;
 		PS_Loader *ps_loader = new PS_Loader();
 		ps_loader->load(Photo_ID(file_name, *it), false);
-//		ps_loader->load(id.toLocal8Bit().constData(), false);
+//		ps_loader->load(id.toStdString(), false);
 		ps_map[*it] = ps_loader;
 	}
 	return ps_map;

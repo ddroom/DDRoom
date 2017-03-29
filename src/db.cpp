@@ -43,12 +43,12 @@ DB_lens_links::DB_lens_links(void) {
 std::string DB_lens_links::get_file_name(void) {
 	QString file = Config::get_data_location();
 	file += "lens-exiv2_to_lensfun.xml";
-	return file.toLocal8Bit().constData();
+	return file.toStdString();
 }
 
 std::map<std::string, DB_lens_links_record_t> DB_lens_links::db_load(std::string file_name) {
 	std::map<std::string, DB_lens_links_record_t> db;
-	QString ifile_name = QString::fromLocal8Bit(file_name.c_str());
+	QString ifile_name = QString::fromStdString(file_name);
 	QFile ifile(ifile_name);
 	if(ifile.open(QIODevice::ReadOnly) == false)
 		return db;
@@ -64,13 +64,13 @@ std::map<std::string, DB_lens_links_record_t> DB_lens_links::db_load(std::string
 				reader.readNext();
 				if(reader.name() == "link")
 					break;
-				if(reader.name() != "" && reader.isStartElement()) {
-					m_key = reader.name().toLocal8Bit().constData();
+				if(!reader.name().empty() && reader.isStartElement()) {
+					m_key = reader.name().toStdString();
 					flag = true;
 					continue;
 				}
 				if(flag) {
-					_map[m_key] = reader.text().toLocal8Bit().constData();
+					_map[m_key] = reader.text().toStdString();
 					flag = false;
 				}
 			}
@@ -116,7 +116,7 @@ std::map<std::string, DB_lens_links_record_t> DB_lens_links::db_load(std::string
 bool DB_lens_links::db_save(std::string file_name, const std::map<std::string, DB_lens_links_record_t> &db) {
 	if(db.size() == 0)
 		return true;
-	QString ofile_name = QString::fromLocal8Bit(file_name.c_str());
+	QString ofile_name = QString::fromStdString(file_name);
 	QFile ofile(ofile_name);
 	if(ofile.open(QIODevice::WriteOnly | QIODevice::Truncate) == false)
 		return false;
@@ -239,7 +239,7 @@ Lens_Links_browse_dialog::Lens_Links_browse_dialog(std::map<std::string, DB_lens
 void Lens_Links_browse_dialog::slot_item_clicked(const QModelIndex &_index) {
 	QModelIndex index = _index.child(_index.row(), 0);
 //	QString footprint = tv_model->data(index).toString();
-//	std::string str_footprint = footprint.toLocal8Bit().constData();
+//	std::string str_footprint = footprint.toStdString();
 //	bool OK = DB_lens_links::instance()->UI_edit_lens_link(str_footprint);
 //	DB_lens_links::instance()->UI_edit_lens_link(str_footprint);
 /*
@@ -280,7 +280,7 @@ void Lens_Links_browse_model::set_record(int index, const DB_lens_links_record_t
 	QString camera_model = QString::fromLatin1(rec.camera_model.c_str());
 	QString camera = camera_model;
 	int pos = camera_model.indexOf(camera_maker, 0, Qt::CaseInsensitive);
-	if(pos != 0 && camera_maker != "")
+	if(pos != 0 && !camera_maker.empty())
 		camera = camera_maker + " " + camera_model;
 	db_values[index].camera = camera;
 	// lens
@@ -288,7 +288,7 @@ void Lens_Links_browse_model::set_record(int index, const DB_lens_links_record_t
 	QString lens_model = QString::fromLatin1(rec.lens_model.c_str());
 	QString lens = lens_model;
 	pos = lens_model.indexOf(lens_maker, 0, Qt::CaseInsensitive);
-	if(pos != 0 && lens_maker != "")
+	if(pos != 0 && !lens_maker.empty())
 		lens = lens_maker + " " + lens_model;
 	db_values[index].lens = lens;
 }
@@ -373,7 +373,7 @@ bool DB_lens_links::UI_edit_lens_link(DB_lens_links_record_t &record, bool save)
 	rec.footprint = record.footprint;
 	bool exist = DB_lens_links::instance()->get_lens_link(rec, footprint, _camera_maker, _camera_model);
 	rec.footprint = record.footprint;
-	if(!exist || (_camera_maker != "" || _camera_model != "")) {
+	if(!exist || (!_camera_maker.empty() || !_camera_model.empty())) {
 		rec.camera_maker = _camera_maker;
 		rec.camera_model = _camera_model;
 	}
@@ -386,7 +386,7 @@ bool DB_lens_links::UI_edit_lens_link(DB_lens_links_record_t &record, bool save)
 	QString camera_model = QString::fromLatin1(rec.camera_model.c_str());
 	QString camera = camera_model;
 	int pos = camera_model.indexOf(camera_maker, 0, Qt::CaseInsensitive);
-	if(pos != 0 && camera_maker != "")
+	if(pos != 0 && !camera_maker.empty())
 		camera = camera_maker + " " + camera_model;
 	rec_Q.camera = camera;
 	// lens
@@ -394,15 +394,15 @@ bool DB_lens_links::UI_edit_lens_link(DB_lens_links_record_t &record, bool save)
 	QString lens_model = QString::fromLatin1(rec.lens_model.c_str());
 	QString lens = lens_model;
 	pos = lens_model.indexOf(lens_maker, 0, Qt::CaseInsensitive);
-	if(pos != 0 && lens_maker != "")
+	if(pos != 0 && !lens_maker.empty())
 		lens = lens_maker + " " + lens_model;
 	rec_Q.lens = lens;
 	//--
-//	rec_Q.camera_maker = QString::fromLocal8Bit(rec.camera_maker.c_str());
-//	rec_Q.lens_maker = QString::fromLocal8Bit(rec.lens_maker.c_str());
-//	rec_Q.lens_model = QString::fromLocal8Bit(rec.lens_model.c_str());
-//	Lens_Link_edit_dialog *dialog = new Lens_Link_edit_dialog(&rec_Q, QString::fromLocal8Bit(footprint.c_str()), parent);
-	Lens_Link_edit_dialog *dialog = new Lens_Link_edit_dialog(rec, rec_Q, QString::fromLocal8Bit(footprint.c_str()));
+//	rec_Q.camera_maker = QString::fromStdString(rec.camera_maker);
+//	rec_Q.lens_maker = QString::fromStdString(rec.lens_maker);
+//	rec_Q.lens_model = QString::fromStdString(rec.lens_model);
+//	Lens_Link_edit_dialog *dialog = new Lens_Link_edit_dialog(&rec_Q, QString::fromStdString(footprint), parent);
+	Lens_Link_edit_dialog *dialog = new Lens_Link_edit_dialog(rec, rec_Q, QString::fromStdString(footprint));
 	bool apply = dialog->exec();
 	bool return_value = false;
 	if(apply) {
@@ -465,7 +465,7 @@ Lens_Link_edit_dialog::Lens_Link_edit_dialog(const DB_lens_links_record_t &rec_t
 			QString _lens_model = QString::fromLatin1(lens_model.c_str());
 			QString lens = _lens_model;
 			int pos = _lens_model.indexOf(_lens_maker, 0, Qt::CaseInsensitive);
-			if(pos != 0 && _lens_maker != "")
+			if(pos != 0 && !_lens_maker.empty())
 				lens = _lens_maker + " " + _lens_model;
 //			cerr << "maker == \"" << lf_mlstr_get(lenses[i]->Maker) << "\"; model == \"" << lf_mlstr_get(lenses[i]->Model) << "\"" << endl;
 			map_lenses[lens] = QPair<std::string, std::string>(lens_maker, lens_model);

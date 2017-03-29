@@ -78,7 +78,7 @@ QString _get_location(QStandardPaths::StandardLocation type) {
 }
 
 void Config::init_locations(void) {
-	if(application_name == "")
+	if(application_name.isEmpty())
 		application_name = QCoreApplication::applicationName();
 	locations_map[QStandardPaths::CacheLocation] = _get_location(QStandardPaths::CacheLocation);
 	locations_map[QStandardPaths::AppDataLocation] = _get_location(QStandardPaths::AppDataLocation);
@@ -101,7 +101,7 @@ string Config::config_file_location(void) {
 //	QString folder_config = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation);
 //	QString file_name = folder_config + QDir::separator() + get_application_name() + ".conf";
 	QString file_name = get_config_location() + QDir::separator() + get_application_name() + ".conf";
-	std::string fname = file_name.toLocal8Bit().constData();
+	std::string fname = file_name.toStdString();
 //	cerr << "config file: \"" << fname.c_str() << "\"" << endl;
 	return fname;
 }
@@ -111,7 +111,7 @@ bool Config::get(string section, string key, QString &value) {
 	if(it != dataset->end()) {
 		string s;
 		if((*it).second.get(key, s)) {
-			value = QString::fromLocal8Bit(s.c_str());
+			value = QString::fromStdString(s);
 			return true;
 		}
 	}
@@ -143,7 +143,7 @@ void Config::set(string section, string key, QString value) {
 	map<string, DataSet>::iterator it = dataset->find(section);
 	if(it == dataset->end())
 		(*dataset)[section] = DataSet();
-	string s = value.toLocal8Bit().constData();
+	string s = value.toStdString();
 	(*dataset)[section].set(key, s);
 }
 
@@ -231,7 +231,7 @@ void Config::conf_load(void) {
 				is_eol = false;
 				is_section = false;
 				is_value = false;
-				if(section != "" && key != "" && value != "") {
+				if(!section.empty() && !key.empty() && !value.empty()) {
 					dataset_field_t t;
 					t.type = dataset_field_t::type_serialized;
 					t.vString = value;

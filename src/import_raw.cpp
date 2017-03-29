@@ -33,33 +33,37 @@
 
 using namespace std;
 
+static const float m_srgb_to_xyz[9] = {
+	 0.4124564,  0.3575761,  0.1804375,
+	 0.2126729,  0.7151522,  0.0721750,
+	 0.0193339,  0.1191920,  0.9503041
+};
 //------------------------------------------------------------------------------
-QList<QString> Import_Raw::extensions(void) {
-	QList<QString> l;
-	// RAW
-	l.push_back("3fr");	// Hasselblad
-	l.push_back("arw");	// Sony
-	l.push_back("cr2"); // Canon
-	l.push_back("crw"); // Canon
-	l.push_back("dcr"); // Kodak
-	l.push_back("dng"); // misc
-	l.push_back("erf"); // Epson
-	l.push_back("kdc"); // Kodak
-	l.push_back("mef"); // Mamiya
-	l.push_back("mos"); // Leaf (Aptus)
-	l.push_back("mrw"); // Konica Minolta
-	l.push_back("nef"); // Nikon
-	l.push_back("nrw"); // Nikon
-	l.push_back("orf"); // Olympus
-	l.push_back("pef"); // Pentax
-//	l.push_back("ppm");	// Hasselblad
-	l.push_back("raf"); // Fuji
-	l.push_back("raw"); // Leica, Panasonic etc.
-	l.push_back("rw2"); // Panasonic
-	l.push_back("srw"); // Samsung
-	l.push_back("sr2"); // Sony
-	l.push_back("x3f"); // Sigma
-	return l;
+std::list<std::string> Import_Raw::extensions(void) {
+	return std::list<std::string> {
+		"3fr",	// Hasselblad
+		"arw",	// Sony
+		"cr2", // Canon
+		"crw", // Canon
+		"dcr", // Kodak
+		"dng", // misc
+		"erf", // Epson
+		"kdc", // Kodak
+		"mef", // Mamiya
+		"mos", // Leaf (Aptus)
+		"mrw", // Konica Minolta
+		"nef", // Nikon
+		"nrw", // Nikon
+		"orf", // Olympus
+		"pef", // Pentax
+//		"ppm",	// Hasselblad
+		"raf", // Fuji
+		"raw", // Leica, Panasonic etc.
+		"rw2", // Panasonic
+		"srw", // Samsung
+		"sr2", // Sony
+		"x3f", // Sigma
+	};
 }
 
 Import_Raw::Import_Raw(string fname) {
@@ -105,11 +109,13 @@ std::unique_ptr<Area> Import_Raw::image(Metadata *metadata) {
 	prof_name += file_name;
 	prof_name += "\"";
 	Profiler prof(prof_name);
+
+	prof.mark("load raw photo with dcraw");
 	DCRaw *dcraw = new DCRaw();
 	long length;
-	prof.mark("load raw photo with dcraw");
 	uint16_t *dcraw_raw = (uint16_t *)dcraw->_load_raw(file_name, length);
 //	prof.mark("get metadata");
+
 	get_metadata(dcraw, metadata, dcraw_raw);
 	Exiv2_load_metadata(file_name, metadata);
 	bool processed = false;
@@ -142,13 +148,12 @@ std::unique_ptr<Area> Import_Raw::demosaic_xtrans(const uint16_t *_image, int _w
 }
 
 std::unique_ptr<Area> Import_Raw::load_xtrans(DCRaw *dcraw, Metadata *metadata, const uint16_t *dcraw_raw) {
-	// prepare metadata
-//	metadata->is_raw = false;
 	metadata->is_raw = true;
 	const int width = dcraw->width;
 	const int height = dcraw->height;
 	metadata->width = width;
 	metadata->height = height;
+
 	for(int j = 0; j < 6; ++j)
 		for(int i = 0; i < 6; ++i)
 			metadata->sensor_xtrans_pattern[j][i] = dcraw->xtrans[j][i];
@@ -156,7 +161,7 @@ std::unique_ptr<Area> Import_Raw::load_xtrans(DCRaw *dcraw, Metadata *metadata, 
 		metadata->c_scale_ref[i] = dcraw->pre_mul[i];
 		metadata->c_scale_camera[i] = dcraw->cam_mul[i];
 	}
-	float f = metadata->c_scale_camera[1];
+	const float f = metadata->c_scale_camera[1];
 	for(int i = 0; i < 3; ++i)
 		metadata->c_scale_camera[i] /= f;
 	metadata->c_scale_camera_valid = true;
@@ -169,12 +174,10 @@ std::unique_ptr<Area> Import_Raw::load_xtrans(DCRaw *dcraw, Metadata *metadata, 
 		for(int i = 0; i < 4; ++i)
 			metadata->rgb_cam[j][i] = dcraw->rgb_cam[j][i];
 	}
-	float m_srgb_to_xyz[9] = {
-		 0.4124564,  0.3575761,  0.1804375,
-		 0.2126729,  0.7151522,  0.0721750,
-		 0.0193339,  0.1191920,  0.9503041};
+
 	// restore matrix cRGB-XYZ D65 from matrix cRGB-sRGB D65 provided by dcraw
 	m3_m3_mult(metadata->cRGB_to_XYZ, m_srgb_to_xyz, mc);
+
 	//--------------------------------------------------------------------------
 	float scale[4];
 //	const float maximum = dcraw->maximum - dcraw->black;
@@ -193,7 +196,8 @@ std::unique_ptr<Area> Import_Raw::load_xtrans(DCRaw *dcraw, Metadata *metadata, 
 			value = (value > 0.0) ? value : 0.0;
 			if(metadata->c_max[k] < value)
 				metadata->c_max[k] = value;
-			uint32_t c_index = value * 2048;
+			uint32_t c_index = value * 2047;
+//			uint32_t c_index = value * 2048;
 			if(c_index > 4095)	c_index = 4095;
 			(metadata->c_histogram[4096 * k + c_index])++;
 			metadata->c_histogram_count[k]++;
@@ -226,10 +230,6 @@ std::unique_ptr<Area> Import_Raw::load_foveon(DCRaw *dcraw, Metadata *metadata, 
 		}
 	}
 */
-	float m_srgb_to_xyz[9] = {
-		 0.4124564,  0.3575761,  0.1804375,
-		 0.2126729,  0.7151522,  0.0721750,
-		 0.0193339,  0.1191920,  0.9503041};
 	// restore matrix cRGB-XYZ D65 from matrix cRGB-sRGB D65 provided by dcraw
 //	m3_m3_mult(metadata->cRGB_to_XYZ, m_srgb_to_xyz, mc);
 	// imported image would be in sRGB D65 color space, so just convert it back to XYZ
@@ -255,7 +255,8 @@ std::unique_ptr<Area> Import_Raw::load_foveon(DCRaw *dcraw, Metadata *metadata, 
 				float value_n = (value > 0.0) ? value : 0.0;
 				if(metadata->c_max[k] < value_n)
 					metadata->c_max[k] = value_n;
-				uint32_t c_index = value_n * 2048;
+				uint32_t c_index = value_n * 2047;
+//				uint32_t c_index = value_n * 2048;
 				if(c_index > 4095)	c_index = 4095;
 				(metadata->c_histogram[4096 * k + c_index])++;
 				metadata->c_histogram_count[k]++;
@@ -297,10 +298,7 @@ std::unique_ptr<Area> Import_Raw::dcraw_to_area(DCRaw *dcraw, Metadata *metadata
 			k++;
 		}
 	}
-	float m_srgb_to_xyz[9] = {
-		 0.4124564,  0.3575761,  0.1804375,
-		 0.2126729,  0.7151522,  0.0721750,
-		 0.0193339,  0.1191920,  0.9503041};
+
 	// restore matrix cRGB-XYZ D65 from matrix cRGB-sRGB D65 provided by dcraw
 	m3_m3_mult(metadata->cRGB_to_XYZ, m_srgb_to_xyz, mc);
 
@@ -594,7 +592,8 @@ cerr << "bayer_signal_maximum[3] == " << bayer_signal_maximum[3] << endl;
 			// histogram
 //			uint32_t c_index = v * 2047;
 			float value_n = (value > 0.0) ? value : 0.0;
-			uint32_t c_index = value_n * 2048;
+			uint32_t c_index = value_n * 2047;
+//			uint32_t c_index = value_n * 2048;
 			if(c_index > 4095)	c_index = 4095;
 //			if(c_index < 0)		c_index = 0;
 			(metadata->c_histogram[4096 * index_3 + c_index])++;
@@ -803,11 +802,11 @@ cerr << "metadata->demosaic_unsupported == " << metadata->demosaic_unsupported <
 		shutter = double(1.0) / shutter;
 		metadata->speed_shutter = shutter;
 		str.sprintf("1&#47;%d", (int)shutter);
-		metadata->str_shutter_html = str.toLocal8Bit().constData();
+		metadata->str_shutter_html = str.toStdString();
 	} else {
 		str.sprintf("%0.1f", shutter);
 		metadata->speed_shutter = shutter;
-		metadata->str_shutter_html = str.toLocal8Bit().constData();
+		metadata->str_shutter_html = str.toStdString();
 	}
 	long aperture = (dcraw->aperture + 0.005) * 10;
 	metadata->lens_aperture = float(aperture) / 10.0;
@@ -889,7 +888,7 @@ uint8_t *Import_Raw::load_thumb(string filename, int thumb_width, int thumb_heig
 			}
 		}
 		string newfn = "";
-		if(part_number != "") {
+		if(!part_number.empty()) {
 //cerr << "part_number == " << part_number << endl;
 			string prefix[2] = {"IMG_", "img_"};
 			string postfix[4] = {".JPG", ".jpg", ".JPEG", ".jpeg"};
@@ -911,7 +910,7 @@ uint8_t *Import_Raw::load_thumb(string filename, int thumb_width, int thumb_heig
 					break;
 			}
 		}
-		if(newfn != "") {
+		if(!newfn.empty()) {
 //cerr << "newfn == " << newfn << endl;
 			data_exiv2 = Exiv2_load_thumb(newfn, thumb_width, thumb_height, length_exiv2, metadata);
 			if(data_exiv2 != nullptr) {

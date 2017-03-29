@@ -90,31 +90,30 @@ using namespace std;
 QString Metadata::get_tooltip(QString file_name) {
 	QString tooltip = "<table><tr><td align='right'><b>File:</b></td><td>";
 	tooltip += file_name + "</td></tr>";
-	if(camera_make != "")
-		tooltip += "<tr><td align='right'><b>Camera make:</b></td><td>" + QString::fromLocal8Bit(camera_make.c_str()) + "</td></tr>";
-	if(camera_model != "")
-		tooltip += "<tr><td align='right'><b>Camera model:</b></td><td>" + QString::fromLocal8Bit(camera_model.c_str()) + "</td></tr>";
+	if(!camera_make.empty())
+		tooltip += "<tr><td align='right'><b>Camera make:</b></td><td>" + QString::fromStdString(camera_make) + "</td></tr>";
+	if(!camera_model.empty())
+		tooltip += "<tr><td align='right'><b>Camera model:</b></td><td>" + QString::fromStdString(camera_model) + "</td></tr>";
 	if(timestamp != 0) {
 		QDateTime t = QDateTime::fromTime_t(timestamp);
 		QString ts = t.toString("ddd MMM d hh:mm:ss yyyy");
 		tooltip += "<tr><td align='right'><b>Timestamp:</b></td><td>" + ts + "</td></tr>";
 	} else {
-		if(str_timestamp != "") {
-			tooltip += "<tr><td align='right'><b>Timestamp:</b></td><td>" + QString::fromLocal8Bit(str_timestamp.c_str()) + "</td></tr>";
+		if(!str_timestamp.empty()) {
+			tooltip += "<tr><td align='right'><b>Timestamp:</b></td><td>" + QString::fromStdString(str_timestamp) + "</td></tr>";
 		}
 	}
-//	if(camera_artist != "" && camera_artist != "unknown")
-//		tooltip += "<tr><td align='right'><b>Artist:</b></td><td>" + QString::fromLocal8Bit(camera_artist.c_str()) + "</td></tr>";
+//	if(!camera_artist.empty() && camera_artist != "unknown")
+//		tooltip += "<tr><td align='right'><b>Artist:</b></td><td>" + QString::fromStdString(camera_artist) + "</td></tr>";
 	//--
 	if(speed_iso > 0) {
 		QString str = QString("%1").arg(speed_iso);
 		tooltip += "<tr><td align='right'><b>ISO:</b></td><td>" + str + "</td></tr>";
 	}
 	if(speed_shutter > 0.0 && str_shutter_html != "0.0")
-		tooltip += "<tr><td align='right'><b>Shutter:</b></td><td>" + QString::fromLocal8Bit(str_shutter_html.c_str()) + " sec</td></tr>";
-	if(lens_model != "") {
-		tooltip += "<tr><td align='right'><b>Lens:</b></td><td>" + QString::fromLocal8Bit(lens_model.c_str()) + "</td></tr>";
-	}
+		tooltip += "<tr><td align='right'><b>Shutter:</b></td><td>" + QString::fromStdString(str_shutter_html) + " sec</td></tr>";
+	if(!lens_model.empty())
+		tooltip += "<tr><td align='right'><b>Lens:</b></td><td>" + QString::fromStdString(lens_model) + "</td></tr>";
 	if(lens_aperture > 0.1)  {
 		QString str = QString("%1").arg(lens_aperture, 1, 'f', 1, QLatin1Char('0'));
 		tooltip += "<tr><td align='right'><b>Aperture:</b></td><td>F&#47;" + str + "</td></tr>";
