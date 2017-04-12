@@ -408,21 +408,21 @@ void Export::export_png(string file_name, Area *area_image, Area *area_thumb, ex
 	FILE *fp = fopen(file_name.c_str(), "wb");
 	if(!fp) {
 		// handle error
-cerr << "FATAL ERROR - 1 !!!" << endl;
+		return;
 	}
 //	png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, (png_voidp)user_error_ptr, user_error_fn, user_warning_fn);
 	png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, (png_voidp)nullptr, nullptr, nullptr);
 	if(!png_ptr) {
 		fclose(fp);
 		// handle error
-cerr << "FATAL ERROR - 2 !!!" << endl;
+		return;
 	}
 	png_infop info_ptr = png_create_info_struct(png_ptr);
 	if(!info_ptr) {
 		png_destroy_write_struct(&png_ptr, (png_infopp)nullptr);
 		fclose(fp);
 		// handle error
-cerr << "FATAL ERROR - 3 !!!" << endl;
+		return;
 	}
 /*
 	if(setjmp(png_jmpbuf(png_ptr))) {
@@ -465,13 +465,14 @@ cerr << "FATAL ERROR - 3 !!!" << endl;
 //cerr << "width == " << width << "; bits == " << bits << "; row_stride == " << row_stride << endl;
 	uint8_t *image_buffer = (uint8_t *)image;
 //	while(cinfo.next_scanline < cinfo.image_height) {
+#if __BYTE_ORDER == __BIG_ENDIAN
+	const bool do_swap = false;
+#else
+	const bool do_swap = true;
+#endif
 	for(int i = 0; i < height; ++i) {
 		png_byte *row_pointer = (png_byte *)&image_buffer[i * row_stride];
 		// looks like most of programs just ignore swap order, so do real bytes swap here
-		bool do_swap = true;
-#if __BYTE_ORDER == __BIG_ENDIAN
-		do_swap = false;
-#endif
 		if(do_swap) {
 			// PCs
 			if(bits == 16) {

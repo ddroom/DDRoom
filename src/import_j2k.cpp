@@ -11,7 +11,6 @@
  *	Openjpeg library usage is based on the sample source "opj_decompress.c"
  */
 
-#include <stdio.h>
 #include <iostream>
 
 #include "area.h"
@@ -22,8 +21,6 @@
 #include "ddr_math.h"
 
 #include <openjpeg-2.1/openjpeg.h>
-
-#include <QFile>
 
 using namespace std;
 

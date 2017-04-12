@@ -11,7 +11,7 @@
  * TIFF import; 8bit via TIFFReadRGBAImage; 16 bit - RGB, RGBA (sRGB colorspace)
  *
  */
-#include <stdio.h>
+
 #include <iostream>
 
 #include "area.h"

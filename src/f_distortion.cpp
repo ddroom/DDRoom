@@ -10,6 +10,9 @@
 /*
 TODO:
     - remove exiv2 <--> lensfun lens links to more global level, like tools->metadata page...
+TODO: implement distortion profiling in this way:
+	- extract straight lines from the target photo - lines like lines on the football field, or straight threads with some weight on the end of them etc.
+	- tweak polynom coefficients to get those line straight.
 */
 
 #include <iostream>

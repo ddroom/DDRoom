@@ -12,7 +12,7 @@
  *	supposed sRGB and grayscale color space of image;
  *
  */
-#include <stdio.h>
+
 #include <iostream>
 
 #include "area.h"
