@@ -114,7 +114,7 @@ protected:
 
 	static void wrap_filters(const std::vector<class filter_record_t> &filters, class task_run_t *task);
 	static void allocate_process_caches(const std::vector<class filter_record_t> &filters, std::shared_ptr<class Photo_t> photo_ptr);
-	static class Area *prepare_cached_area(std::vector<filter_record_t> &filter_records, class task_run_t *task, const int pass, const bool is_main);
+	static class Area *select_cached_area_and_filters_to_process(std::vector<filter_record_t> &filter_records, class task_run_t *task, const int pass, const bool is_main);
 
 protected:
 	class Filter_Store *fstore;

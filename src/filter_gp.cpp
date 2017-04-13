@@ -455,6 +455,7 @@ std::unique_ptr<Area> FilterProcess_GP_Wrapper::process_copy(MT_t *mt_obj, Proce
 	const int threads_count = subflow->threads_count();
 	if(subflow->sync_point_pre()) {
 		Area *area_in = process_obj->area_in;
+//area_in->dump_ptr(__FILE__, __LINE__);
 
 		Area::t_dimensions d_out = *area_in->dimensions();
 		Tile_t::t_position &tp = process_obj->position;
@@ -466,11 +467,15 @@ std::unique_ptr<Area> FilterProcess_GP_Wrapper::process_copy(MT_t *mt_obj, Proce
 		d_out.position.px_size_y = tp.px_size_y;
 		d_out.size.w = tp.width;
 		d_out.size.h = tp.height;
+		d_out.edges = Area::t_edges();
+/*
 		d_out.edges.x1 = 0;
 		d_out.edges.x2 = 0;
 		d_out.edges.y1 = 0;
 		d_out.edges.y2 = 0;
+*/
 		area_out = std::unique_ptr<Area>(new Area(&d_out));
+//area_out.get()->dump_ptr(__FILE__, __LINE__);
 
 		int offset_x = tp.x - area_in->dimensions()->position.x;
 		int offset_y = tp.y - area_in->dimensions()->position.y;
@@ -525,17 +530,17 @@ void FilterProcess_GP_Wrapper::process_copy(SubFlow *subflow) {
 
 	const int out_x_max = area_out->dimensions()->width();
 	const int out_y_max = area_out->dimensions()->height();
-	const int in_x1 = area_in->dimensions()->edges.x1;
-	const int in_y1 = area_in->dimensions()->edges.y1;
-	const int in_x2 = area_in->dimensions()->width() + in_x1;
-	const int in_y2 = area_in->dimensions()->height() + in_y1;
+	const int in_x_min = area_in->dimensions()->edges.x1;
+	const int in_x_max = area_in->dimensions()->width() + in_x_min;
+	const int in_y_min = area_in->dimensions()->edges.y1;
+	const int in_y_max = area_in->dimensions()->height() + in_y_min;
 
 //cerr << "_w = " << _w << endl;
 	float *_in = (float *)area_in->ptr();
 	float *_out = (float *)area_out->ptr();
 
-	const int in_x_offset = task->in_x_offset + in_x1;
-	const int in_y_offset = task->in_y_offset + in_y1;
+	const int in_x_offset = task->in_x_offset + in_x_min;
+	const int in_y_offset = task->in_y_offset + in_y_min;
 
 	float color_pixel[16];
 	color_pixel[ 0] = 1.0;
@@ -556,21 +561,21 @@ void FilterProcess_GP_Wrapper::process_copy(SubFlow *subflow) {
 	float *mark_lt_pixel = &color_pixel[4];
 	float *mark_rb_pixel = &color_pixel[8];
 #endif
-
 	int it_y;
 	auto y_flow = task->y_flow;
 	while((it_y = y_flow->fetch_add(1)) < out_y_max) {
 		for(int it_x = 0; it_x < out_x_max; ++it_x) {
-			float *out = &_out[(it_y * out_width + it_x) * 4 + 0];
+			float *const out = &_out[(it_y * out_width + it_x) << 2];
 			const int in_x = in_x_offset + it_x;
 			const int in_y = in_y_offset + it_y;
-			if(in_x < in_x1 || in_x >= in_x2 || in_y < in_y1 || in_y >= in_y2) {
+			if(in_x < in_x_min || in_x >= in_x_max || in_y < in_y_min || in_y >= in_y_max) {
 				out[0] = bad_pixel[0];
 				out[1] = bad_pixel[1];
 				out[2] = bad_pixel[2];
 				out[3] = bad_pixel[3];
 			} else  {
-				float *in = &_in[((in_y_offset + it_y) * in_width + in_x_offset + it_x) * 4 + 0];
+				float *const in = &_in[(in_y * in_width + in_x) << 2];
+//				float *in = &_in[((in_y_offset + it_y) * in_width + in_x_offset + it_x) * 4 + 0];
 				out[0] = in[0] * task->wb_a[0] + task->wb_b[0];
 				out[1] = in[1] * task->wb_a[1] + task->wb_b[1];
 				out[2] = in[2] * task->wb_a[2] + task->wb_b[2];

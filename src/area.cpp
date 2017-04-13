@@ -108,7 +108,7 @@ void Area::t_dimensions::rotate_plus_90(void) {
 
 //------------------------------------------------------------------------------
 void Area::dump_ptr(const char *file, int line) {
-	return;
+//	return;
 	std::cerr << "--=--=--=--=-->> Area ptr == ";
 	mem.ptr_dump();
 	std::cerr << " at file: \"" << file << "\":" << line << std::endl;

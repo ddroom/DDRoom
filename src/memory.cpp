@@ -34,7 +34,7 @@ std::set<uintptr_t> Mem::ptr_set;
 
 void Mem::ptr_dump(void) {
 	int refs = mem_shared_ptr.use_count();
-	std::cerr << (unsigned long)((void *)ptr_allocated) << ", references == " << refs << std::endl;
+	std::cerr << "ptr == " << ((void *)ptr_allocated) << ", size == " << _mem_size << ", references == " << refs << std::endl;
 }
 
 Mem::Mem(size_t size) {

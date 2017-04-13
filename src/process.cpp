@@ -161,8 +161,8 @@ public:
 };
 
 void ProcessCache_t::local_clear(void) {
-	cache_fp_for_second_pass = nullptr;
-	cached_area_for_second_pass.reset();
+//	cache_fp_for_second_pass = nullptr;
+//	cached_area_for_second_pass.reset();
 }
 
 //void Process::allocate_process_caches(list<filter_record_t> &filters, Photo_t *photo) {
@@ -325,8 +325,6 @@ bool Process::process_edit(void *ptr, std::shared_ptr<Photo_t> photo, int reques
 	process_task.is_offline = false;
 	process_task.out_format = Area::format_t::bgra_8;
 
-	PhotoProcessed_t *photo_processed = new PhotoProcessed_t();
-	photo_processed->is_empty = true;
 
 	process_task.priority = Flow::priority_online_interactive;
 	if(photo->process_source == ProcessSource::s_load)
@@ -334,6 +332,7 @@ bool Process::process_edit(void *ptr, std::shared_ptr<Photo_t> photo, int reques
 
 	Process::process(&process_task);
 
+	PhotoProcessed_t *photo_processed = new PhotoProcessed_t();
 	photo_processed->is_empty = process_task.failed;
 	photo_processed->rotation = process_task.result_cw_rotation;
 	photo_processed->update = process_task.result_update;
@@ -540,71 +539,87 @@ void Process::subflow_run_mt(void *obj, SubFlow *subflow, void *data) {
 //------------------------------------------------------------------------------
 // Determine cached area to be used, update filters list to process,
 // determine filter that result of should be cached between first and second passes.
-class Area *Process::prepare_cached_area(std::vector<filter_record_t> &filter_records, class task_run_t *task, const int pass, const bool is_main) {
-	const bool is_thumb = (pass == 0);
-	Area *last_cached_area = nullptr;
+class Area *Process::select_cached_area_and_filters_to_process(std::vector<filter_record_t> &filters_to_process, class task_run_t *task, const int pass, const bool is_main) {
+//cerr << "select_cached_area_and_filters_to_process" << endl;
 
 	ProcessCache_t *process_cache = (ProcessCache_t *)task->photo->cache_process;
-	const ProcessSource::process process_source = task->photo->process_source;
 	std::vector<filter_record_t> &task_filter_records = task->filter_records[pass];
-
 	// Determine what possible cached area use as input.
 	// TODO: add support of the caches for 'tiled' area too
-	filter_records.reserve(task_filter_records.size());
-	bool skip_cache = false;
-	int index = 0;
-	int index_cached_filter = -1;
+
+	if(pass == 1) {
+		// not too much to do...
+/*
+cerr << "Pass 1..." << endl;
+cerr << "Pass 1: cache_fp_for_second_pass == " << process_cache->cache_fp_for_second_pass << endl;
+cerr << "Pass 1: cache_fp_for_second_pass == \"" << process_cache->cache_fp_for_second_pass->name() << "\"" << endl;
+cerr << "cached_area == " << process_cache->cached_area_for_second_pass.get() << endl;
+*/
+		Area *cached_area = process_cache->cached_area_for_second_pass.get();
+//cerr << "cached_area->type == " << Area::type_to_name(cached_area->type()) << endl;
+		filters_to_process = task_filter_records;
+		return cached_area;
+	}
+
+	// pass == 0
+	const ProcessSource::process process_source = task->photo->process_source;
+
+	// remove deprecated caches if any
+	bool remove_cache = false;
+	int index_tiling = task_filter_records.size() - 1;
 	for(int i = 0; i < task_filter_records.size(); ++i) {
 		if(task_filter_records[i].use_tiling) {
-			if(!is_thumb)
-				index = i;
+			index_tiling = i;
 			break;
 		}
 		if(task_filter_records[i].filter->get_id() == process_source)
-			skip_cache = true;
-		// remember filter to cache from in the first pass for the second one
-		// and cache it even if there would be no other usable cached areas
-		if(!is_thumb && process_cache->cache_fp_for_second_pass == task_filter_records[i].fp)
-			index_cached_filter = i;
-		if(is_thumb && is_main)
-			process_cache->cache_fp_for_second_pass = task_filter_records[i].fp;
-		// get last accessible cache and reset now deprecated
-		if(task_filter_records[i].cache_result) {
+			remove_cache = true;
+		if(remove_cache) {
 			auto cache_result = process_cache->filters_area_cache.find(task_filter_records[i].fp);
-			if(cache_result != process_cache->filters_area_cache.end()) {
-				if(skip_cache) {
+			if(cache_result != process_cache->filters_area_cache.end())
 					process_cache->filters_area_cache.erase(cache_result);
-				} else {
-					last_cached_area = (*cache_result).second.get();
-//cerr << "last_cached_area for FP == " << task_filter_records[i].fp << " is: " << last_cached_area << endl;
-					index = i + 1;
-				}
+		}
+	}
+
+	// prepare the list of the filters to be processed after the cache
+	filters_to_process.reserve(task_filter_records.size());
+	Area *cached_area = nullptr;
+	int index = 0;
+	FilterProcess *fp = nullptr;
+	FilterProcess *cached_area_fp = nullptr;
+
+	// index from where filters to process begin
+	// search for the last usable cache
+	for(int i = 0; i < index_tiling; ++i) {
+		fp = task_filter_records[i].fp;
+		if(task_filter_records[i].cache_result == true) {
+			auto cache_result = process_cache->filters_area_cache.find(fp);
+			if(cache_result != process_cache->filters_area_cache.end()) {
+				cached_area_fp = fp;
+				cached_area = (*cache_result).second.get();
+				index = i + 1;
 			}
 		}
 	}
-	if(index_cached_filter > index) {
-		index = index_cached_filter;
-		last_cached_area = process_cache->cached_area_for_second_pass.get();
-	}
-	// if there was no other caches for tiles use this one
-	if(!is_thumb && last_cached_area == nullptr) {
-		last_cached_area = process_cache->cached_area_for_second_pass.get();
-	}
-	if(last_cached_area != nullptr) {
-		if(is_thumb && is_main) {
-			process_cache->cache_fp_for_second_pass = nullptr;
-			if(process_cache->cached_area_for_second_pass == nullptr)
-				process_cache->cached_area_for_second_pass.reset(new Area(*last_cached_area));
+	if(is_main) {
+		process_cache->cache_fp_for_second_pass = fp;
+//cerr << "Pass 0: cache_fp_for_second_pass == \"" << fp->name() << "\"" << endl;
+		if(cached_area == nullptr)
+			process_cache->cached_area_for_second_pass.reset();
+		if(cached_area != nullptr && fp == cached_area_fp) {
+//			process_cache->cache_fp_for_second_pass = nullptr;
+//			if(process_cache->cached_area_for_second_pass == nullptr)
+				process_cache->cached_area_for_second_pass.reset(new Area(*cached_area));
 		}
-		// copy filters to process
-		for(int i = index; i < task_filter_records.size(); ++i) {
-			filter_records.push_back(task_filter_records[i]);
-		}
-	} else {
-		// no cache was found - process all filters
-		filter_records = task_filter_records;
 	}
-	return last_cached_area;
+
+	// prepare list of filters to process
+	if(index != 0)
+		for(int i = index; i < task_filter_records.size(); ++i)
+			filters_to_process.push_back(task_filter_records[i]);
+	else
+		filters_to_process = task_filter_records;
+	return cached_area;
 }
 
 //------------------------------------------------------------------------------
@@ -664,7 +679,7 @@ void Process::run_mt(SubFlow *subflow, void *data) {
 		}
 
 		std::vector<filter_record_t> filter_records;
-		Area *last_cached_area = prepare_cached_area(filter_records, task, pass, is_main);
+		Area *last_cached_area = select_cached_area_and_filters_to_process(filter_records, task, pass, is_main);
 
 		// Prepare tiles.
 		std::unique_ptr<DataSet> mutators;
