@@ -530,7 +530,7 @@ void View::photo_open_start(QImage icon, std::shared_ptr<Photo_t> _photo) {
 }
 
 void View::photo_open_finish(PhotoProcessed_t *pp) {
-//cerr  << "View::photo_open_done(); this == " << (unsigned long)this << endl;
+//cerr  << "View::photo_open_finish()" << endl;
 	view_header->set_enabled(!pp->is_empty);
 	image->lock.lock();
 	bool clock_stop_flag = false;
@@ -853,22 +853,21 @@ void View::resizeEvent(QResizeEvent *event) {
 	image->viewport_to_image(im_x, im_y, viewport_w / 2, viewport_h / 2);
 	viewport_w = event->size().width();
 	viewport_h = event->size().height();
-	if(!image->is_empty) {
-		image->lock.lock();
-		bool update = true;
-		const QSize size_prev = image->size_scaled;
-		update_image_to_zoom(im_x, im_y, false);
-		if(image->zoom_type == zoom_t::zoom_fit) {
-			if(size_prev != image->size_scaled)
-				image->reset_tiles(); // to prevent drawing of deprecated tiles
-			else
-				update = false; // there was no actual resizing - skip waste reprocessing
-		}
-		image->lock.unlock();
-		normalize_offset();
-		if(update)
-			resize_update_timer->start();
+
+	image->lock.lock();
+	bool update = true;
+	const QSize size_prev = image->size_scaled;
+	update_image_to_zoom(im_x, im_y, false);
+	if(image->zoom_type == zoom_t::zoom_fit) {
+		if(size_prev != image->size_scaled)
+			image->reset_tiles(); // to prevent drawing of deprecated tiles
+		else
+			update = false; // there was no actual resizing - skip waste reprocessing
 	}
+	image->lock.unlock();
+	normalize_offset();
+	if(update && !image->is_empty)
+		resize_update_timer->start();
 }
 
 void View::slot_resize_update_timeout() {
@@ -1554,7 +1553,7 @@ cerr << "reject tile with ID: " << tile->request_ID << " with current request ID
 	// use tile
 	if(is_thumb) {
 		image->is_empty = false;
-//cerr << "receive thumb: was_requested == " << was_in_request << endl;
+//cerr << "receive_thumb: was_requested == " << was_in_request << endl;
 		if(image->thumb_area != nullptr) {
 cerr << "ERROR: receive_tile(): image->thumb_area stil not empty" << endl;
 			delete image->thumb_area;
