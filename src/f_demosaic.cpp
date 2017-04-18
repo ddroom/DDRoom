@@ -472,24 +472,24 @@ void FP_Demosaic::size_forward(FP_size_t *fp_size, const Area::t_dimensions *d_b
 	*d_after = *d_before;
 	if(is_enabled(ps_base) == false)
 		return;
-//cerr << "size_forward: check bayer..." << endl;
 	if(!demosaic_pattern_is_bayer(fp_size->metadata->demosaic_pattern))
 		return;
-	//--
-	d_after->edges.x1 += 2;
-	d_after->edges.x2 += 2;
-	d_after->edges.y1 += 2;
-	d_after->edges.y2 += 2;
-//cerr << "size_forward: check bayer... - done!" << endl;
-///*
 	int edge_x = 0;
 	int edge_y = 0;
 	const PS_Demosaic *ps = (const PS_Demosaic *)ps_base;
 	edges_from_CA(edge_x, edge_y, d_after->width(), d_after->height(), ps);
-	d_after->edges.x1 += edge_x;
-	d_after->edges.x2 += edge_x;
-	d_after->edges.y1 += edge_y;
-	d_after->edges.y2 += edge_y;
+
+	d_after->edges.x1 += 2;
+	d_after->edges.x2 += 2;
+	d_after->edges.y1 += 2;
+	d_after->edges.y2 += 2;
+	d_after->position.x += 2;
+	d_after->position.y += 2;
+
+	d_after->size.w -= edge_x * 2;
+	d_after->size.h -= edge_y * 2;
+	d_after->position.x += edge_x;
+	d_after->position.y += edge_y;
 }
 
 void FP_Demosaic::_init(void) {
@@ -710,7 +710,13 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 		if(flag_process_xtrans) {
 			area_out = std::unique_ptr<Area>(new Area(area_in->dimensions()->width(), area_in->dimensions()->height(), Area::type_t::float_p4));
 		} else {
-			size_forward(&fp_size, area_in->dimensions(), &d_out);
+			d_out.edges.x1 += 2;
+			d_out.edges.x2 += 2;
+			d_out.edges.y1 += 2;
+			d_out.edges.y2 += 2;
+			d_out.position.x += 2;
+			d_out.position.y += 2;
+//			size_forward(&fp_size, area_in->dimensions(), &d_out);
 			area_out = std::unique_ptr<Area>(new Area(&d_out));
 
 			bayer = (float *)area_in->ptr();
@@ -824,6 +830,7 @@ cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - "
 
 	// cleanup
 	subflow->sync_point();
+#if 0
 	if(subflow->is_main()) {
 //cerr << "Demosaic: size.w == " << area_out->dimensions()->size.w << "; edges.x1 == " << area_out->dimensions()->edges.x1 << endl;
 		// TODO: fix that in an appropriate place
@@ -840,6 +847,7 @@ cerr << "position.x == " << d->position.x << " - " << d->position.y << endl;
 cerr << "edges:   x == " << d->position.x - d->position.px_size_x * 0.5 << " - " << d->position.y - d->position.px_size_y * 0.5 << endl;
 */
 	}
+#endif
 	return area_out;
 }
 

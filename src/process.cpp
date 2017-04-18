@@ -460,6 +460,9 @@ bool Process::process(Process_task_t *process_task) {
 			if(task.photo->metadata == nullptr)
 				task.photo->metadata = new Metadata;
 			task.photo->area_raw = std::unique_ptr<Area>(Import::image(task.photo->photo_id.get_file_name(), task.photo->metadata));
+
+			Area *a = task.photo->area_raw.get();
+			Area::t_dimensions *d = a->dimensions();
 		} catch(Area::bad_alloc) {
 			bad_alloc = true;
 		} catch(std::bad_alloc) {
@@ -704,7 +707,7 @@ void Process::run_mt(SubFlow *subflow, void *data) {
 				task->tiles_request = task->tiles_receiver->get_tiles(&target_dimensions, task->photo->cw_rotation, is_thumb);
 				target_dimensions.position.px_size_x = task->tiles_request->scale_factor_x;
 				target_dimensions.position.px_size_y = task->tiles_request->scale_factor_y;
-//cerr << "target_dimensions.px_size == " << target_dimensions.position.px_size << endl;
+//cerr << "target_dimensions.px_size == " << target_dimensions.position.px_size_x << endl;
 				// prepare input sizes for tiles processing
 				process_size_backward(task, filter_records, target_dimensions);
 			} else { // ** use already created tiles request, w/o creation a new set of tiles

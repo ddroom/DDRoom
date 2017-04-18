@@ -321,10 +321,12 @@ cerr << "y2_new == " << y2_new << endl;
 	d_after->position.x = x1;
 	d_after->position.y = y1;
 #endif
+///*
 	d_after->edges.x1 = 0;
 	d_after->edges.x2 = 0;
 	d_after->edges.y1 = 0;
 	d_after->edges.y2 = 0;
+//*/
 //cerr << "__ d_after->position == " << d_after->position.x << "," << d_after->position.y << endl;
 //cerr << "__ d_after->size     == " << d_after->size.w << "x" << d_after->size.h << endl;
 /*
@@ -495,6 +497,7 @@ std::unique_ptr<Area> FilterProcess_GP_Wrapper::process_copy(MT_t *mt_obj, Proce
 
 		tasks.resize(threads_count);
 		y_flow = std::unique_ptr<std::atomic_int>(new std::atomic_int(0));
+//cerr << "offset == " << offset_x << " - " << offset_y << endl;
 		for(int i = 0; i < threads_count; ++i) {
 			tasks[i] = std::unique_ptr<task_copy_t>(new task_copy_t);
 			task_copy_t *task = tasks[i].get();
@@ -541,11 +544,14 @@ void FilterProcess_GP_Wrapper::process_copy(SubFlow *subflow) {
 
 	const int in_x_offset = task->in_x_offset + in_x_min;
 	const int in_y_offset = task->in_y_offset + in_y_min;
+//cerr << "in_edges  == " << in_x_min << " - " << in_y_min << endl;
+//cerr << "in_offset == " << in_x_offset << " - " << in_y_offset << endl;
 
 	float color_pixel[16];
-	color_pixel[ 0] = 1.0;
-	color_pixel[ 1] = 1.0;
-	color_pixel[ 2] = 1.0;
+	color_pixel[ 0] = 0.5;
+	color_pixel[ 1] = 0.5;
+	color_pixel[ 2] = 0.5;
+	// WARNING: keep that alpha at zero !!!
 	color_pixel[ 3] = 0.0;
 	color_pixel[ 4] = 1.0;
 	color_pixel[ 5] = 0.0;
@@ -556,7 +562,7 @@ void FilterProcess_GP_Wrapper::process_copy(SubFlow *subflow) {
 	color_pixel[10] = 0.0;
 	color_pixel[11] = 0.75;
 
-	float *bad_pixel = &color_pixel[0];
+	float *empty_pixel = &color_pixel[0];
 #ifdef MARK_CORNERS
 	float *mark_lt_pixel = &color_pixel[4];
 	float *mark_rb_pixel = &color_pixel[8];
@@ -569,17 +575,18 @@ void FilterProcess_GP_Wrapper::process_copy(SubFlow *subflow) {
 			const int in_x = in_x_offset + it_x;
 			const int in_y = in_y_offset + it_y;
 			if(in_x < in_x_min || in_x >= in_x_max || in_y < in_y_min || in_y >= in_y_max) {
-				out[0] = bad_pixel[0];
-				out[1] = bad_pixel[1];
-				out[2] = bad_pixel[2];
-				out[3] = bad_pixel[3];
+				out[0] = empty_pixel[0];
+				out[1] = empty_pixel[1];
+				out[2] = empty_pixel[2];
+				out[3] = empty_pixel[3];
 			} else  {
 				float *const in = &_in[(in_y * in_width + in_x) << 2];
 //				float *in = &_in[((in_y_offset + it_y) * in_width + in_x_offset + it_x) * 4 + 0];
 				out[0] = in[0] * task->wb_a[0] + task->wb_b[0];
 				out[1] = in[1] * task->wb_a[1] + task->wb_b[1];
 				out[2] = in[2] * task->wb_a[2] + task->wb_b[2];
-				out[3] = in[3];
+				out[3] = 1.0f;
+//				out[3] = in[3];
 			}
 #ifdef MARK_CORNERS
 			// mark corners
@@ -963,6 +970,7 @@ void FilterProcess_GP_Wrapper::process_sampling(SubFlow *subflow) {
 	color_pixel[ 0] = 0.5;
 	color_pixel[ 1] = 0.5;
 	color_pixel[ 2] = 0.5;
+	// WARNING: keep that alpha at zero !!!
 	color_pixel[ 3] = 0.0;
 	color_pixel[ 4] = 1.0;
 	color_pixel[ 5] = 0.0;

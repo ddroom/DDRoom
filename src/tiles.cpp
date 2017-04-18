@@ -253,6 +253,7 @@ TilesDescriptor_t *TilesReceiver::get_tiles(Area::t_dimensions *d, int cw_rotati
 		t->scale_factor_x = d->position.px_size_x;
 		t->scale_factor_y = d->position.px_size_y;
 	}
+//cerr << "get_tiles(), edges == " << d->edges.x1 << " - " << d->edges.y1 << endl;
 	if(!flag_use_tiling || is_thumb) {
 		t->index_list = std::list<int>();
 		t->index_list.push_back(0);
@@ -284,20 +285,22 @@ TilesDescriptor_t *TilesReceiver::get_tiles(Area::t_dimensions *d, int cw_rotati
 		int tile_index = 0;
 		int width = dimensions_post.width();
 		int height = dimensions_post.height();
-		int offset_y = 0;
+//		int offset_y = 0;
+		int offset_y = d->edges.y1;
 		for(int y = 0; y < cy; ++y) {
 			const int tile_height = ly[y];
-			int offset_x = 0;
+//			int offset_x = 0;
+			int offset_x = d->edges.x1;
 			for(int x = 0; x < cx; ++x) {
 				const int tile_width = lx[x];
 				Tile_t &tile = t->tiles[tile_index];
 				tile.index = tile_index++;
-				Area::t_dimensions &d = tile.dimensions_post;
-				d = dimensions_post;
-				d.edges_offset_x1(offset_x);
-				d.edges_offset_x2(width - offset_x - tile_width); 
-				d.edges_offset_y1(offset_y);
-				d.edges_offset_y2(height - offset_y - tile_height);
+				Area::t_dimensions &dt = tile.dimensions_post;
+				dt = dimensions_post;
+				dt.edges_offset_x1(offset_x);
+				dt.edges_offset_x2(width - offset_x - tile_width); 
+				dt.edges_offset_y1(offset_y);
+				dt.edges_offset_y2(height - offset_y - tile_height);
 				//
 				offset_x += tile_width;
 			}

@@ -26,11 +26,12 @@ public:
 	class bad_alloc {};
 
 	struct t_position {
-	//	position of tile in image_center-based coordinates:
-	//	x axis from left to right;
-	//	y axis from top to bottom;
-	//  coordinates are coordinates of imaginary center of pixel, so _x_max == (photo_width - 1.0) / 2.0;
-	//	_x_max == 0.5 when width of photo is 2px, _x_max == 1.0 for photo with width of 3px, and so on.
+		//	position of tile in image_center-based coordinates:
+		//	x axis from left to right;
+		//	y axis from top to bottom;
+		//  coordinates are coordinates of imaginary center of pixel, so _x_max == (photo_width - 1.0) / 2.0;
+		//	_x_max == 0.5 when width of photo is 2px, _x_max == 1.0 for photo with width of 3px, and so on.
+
 		// position (of center) of top left point (pixel) of actual data (i.e. skipping edges), with scale 1:1
 		double x = 0.0;
 		double y = 0.0;

@@ -1626,6 +1626,7 @@ void View::register_forward_dimensions(class Area::t_dimensions *d) {
 		rotation = photo->cw_rotation;
 	image->dimensions_unscaled = *d;
 /*
+cerr << "View::register_forward_dimensions():" << endl;
 cerr << "d->size()   == " << d->width() << "x" << d->height() << endl;
 cerr << "d->size     == " << d->size.w << "x" << d->size.h << endl;
 cerr << "d->edges: x == " << d->edges.x1 << " - " << d->edges.x2 << "; y == " << d->edges.y1 << " - " << d->edges.y2 << endl;
@@ -1786,7 +1787,8 @@ cerr << "height == " << height << endl;
 	int count = tiles_count[0] * tiles_count[1];
 	t->tiles = std::vector<Tile_t>(count);
 	int index= 0;
-	int y_off = 0;
+//nt y_off = 0;
+	int y_off = d->edges.y1;
 	int *weights = new int[weight_max];
 /*
 cerr << "x weights: ";
@@ -1806,7 +1808,8 @@ cerr << endl;
 //	std::list<int> raw_index_list;
 	std::vector<int> raw_index_vector;
 	for(int y = 0; y < tiles_count[1]; ++y) {
-		int x_off = 0;
+//		int x_off = 0;
+		int x_off = d->edges.x1;
 		for(int x = 0; x < tiles_count[0]; ++x) {
 			Area::t_dimensions &dimensions = t->tiles[index].dimensions_post;
 			dimensions = image->dimensions_scaled;

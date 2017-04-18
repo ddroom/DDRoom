@@ -974,10 +974,6 @@ std::unique_ptr<Area> FP_WB::process(MT_t *mt_obj, Process_t *process_obj, Filte
 	std::unique_ptr<std::atomic_int> y_flow(nullptr);
 	std::vector<std::unique_ptr<task_t>> tasks(0);
 	
-/*
-if(subflow->is_main())
-	cerr << "FP_WB::process, size == " << area_in->dimensions()->width() << "x" << area_in->dimensions()->height() << endl;
-*/
 	if(subflow->sync_point_pre()) {
 	    Area *const area_in = process_obj->area_in;
 
@@ -1188,6 +1184,7 @@ if(subflow->is_main())
 		}
 	}
 	subflow->sync_point_post();
+
 	return area_out;
 }
 
