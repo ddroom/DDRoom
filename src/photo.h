@@ -54,24 +54,17 @@ public:
 
 	QString name;
 	Photo_ID photo_id;	// full file name, ':', version id; like "IMG_1234.CR2:1" etc
-	std::string ps_state;	// at the 'open' moment
+	std::string ps_state;	// serialized map_dataset at the 'open' moment
 	std::mutex ids_lock;
 
 	static QString photo_name_with_versions(Photo_ID photo_id, int versions_count);
 
-	// TODO: add lock for concurrent access
-	//----
-	// TODO: remove that from here and put it in a new class related to processing transaction, not to whole Photo opened for edit;
-	// filter-independent PS_Base storage, to avoid asynchronous delay between PS_Base change by filter and 'signal_update' processing
-	// that map is related to the processing loop and edit history and undo/redo
-	std::map<class Filter *, std::shared_ptr<class PS_Base>> map_ps_base_current;
 	// real PS_Base objects used by filters for interface
 	std::map<class Filter *, class PS_Base *> map_ps_base;
 	// filters GUI cache
 	std::map<class Filter *, class FS_Base *> map_fs_base;
-
-	std::map<class Filter *, class DataSet> map_dataset_initial;
-	std::map<class Filter *, class DataSet> map_dataset_current;
+	// always actual dataset, to be used with 'edit history' etc.
+	std::map<class Filter *, class DataSet> map_dataset;
 	void *edit_history = nullptr;	// should be used only by Edit class
 
 	ProcessSource::process process_source;

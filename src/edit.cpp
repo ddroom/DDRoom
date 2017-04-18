@@ -150,10 +150,10 @@ void Process_Runner::queue(void *ptr, std::shared_ptr<Photo_t> photo, TilesRecei
 	new_task->request_ID = request_ID;
 	new_task->tiles_receiver = tiles_receiver;
 	new_task->is_inactive = is_inactive;
-	auto &map_ps_base = new_task->map_ps_base;
-	for(auto el : photo->map_ps_base_current) {
-		map_ps_base[el.first] = std::shared_ptr<PS_Base>(el.first->newPS());
-		map_ps_base[el.first]->load(&photo->map_dataset_current[el.first]);
+	for(auto it = photo->map_dataset.begin(); it != photo->map_dataset.end(); ++it) {
+		Filter *filter = (*it).first;
+		new_task->map_ps_base[filter] = std::shared_ptr<PS_Base>(filter->newPS());
+		new_task->map_ps_base[filter]->load(&photo->map_dataset[filter]);
 	}
 	new_task->in_progress = false;
 	new_task->lock = &tasks_lock;
@@ -760,8 +760,6 @@ void Edit::slot_view_active(void *data) {
 //					f->saveFS(photo_prev->map_fs_base[f]);
 				// switch to the newly active session
 				f->set_session_id((void *)sessions[session_active]);
-//				f->setPS(photo->map_ps_base[f]);
-//				f->load_ui(photo->map_fs_base[f], photo->metadata);
 				f->set_PS_and_FS(photo->map_ps_base[f], photo->map_fs_base[f], args);
 			}
 			slot_controls_enable(sessions[session_active]->is_loaded);
@@ -895,44 +893,30 @@ void Edit::photo_open(EditSession_t *session, Metadata *metadata) {
 	std::shared_ptr<Photo_t> photo = session->photo;
 	if(!photo)
 		return;
-//cerr << endl;
 cerr << "===============>>>>  open photo: name == \"" << photo->name.toStdString() << "\"; photo id == \"" << photo->photo_id.get_export_file_name() << "\"" << endl;
-//cerr << endl;
 	photo->process_source = ProcessSource::s_load;
 
 //	metadata->link_exiv2_with_lensfun();
 //cerr << "lensfun lens ID: " << metadata->lensfun_lens_maker << ":" << metadata->lensfun_lens_model << endl;
 
-	// fix that:
-	//	1. create new PS_Base, store that at Photo_t
-	//	2. load them
-	//	3. set up filters with them
-	std::vector<Filter *> filters = fstore->get_filters();
-	for(Filter *f : filters) {
-		PS_Base *ps_base = f->newPS();
-		photo->map_ps_base[f] = ps_base;
-//		(*it)->setPS(ps_base);
-		// don't copy empty PS_Base
-//		photo->map_ps_base_current[*it] = ps_base->copy();
-		//--
-		FS_Base *fs_base = f->newFS();
-		photo->map_fs_base[f] = fs_base;
-//		f->set_PS_and_FS(ps_base, fs_base, metadata);
-		//--
-		f->set_session_id((void *)session);
-	}
-
 	PS_Loader *ps_loader = new PS_Loader(photo->photo_id);
-	for(Filter *f : filters) {
-		PS_Base *ps_base = photo->map_ps_base[f];
-		DataSet *dataset = ps_loader->get_dataset(f->id());
+	std::vector<Filter *> filters = fstore->get_filters();
+	for(Filter *filter : filters) {
+		PS_Base *ps_base = filter->newPS();
+		photo->map_ps_base[filter] = ps_base;
+
+		DataSet *dataset = ps_loader->get_dataset(filter->id());
 		ps_base->load(dataset);
-		// here it is !
-		// TODO: replace with history
-		photo->map_ps_base_current[f] = std::shared_ptr<PS_Base>(ps_base->copy());
-		photo->map_dataset_initial[f] = *dataset;
+		// could be some normalizations at the 'load' point
 		ps_base->save(dataset);
-		photo->map_dataset_current[f] = *dataset;
+		photo->map_dataset[filter] = *dataset;
+//		filter->setPS(ps_base);
+
+		FS_Base *fs_base = filter->newFS();
+		photo->map_fs_base[filter] = fs_base;
+//		filter->set_PS_and_FS(ps_base, fs_base, metadata);
+
+		filter->set_session_id((void *)session);
 	}
 
 	photo->cw_rotation = metadata->rotation;
@@ -941,11 +925,13 @@ cerr << "===============>>>>  open photo: name == \"" << photo->name.toStdString
 	else
 		ps_loader->set_cw_rotation(photo->cw_rotation);
 
+/*
 	// PS_Base can change real values after load (like do some sort of normalization etc.), so keep that current version
 	for(Filter *f : filters) {
 		DataSet *dataset = ps_loader->get_dataset(f->id());
 		photo->map_ps_base[f]->save(dataset);
 	}
+*/
 	photo->ps_state = ps_loader->serialize();
 
 	delete ps_loader;
@@ -1158,33 +1144,24 @@ void Edit::slot_update(void *session_id, int process_id, void *_filter, void *_p
 		return;
 	}
 
-	// save state deltas at edit history
+	// save photo settings change as dataset deltas at edit history
 	if(filter != nullptr && ps_base != nullptr) {
-/*
-		cerr << endl;
-		cerr << "update from filter " << filter->name() << endl;
-*/
 		DataSet dataset_new;
 		ps_base->save(&dataset_new);
-		DataSet *dataset_old = &photo->map_dataset_current[filter];
+		auto it = photo->map_dataset.find(filter);
+		if(it == photo->map_dataset.end())
+			throw string("Fatal: missed map_dataset record");
+		DataSet *dataset_old = &((*it).second);
+/*
+		DataSet *dataset_old = &photo->map_dataset[filter];
 		if(dataset_old == nullptr)
-			throw string("Fatal: missed map_dataset_current record");
-		// get difference, and dump it
+			throw string("Fatal: missed map_dataset record");
+*/
+		// save difference
 		list<field_delta_t> deltas = DataSet::get_fields_delta(dataset_old, &dataset_new);
 		edit_history->add_eh_filter_record(eh_filter_record_t(filter, deltas));
-/*
-		for(list<field_delta_t>::iterator it = deltas.begin(); it != deltas.end(); ++it) {
-			cerr << "delta for field \"" << (*it).field_name << "\": before == " << (*it).field_before.serialize() << "; after == " << (*it).field_after.serialize() << endl;
-		}
-*/
-		// save delta in history
-		// and update current dataset
 		*dataset_old = dataset_new;
-/*
-		cerr << "__________________________________" << endl;
 //		dataset._dump();
-		cerr << endl;
-*/
 	}
 
 	photo->process_source = (ProcessSource::process)process_id;
@@ -1216,12 +1193,10 @@ void Edit::history_apply(list<eh_record_t> l, bool is_undo) {
 //		}
 //		eh_filter_record_t record = l.front();
 //		filter = record.filter;
-		DataSet *dataset = &photo->map_dataset_current[filter];
+		DataSet *dataset = &photo->map_dataset[filter];
 		dataset->apply_fields_delta(&f_record.deltas, is_undo);
 		// update filters UI here
 		photo->map_ps_base[filter]->load(dataset);
-//		filter->setPS(photo->map_ps_base[filter]);
-//		filter->load_ui(photo->map_fs_base[filter], photo->metadata);
 		filter->set_PS_and_FS(photo->map_ps_base[filter], photo->map_fs_base[filter], args);
 		if((ProcessSource::process)filter->get_id() < s_id)
 			s_id = (ProcessSource::process)filter->get_id();
@@ -1473,7 +1448,7 @@ void Edit::do_paste(void) {
 			list<field_delta_t> deltas = DataSet::get_fields_delta(&dataset_current, &(*it_d).second);
 			filter_records.push_back(eh_filter_record_t(filter, deltas));
 			// update settings
-			photo->map_dataset_current[filter] = (*it_d).second;
+			photo->map_dataset[filter] = (*it_d).second;
 			photo->map_ps_base[filter]->load(&((*it_d).second));
 //			filter->setPS(photo->map_ps_base[filter]);
 //			filter->load_ui(photo->map_fs_base[filter], photo->metadata);

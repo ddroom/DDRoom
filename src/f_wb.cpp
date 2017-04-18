@@ -1359,23 +1359,24 @@ void WB_Histogram::paintEvent(QPaintEvent *event) {
 }
 
 void WB_Histogram::set_data_object(WB_Histogram_data *_data) {
+	if(_data == data)
+		return;
 	data_lock.lock();
 	data = _data;
 	data_lock.unlock();
+	emit update();
 //cerr << "--->>>                 set_data_object: " << (unsigned long)_data << endl;
 }
 
 void WB_Histogram::set_histograms(WB_Histogram_data *_data, const QVector<long> &before, const QVector<long> &after) {
-	bool flag = false;
 	data_lock.lock();
-//	if(data != nullptr || _data != nullptr)
-		flag = (data == _data);
+	bool flag_update = (data == _data);
 	if(_data != nullptr) {
 		_data->hist_before = before;
 		_data->hist_after = after;
 	}
 	data_lock.unlock();
-	if(flag)
+	if(flag_update)
 		emit update();
 //		emit signal_update();
 }

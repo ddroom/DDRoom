@@ -140,16 +140,18 @@ GUI_Curve_Histogram::GUI_Curve_Histogram(bool _lightness_only) {
 }
 
 void GUI_Curve_Histogram::set_data_object(GUI_Curve_Histogram_data *_data) {
+	if(data == _data)
+		return;
 	data_lock.lock();
 	data = _data;
 	data_lock.unlock();
+	emit signal_update();
 //cerr << "--->>>                 set_data_object: " << (unsigned long)_data << endl;
 }
 
 void GUI_Curve_Histogram::set_histograms(GUI_Curve_Histogram_data *_data, const QVector<long> &before, const QVector<long> &after) {
-	bool flag = false;
 	data_lock.lock();
-	flag = (data == _data);
+	bool flag_update = (data == _data);
 	if(_data != nullptr) {
 		_data->hist_before = before;
 		_data->hist_after = after;
@@ -157,7 +159,7 @@ void GUI_Curve_Histogram::set_histograms(GUI_Curve_Histogram_data *_data, const 
 		_data->hist_after_scaled = QVector<long>(0);
 	}
 	data_lock.unlock();
-	if(flag)
+	if(flag_update)
 		emit signal_update();
 }
 
