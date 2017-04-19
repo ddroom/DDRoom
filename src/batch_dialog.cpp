@@ -163,14 +163,16 @@ Batch_Dialog::Batch_Dialog(export_parameters_t *_ep, QWidget *parent) : QDialog(
 	QVBoxLayout *l_png = new QVBoxLayout(tab_png);
 	l_png->setSizeConstraint(QLayout::SetMinimumSize);	
 
+#if 0
 	// compression
 	QHBoxLayout *hb_png_compression = new QHBoxLayout();
 	QLabel *label_png_compression = new QLabel();
-	label_png_compression->setText(tr("Compression ratio: "));
+	label_png_compression->setText(tr("Compression level: "));
 	hb_png_compression->addWidget(label_png_compression);
 	GuiSlider *slider_png_compression = new GuiSlider(0.0, Z_BEST_COMPRESSION, ep->t_png_compression, 1, 1, 1);
 	hb_png_compression->addWidget(slider_png_compression);
 	l_png->addLayout(hb_png_compression);
+#endif
 
 	// alpha
 	QCheckBox *check_png_alpha = new QCheckBox(tr("Save alpha channel"));
@@ -345,7 +347,9 @@ Batch_Dialog::Batch_Dialog(export_parameters_t *_ep, QWidget *parent) : QDialog(
 	connect(slider_jpeg_iq, SIGNAL(signal_changed(double)), this, SLOT(slot_jpeg_iq(double)));
 	connect(radio_jpeg_color_space, SIGNAL(buttonClicked(int)), this, SLOT(slot_jpeg_color_space(int)));
 	connect(rb_jpeg_subsampling, SIGNAL(buttonClicked(int)), this, SLOT(slot_jpeg_subsampling(int)));
+#if 0
 	connect(slider_png_compression, SIGNAL(signal_changed(double)), this, SLOT(slot_png_compression(double)));
+#endif
 	if(line_file_name != nullptr)
 		connect(line_file_name, SIGNAL(editingFinished(void)), this, SLOT(slot_line_file_name(void)));
 	connect(check_process_asap, SIGNAL(stateChanged(int)), this, SLOT(slot_process_asap(int)));

@@ -62,7 +62,7 @@ export_parameters_t::export_parameters_t(void) {
 	t_jpeg_iq = 95;
 	t_jpeg_color_subsampling_1x1 = true;
 	t_jpeg_color_space_rgb = false;
-	t_png_compression = 3;
+	t_png_compression = Z_BEST_SPEED;
 	t_png_alpha = false;
 	t_png_bits = 8;
 	t_tiff_alpha = false;
@@ -393,11 +393,18 @@ void Export::export_png(string file_name, Area *area_image, Area *area_thumb, ex
 	int height = area_image->mem_height();
 	void *image = (void *)area_image->ptr();
 
+#if 0
 	int compression_ratio = ep->t_png_compression;
 	if(compression_ratio < 0)
 		compression_ratio = 0;
 	if(compression_ratio > Z_BEST_COMPRESSION)
 		compression_ratio = Z_BEST_COMPRESSION;
+#else
+	// zlib compression level
+	// Z_NO_COMPRESSION unreasonably huge
+	// Z_BEST_COMPRESSION unreasonably slow
+	int compression_ratio = Z_BEST_SPEED;
+#endif
 	int bits = ep->t_png_bits;
 	if(bits != 8 && bits != 16)
 		bits = 8;
@@ -437,6 +444,7 @@ void Export::export_png(string file_name, Area *area_image, Area *area_thumb, ex
 	
 	/* set the zlib compression level */
 	png_set_compression_level(png_ptr, compression_ratio);
+//	png_set_filter(png_ptr, 0, PNG_FILTER_AVG);
 	/* set other zlib parameters - better do not change that */
 	png_set_compression_mem_level(png_ptr, 8);
 	png_set_compression_strategy(png_ptr, Z_DEFAULT_STRATEGY);
