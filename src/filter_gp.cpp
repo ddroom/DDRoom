@@ -585,8 +585,8 @@ void FilterProcess_GP_Wrapper::process_copy(SubFlow *subflow) {
 				out[0] = in[0] * task->wb_a[0] + task->wb_b[0];
 				out[1] = in[1] * task->wb_a[1] + task->wb_b[1];
 				out[2] = in[2] * task->wb_a[2] + task->wb_b[2];
-				out[3] = 1.0f;
-//				out[3] = in[3];
+//				out[3] = 1.0f;
+				out[3] = in[3];
 			}
 #ifdef MARK_CORNERS
 			// mark corners
@@ -961,30 +961,20 @@ void FilterProcess_GP_Wrapper::process_sampling(SubFlow *subflow) {
 	const int in_x2 = area_in->dimensions()->width() + in_x1;// - 4;
 	const int in_y2 = area_in->dimensions()->height() + in_y1;// - 4;
 
+//cerr << "in_x1 == " << in_x1 << endl;
+//cerr << "in_y1 == " << in_y1 << endl;
+
 	const int _w = area_in->mem_width();
 	float *_in = (float *)area_in->ptr();
 	float *_out = (float *)area_out->ptr();
 	float *_coordinates = (float *)area_coordinates->ptr();
 
-	float color_pixel[12];
-	color_pixel[ 0] = 0.5;
-	color_pixel[ 1] = 0.5;
-	color_pixel[ 2] = 0.5;
-	// WARNING: keep that alpha at zero !!!
-	color_pixel[ 3] = 0.0;
-	color_pixel[ 4] = 1.0;
-	color_pixel[ 5] = 0.0;
-	color_pixel[ 6] = 0.0;
-	color_pixel[ 7] = 0.75;
-	color_pixel[ 8] = 0.0;
-	color_pixel[ 9] = 1.0;
-	color_pixel[10] = 0.0;
-	color_pixel[11] = 0.75;
+	float empty_pixel[4] = {0.5, 0.5, 0.5, 0.0};
+//	float empty_pixel[4] = {1.0, 1.0, 1.0, 0.5};
 
-	float *empty_pixel = &color_pixel[0];
 #ifdef MARK_CORNERS
-	float *mark_lt_pixel = &color_pixel[4];
-	float *mark_rb_pixel = &color_pixel[8];
+	float mark_lt_pixel[4] = {1.0, 0.0, 0.0, 0.75};
+	float mark_rb_pixel[4] = {0.0, 1.0, 0.0, 0.75};
 #endif
 
 	int it_y;
@@ -998,9 +988,7 @@ void FilterProcess_GP_Wrapper::process_sampling(SubFlow *subflow) {
 	while((it_y = y_flow->fetch_add(1)) < out_y_max) {
 		for(int it_x = 0; it_x < out_x_max; ++it_x) {
 			float *rez = &_out[(it_y * out_width + it_x) * 4];
-			float px_sum[4];
-			for(int i = 0; i < 4; ++i)
-				px_sum[i] = 0.0;
+			float px_sum[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 			for(int k = 0; k < rgb_count; ++k) {
 				int rgb_offset = 2 * k;
 				// use coordinates for green channel for alpha channel for now
@@ -1015,10 +1003,10 @@ void FilterProcess_GP_Wrapper::process_sampling(SubFlow *subflow) {
 				float py1 = _coordinates[((cit_y - 1) * coords_width + cit_x) * rgb_size + rgb_offset + 1];
 				float _py = _coordinates[((cit_y    ) * coords_width + cit_x) * rgb_size + rgb_offset + 1];
 				float py2 = _coordinates[((cit_y + 1) * coords_width + cit_x) * rgb_size + rgb_offset + 1];
-				px1 = (px1 + _px) * 0.5;
-				px2 = (_px + px2) * 0.5;
-				py1 = (py1 + _py) * 0.5;
-				py2 = (_py + py2) * 0.5;
+				px1 = (px1 + _px) * 0.5f;
+				px2 = (_px + px2) * 0.5f;
+				py1 = (py1 + _py) * 0.5f;
+				py2 = (_py + py2) * 0.5f;
 				float x1 = (px1 - offset_x) / px_size_x;
 				float x2 = (px2 - offset_x) / px_size_x;
 				float y1 = (py1 - offset_y) / px_size_y;
@@ -1027,20 +1015,11 @@ void FilterProcess_GP_Wrapper::process_sampling(SubFlow *subflow) {
 				float ly = y2 - y1;
 				float xst = x1;
 				float yst = y1;
-#if 0
-if(it_x == 0 && it_y == 0) {
-cerr << "_px == " << _px << endl;
-cerr << "px1 == " << px1 << "; px2 == " << px2 << "; lx == " << lx << endl;
-cerr << " x1 == " <<  x1 << ";  x2 == " <<  x2 << "; xst == " << xst << endl;
-cerr << " offset_x == " << offset_x << endl;
-cerr << "px_size_x == " << px_size_x << endl;
-}
-#endif
 				bool flag_to_skip = false;
 				// X
-				float wx = 1.0 - (xst - floor(xst));
-				if(lx < 1.0)
-					lx = 1.0;
+				float wx = 1.0f - (xst - floor(xst));
+				if(lx < 1.0f)
+					lx = 1.0f;
 				int ix1 = floor(xst);
 				int ix2 = floor(xst + lx);
 				ix1 += in_x_offset;
@@ -1048,9 +1027,9 @@ cerr << "px_size_x == " << px_size_x << endl;
 				if(ix2 < in_x1 || ix1 >= in_x2)
 					flag_to_skip = true;
 				// Y
-				float wy = 1.0 - (yst - floor(yst));
-				if(ly < 1.0)
-					ly = 1.0;
+				float wy = 1.0f - (yst - floor(yst));
+				if(ly < 1.0f)
+					ly = 1.0f;
 				int iy1 = int(yst);
 				int iy2 = int(yst + ly);
 				iy1 += in_y_offset;
@@ -1065,95 +1044,46 @@ cerr << "px_size_x == " << px_size_x << endl;
 					continue;
 				}
 				// supersampling
-				float w_sum = 0.0;
-				float w_sum_alpha = 0.0;
+				float w_sum = 0.0f;
+				float w_sum_alpha = 0.0f;
 				float w_y = wy;
-				if(w_y < 0.0)
+				if(w_y < 0.0f)
 					w_y = -w_y;
 				float l_y = ly;
 				for(int y = iy1; y <= iy2; ++y) {
 					float w_x = wx;
-					if(w_x < 0.0)
+					if(w_x < 0.0f)
 						w_x = -w_x;
 					float l_x = lx;
 					for(int x = ix1; x <= ix2; ++x) {
 						float w = w_x * w_y;
-#if 0
-if(it_x == 0 && it_y == 0 && y == iy1) {
-cerr << "w_x == " << w_x << "; l_x = " << l_x << "; x == " << x <<  endl;
-cerr << "x == " << x << "; in_x1 == " << in_x1 << "; y == " << y << "; in_y1 == " << in_y1 << endl;
-}
-#endif
 						l_x -= w_x;
-						w_x = (l_x > 1.0) ? 1.0 : l_x;
+						w_x = (l_x > 1.0f) ? 1.0f : l_x;
 						if(x >= in_x1 && x < in_x2 && y >= in_y1 && y < in_y2) {
 							w_sum += w;
-#if 0
-if(it_x == 0 && it_y == 0 && y == iy1)
-cerr << "..." << endl;
-#endif
 							if(task->coordinates_rgb) {
-								if(k == 3)
-									px_sum[3] += 1.0 * w;
-								else {
-									// apply WB and [0.0, 1.0] clip
-//									px_sum[k] += ddr::clip(_in[((y) * _w + x) * 4 + k] * task->wb_a[k] + task->wb_b[k]) * w;
-									px_sum[k] += _in[((y) * _w + x) * 4 + k] * w;
+								if(k == 3) {
+									px_sum[3] += 1.0f * w;
+								} else {
+									px_sum[k] += _in[(y * _w + x) * 4 + k] * w;
 								}
 							} else {
-#if 0
-								float in_r = _in[((y) * _w + x) * 4 + 0];
-								float in_g = _in[((y) * _w + x) * 4 + 1];
-								float in_b = _in[((y) * _w + x) * 4 + 2];
-								float r = in_r * task->wb_a[0] + task->wb_b[0];
-								float g = in_g * task->wb_a[1] + task->wb_b[1];
-								float b = in_b * task->wb_a[2] + task->wb_b[2];
-								if((in_r < 1.0f && in_g < 1.0f && in_b < 1.0f) && (r >= 1.0f || g >= 1.0f || b >= 1.0f)) {
-									float max = (r > g) ? r : g;
-									max = (max > b) ? max : b;
-									r /= max;
-									g /= max;
-									b /= max;
-								}
-//								if((in_r < 1.0f && in_g < 1.0f && in_b < 1.0f) && (r >= 1.0f || g >= 1.0f || b >= 1.0f)) {
-								if((in_r >= 1.0f || in_g >= 1.0f || in_b >= 1.0f) && (r >= 1.0f || g >= 1.0f || b >= 1.0f)) {
-//								if(in_r >= 1.0f || in_g >= 1.0f || in_b >= 1.0f) {
-									r = 1.0f;
-									g = 1.0f;
-									b = 1.0f;
-								}
-								px_sum[0] += ddr::clip(r) * w;
-								px_sum[1] += ddr::clip(g) * w;
-								px_sum[2] += ddr::clip(b) * w;
-//								px_sum[0] += r * w;
-//								px_sum[1] += g * w;
-//								px_sum[2] += b * w;
-								for(int i = 0; i < 3; ++i) {
-									// apply WB and [0.0, 1.0] clip
-									px_sum[i] += ddr::clip(_in[((y) * _w + x) * 4 + i] * task->wb_a[i] + task->wb_b[i]) * w;
-//									px_sum[i] += _in[((y) * _w + x) * 4 + i] * w;
-								}
-#endif
 								for(int i = 0; i < 3; ++i)
-									px_sum[i] += _in[((y) * _w + x) * 4 + i] * w;
-								px_sum[3] += 1.0 * w;
+									px_sum[i] += _in[(y * _w + x) * 4 + i] * w;
+								px_sum[3] += 1.0f * w;
 							}
 						}
 						w_sum_alpha += w;
 					}
 					l_y -= w_y;
-					w_y = (l_y > 1.0) ? 1.0 : l_y;
+					w_y = (l_y > 1.0f) ? 1.0f : l_y;
 				}
-#if 0
-if(it_x == 0 && it_y == 0)
-cerr << "w_sum == " << w_sum << "; w_sum_alpha == " << w_sum_alpha << endl;
-#endif
-				// --==--
 				if(task->coordinates_rgb) {
-					if(k == 3)
+					if(k == 3) {
 						rez[k] = px_sum[k] / w_sum_alpha;
-					else
+					} else {
 						rez[k] = px_sum[k] / w_sum;
+					}
 				} else {
 					for(int i = 0; i < 3; ++i)
 						rez[i] = px_sum[i] / w_sum;
@@ -1183,15 +1113,15 @@ cerr << "w_sum == " << w_sum << "; w_sum_alpha == " << w_sum_alpha << endl;
 				for(int i = 0; i < 4; ++i)
 					rez[i] = mark_rb_pixel[i];
 #endif
-//			rez[3] = 1.0;
-			if(rez[3] > 0.99)
-				rez[3] = 1.0;
-			if(rez[3] < 0.01) { // avoid 'isnan' for unprocessed transparent pixels
-				rez[0] = 0.0;
-				rez[1] = 0.0;
-				rez[2] = 0.0;
-				rez[3] = 0.0;
+			if(rez[3] > 0.99f)
+				rez[3] = 1.0f;
+			if(rez[3] < 0.01f) { // avoid 'isnan' for unprocessed transparent pixels
+				rez[0] = 0.0f;
+				rez[1] = 0.0f;
+				rez[2] = 0.0f;
+				rez[3] = 0.0f;
 			}
+//			rez[3] = 0.5;
 		}
 	}
 }

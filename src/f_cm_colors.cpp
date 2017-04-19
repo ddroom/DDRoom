@@ -607,12 +607,19 @@ void FP_CM_Colors::process_2d(SubFlow *subflow) {
 			out[out_index + 1] = pixel[1] * scale;
 */
 #if 1
-			float pixel[3];
+			float pixel[4];
 			pixel[0] = in[in_index + 0];
 			pixel[1] = in[in_index + 1];
 			pixel[2] = in[in_index + 2];
+			pixel[3] = in[in_index + 3];
 			filter(pixel, task);
 			out[out_index + 1] = pixel[1];
+/*
+			out[out_index + 0] = pixel[0];
+			out[out_index + 1] = pixel[1];
+			out[out_index + 2] = pixel[2];
+			out[out_index + 3] = pixel[3];
+*/
 #else
 			float *pixel = &in[in_index];
 			float scale = task->saturation;

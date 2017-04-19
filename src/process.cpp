@@ -208,33 +208,40 @@ void Process::wrap_filters(const std::vector<filter_record_t> &filters, task_run
 	for(int pass = 0; pass < 2; ++pass) {
 		vector<class FP_GP_Wrapper_record_t> gp_wrapper_records;
 		vector<class FP_CP_Wrapper_record_t> cp_wrapper_records;
-		bool gp_wrapper_resampling = false;
-		bool gp_wrapper_force = false;
-//		bool flag_crgb = false;
-		bool flag_crgb = true;
-		for(vector<filter_record_t>::const_iterator it = filters.cbegin(); true; ++it) {
-			if(it != filters.cend()) {
+
+		// create a vector of enabled filters only
+		std::vector<filter_record_t> enabled_filters;
+		enabled_filters.reserve(filters.size());
+		for(auto el : filters) {
+			if(el.fp->is_enabled(el.ps_base.get()))
+				enabled_filters.push_back(el);
+		}
+
+		bool gp_wrapper_resampling_check = true;
+		bool gp_wrapper_resampling_force = false;
+		for(vector<filter_record_t>::const_iterator it = enabled_filters.cbegin(); true; ++it) {
+			if(it != enabled_filters.cend()) {
 				if(!(*it).use_tiling) {
 //cerr << "skip FP: " << (*it).fp->name() << endl;
 					continue;
 				}
 			}
 			FilterProcess::fp_type_en filter_type = FilterProcess::fp_type_unknown;
-			if(it != filters.cend())
+			if(it != enabled_filters.cend())
 				filter_type = (*it).fp->fp_type(pass == 0);
 			// check if we need to add GP_Wrapper for resampling
-			if(!gp_wrapper_resampling) {
-//				if(flag_crgb && filter_type != FilterProcess::fp_type_gp && filter_type != FilterProcess::fp_type_2d) {
-				if(flag_crgb && filter_type != FilterProcess::fp_type_gp) {
-					gp_wrapper_force = true;
-					gp_wrapper_resampling = true;
+			if(gp_wrapper_resampling_check) {
+				if((*it).use_tiling == true) {
+					if(filter_type != FilterProcess::fp_type_gp)
+						gp_wrapper_resampling_force = true;
+					gp_wrapper_resampling_check = false;
 				}
 			}
 
 			// create a new GP wrapper
-			if(gp_wrapper_force || (gp_wrapper_records.size() > 0 && filter_type != FilterProcess::fp_type_gp)) {
-//cerr << "!!! gp_wrapper_force !!! " << endl;
-				gp_wrapper_force = false;
+			if(gp_wrapper_resampling_force || (gp_wrapper_records.size() > 0 && filter_type != FilterProcess::fp_type_gp)) {
+//cerr << "create a new GP wrapper" << endl;
+				gp_wrapper_resampling_force = false;
 				filter_record_t r;
 				r.wrapper_holder.reset(new FilterProcess_GP_Wrapper(gp_wrapper_records));
 				gp_wrapper_records.clear();
@@ -256,11 +263,8 @@ void Process::wrap_filters(const std::vector<filter_record_t> &filters, task_run
 			}
 
 			// analyze next filter if any
-			if(it == filters.end())
+			if(it == enabled_filters.end())
 				break;
-			bool enabled = (*it).fp->is_enabled((*it).ps_base.get());
-			if(!enabled)
-				continue;
 			// add record for GP filter for wrapper
 			if(filter_type == FilterProcess::fp_type_gp) {
 				FilterProcess_GP *fp_gp = (FilterProcess_GP *)(*it).fp->get_ptr(pass == 0);
@@ -289,7 +293,6 @@ void Process::wrap_filters(const std::vector<filter_record_t> &filters, task_run
 				r.fp_2d = (FilterProcess_2D *)r.fp->get_ptr(pass == 0);
 				task->filter_records[pass].push_back(r);
 			}
-//			flag_crgb = ((*it).filter->id() == std::string("F_WB"));
 		}
 	}
 }
@@ -460,9 +463,6 @@ bool Process::process(Process_task_t *process_task) {
 			if(task.photo->metadata == nullptr)
 				task.photo->metadata = new Metadata;
 			task.photo->area_raw = std::unique_ptr<Area>(Import::image(task.photo->photo_id.get_file_name(), task.photo->metadata));
-
-			Area *a = task.photo->area_raw.get();
-			Area::t_dimensions *d = a->dimensions();
 		} catch(Area::bad_alloc) {
 			bad_alloc = true;
 		} catch(std::bad_alloc) {

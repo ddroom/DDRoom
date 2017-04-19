@@ -17,7 +17,7 @@ using namespace std;
 
 //------------------------------------------------------------------------------
 std::unique_ptr<Area> AreaHelper::convert(Area *area_in, Area::format_t out_format, int rotation) {
-//cerr << "AreaHelper::convert(): rotation == " << rotation << endl;
+cerr << "AreaHelper::convert(): rotation == " << rotation << endl;
 	Area::t_dimensions d_out;
 	d_out.size.w = area_in->dimensions()->width();
 	d_out.size.h = area_in->dimensions()->height();
@@ -238,7 +238,7 @@ void AreaHelper::f_convert_mt(class SubFlow *subflow) {
 				if(out_is_16)
 					out_16[k + index_table[c]] = v;
 				else
-					out_8[k + index_table[c]] = v >> 8;
+					out_8[k + index_table[c]] = (v >> 8);
 			}
 		}
 	}
