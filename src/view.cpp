@@ -223,16 +223,16 @@ void image_t::reset_tiles(bool deferred) {
 	tiles_len_y = std::vector<int>(0);
 	tiles_d_len_x = std::vector<int>(0);
 	tiles_d_len_y = std::vector<int>(0);
-	for(int i = 0; i < tiles_areas.size(); ++i)
+	for(size_t i = 0; i < tiles_areas.size(); ++i)
 		if(tiles_areas[i] != nullptr)
 			delete tiles_areas[i];
 	tiles_areas = std::vector<Area *>(0);
 	if(deferred == false) {
-		for(int i = 0; i < tiles_pixmaps.size(); ++i)
+		for(size_t i = 0; i < tiles_pixmaps.size(); ++i)
 			if(tiles_pixmaps[i] != nullptr)
 				delete tiles_pixmaps[i];
 	} else {
-		for(int i = 0; i < tiles_pixmaps.size(); ++i)
+		for(size_t i = 0; i < tiles_pixmaps.size(); ++i)
 			tiles_pixmaps_to_delete.push_back(tiles_pixmaps[i]);
 	}
 	tiles_pixmaps = std::vector<QPixmap *>(0);
@@ -284,7 +284,7 @@ void image_t::rotate_tiles_plus_90(void) {
 	std::vector<int> tv = tiles_d_len_y;
 	tiles_d_len_y = tiles_d_len_x;
 	tiles_d_len_x = tv;
-	for(int i = 0; i < tv.size(); ++i)
+	for(size_t i = 0; i < tv.size(); ++i)
 		tiles_d_len_x[i] = tv[tv.size() - i - 1];
 	std::vector<int> tv_i(w_out * h_out);
 	std::vector<Tile_t> tv_t;
@@ -804,7 +804,7 @@ void View::update_rotation(bool clockwise) {
 	image->thumb_scaled = QPixmap();
 	// if 'image->scale == false' - rotate tiles and update center position;
 	// reset tiles and emit update as whith resize otherwise.
-	for(int i = 0; i < image->tiles_pixmaps.size(); ++i) {
+	for(size_t i = 0; i < image->tiles_pixmaps.size(); ++i) {
 		if(image->tiles_pixmaps[i] != nullptr) {
 			*image->tiles_pixmaps[i] = rotate_pixmap(image->tiles_pixmaps[i], angle);
 //			image->tiles_pixmaps[i]->swap(rotate_pixmap(image->tiles_pixmaps[i], angle));
@@ -900,7 +900,7 @@ void View::slot_update_image(void) {
 		to_update = true;
 	}
 	// check tiles
-	for(int i = 0; i < image->tiles_areas.size(); ++i) {
+	for(size_t i = 0; i < image->tiles_areas.size(); ++i) {
 		if(image->tiles_areas[i] != nullptr) {
 			if(image->tiles_pixmaps[i] != nullptr)
 				delete image->tiles_pixmaps[i];
@@ -1317,7 +1317,7 @@ void View::process_deferred_tiles(void) {
 	}
 	std::vector<int> tiles_i = image->arrange_tiles_indexes(raw_index_vector);
 	tiles_descriptor.index_list_lock.lock();
-	for(int i = 0; i < tiles_i.size(); ++i) {
+	for(size_t i = 0; i < tiles_i.size(); ++i) {
 		int index = tiles_i[i];
 //		if(!tiles_descriptor.index_list.contains(index)) {
 		auto &ref = tiles_descriptor.index_list;
@@ -1569,7 +1569,7 @@ cerr << "ERROR: receive_tile(): image->thumb_area stil not empty" << endl;
 		// update thumbnail in browser
 		edit->update_thumbnail((void *)this, thumbnail);
 	} else {
-		bool update = (tile->index >= 0 && tile->index < image->tiles_areas.size());
+		bool update = (tile->index >= 0 && tile->index < (signed)image->tiles_areas.size());
 		if(update) {
 			image->tiles_areas[tile->index] = tile->area;
 			tile->area = nullptr;
@@ -1876,7 +1876,7 @@ cerr << endl;
 	std::vector<int> arranged_index_list = image->arrange_tiles_indexes(raw_index_vector);
 	
 	t->index_list_lock.lock();
-	for(int i = 0; i < arranged_index_list.size(); ++i)
+	for(size_t i = 0; i < arranged_index_list.size(); ++i)
 		t->index_list.push_back(arranged_index_list[i]);
 	t->index_list_lock.unlock();
 //cerr << "GET_TILES;    image->rotation == " << image->rotation << endl;

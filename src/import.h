@@ -14,8 +14,6 @@
 #include <string>
 
 #include <QImage>
-#include <QList>
-#include <QString>
 
 #include "photo.h"
 

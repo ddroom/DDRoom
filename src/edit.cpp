@@ -403,7 +403,7 @@ Edit::~Edit() {
 
 	delete process_runner;
 
-	for(int i = 0; i < sessions.size(); ++i) {
+	for(size_t i = 0; i < sessions.size(); ++i) {
 		if(sessions[i]->photo) {
 cerr << "close photo " << sessions[i]->photo->photo_id.get_export_file_name() << endl;
 			photo_close(i);
@@ -661,7 +661,7 @@ Photo_ID Edit::active_photo(void) {
 
 //------------------------------------------------------------------------------
 bool Edit::version_is_open(Photo_ID photo_id) {
-	for(int i = 0; i < sessions.size(); ++i) {
+	for(size_t i = 0; i < sessions.size(); ++i) {
 		if(sessions[i] != nullptr)
 			if(sessions[i]->photo)
 				if(sessions[i]->photo->photo_id == photo_id)
@@ -684,7 +684,7 @@ PS_Loader *Edit::version_get_current_ps_loader(Photo_ID photo_id) {
 void Edit::slot_view_close(void *data) {
 	View *view = (View *)data;
 	int session_id = -1;
-	for(int i = 0; i < sessions.size(); ++i) {
+	for(size_t i = 0; i < sessions.size(); ++i) {
 		if(sessions[i]->view == view) {
 			session_id = i;
 			break;
@@ -708,7 +708,7 @@ void Edit::slot_view_close(void *data) {
 void Edit::slot_view_browser_reopen(void *data) {
 	View *view = (View *)data;
 	std::shared_ptr<Photo_t> open_photo;
-	for(int i = 0; i < sessions.size(); ++i) {
+	for(size_t i = 0; i < sessions.size(); ++i) {
 		if(sessions[i]->view == view) {
 			open_photo = sessions[i]->photo;
 			break;
@@ -725,7 +725,7 @@ void Edit::slot_view_active(void *data) {
 	View *view = (View *)data;
 	bool update = false;
 	std::shared_ptr<Photo_t> photo_prev = sessions[session_active]->photo;
-	for(int i = 0; i < sessions.size(); ++i) {
+	for(size_t i = 0; i < sessions.size(); ++i) {
 		if(sessions[i]->view == view) {
 			set_session_active(i);
 			update = true;
@@ -795,8 +795,8 @@ void Edit::filters_control_clear(void) {
 
 //------------------------------------------------------------------------------
 void Edit::slot_update_opened_photo_ids(QList<Photo_ID> ids_list, int versions_count) {
-	int c = ids_list.size() / 2;
-	for(int i = 0; i < c; ++i) {
+	size_t c = ids_list.size() / 2;
+	for(size_t i = 0; i < c; ++i) {
 		Photo_ID id_before = ids_list.at(i * 2 + 0);
 		Photo_ID id_after = ids_list.at(i * 2 + 1);
 #if 0
@@ -968,7 +968,7 @@ cerr << endl << "===============>>>> close photo: " << photo->photo_id.get_expor
 
 bool Edit::flush_current_ps(void) {
 	bool was_changed = false;
-	for(int i = 0; i < sessions.size(); ++i) {
+	for(size_t i = 0; i < sessions.size(); ++i) {
 		if(sessions[i] != nullptr)	{
 			if(sessions[i]->photo)
 				was_changed = flush_current_ps(sessions[i]->photo);
@@ -1104,7 +1104,7 @@ QWidget *Edit::get_controls_widget(QWidget *parent) {
 }
 
 void Edit::slot_controls_enable(bool state) {
-	for(int i = 0; i < filters_pages.size(); ++i)
+	for(size_t i = 0; i < filters_pages.size(); ++i)
 		filters_pages[i]->setEnabled(state);
 	for(QAction *action : filters_actions_list)
 		if(action != nullptr)
@@ -1210,7 +1210,7 @@ void Edit::history_apply(list<eh_record_t> l, bool is_undo) {
 
 Edit::EditSession_t *Edit::session_of_view(View *view) {
 	EditSession_t *session = nullptr;
-	for(int i = 0; i < sessions.size(); ++i) {
+	for(size_t i = 0; i < sessions.size(); ++i) {
 		if(sessions[i]->view == view) {
 			session = sessions[i];
 			break;

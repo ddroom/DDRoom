@@ -126,7 +126,7 @@ std::unique_ptr<Area> Import_TIFF::load_image(Metadata *metadata, bool is_thumb)
 			cms_matrix->get_matrix_CS_to_XYZ(color_space, metadata->cRGB_to_XYZ);
 			TableFunction *gamma = cms_matrix->get_inverse_gamma(color_space);
 			uint8_t *raster_8 = (uint8_t *)raster;
-			for(int y = 0; y < height; ++y) {
+			for(decltype(height) y = 0; y < height; ++y) {
 				int pos_in = (height - 1 - y) * width * 4;
 				if(!use_read_rgba) {
 					// read next scanline
@@ -135,7 +135,7 @@ std::unique_ptr<Area> Import_TIFF::load_image(Metadata *metadata, bool is_thumb)
 						// error
 					pos_in = 0;
 				}
-				for(int x = 0; x < width; ++x) {
+				for(decltype(width) x = 0; x < width; ++x) {
 					float fv;
 					if(!is_thumb)
 						ptr[pos + 3] = 1.0;

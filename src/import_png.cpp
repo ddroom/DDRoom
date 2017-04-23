@@ -26,13 +26,6 @@
 	#include <png.h>
 #else
 	#include <libpng/png.h>
-/*
-	#ifdef Q_OS_MAC
-		#include <libpng15/png.h>
-	#else
-		#include <libpng/png.h>
-	#endif
-*/
 #endif
 
 using namespace std;
@@ -99,7 +92,6 @@ std::unique_ptr<Area> Import_PNG::image(Metadata *metadata) {
 std::unique_ptr<Area> Import_PNG::load_image(Metadata *metadata, bool is_thumb) {
 	png_struct *ptr_png_struct = nullptr;
 	png_info *ptr_png_info = nullptr;
-	png_byte *png_row = nullptr;
 
 	metadata->rotation = 0;	// get real rotation with Exiv2
 	for(int i = 0; i < 3; ++i)
@@ -159,7 +151,7 @@ std::unique_ptr<Area> Import_PNG::load_image(Metadata *metadata, bool is_thumb) 
 
 		png_uint_32	row_bytes;
 		row_bytes = png_get_rowbytes(ptr_png_struct, ptr_png_info);
-		png_row = (png_byte *)new char[row_bytes * sizeof(png_byte)];
+		png_byte *png_row = (png_byte *)new char[row_bytes * sizeof(png_byte)];
 		if(png_row == nullptr)
 			throw(std::string("out of memory"));
 	
@@ -182,9 +174,9 @@ std::unique_ptr<Area> Import_PNG::load_image(Metadata *metadata, bool is_thumb) 
 			scale = 0xFFFF;
 			bc = 2;
 		}
-		for(int y = 0; y < height; ++y) {
+		for(decltype(height) y = 0; y < height; ++y) {
 			png_read_row(ptr_png_struct, png_row, nullptr);
-			for(int i = 0; i < width; ++i) {
+			for(decltype(width) i = 0; i < width; ++i) {
 				for(int j = 0; j < 3; ++j) {
 //					unsigned v = png_row[i * channels + j];
 					int in_channel = (channels < 3) ? 0 : j;
@@ -229,6 +221,8 @@ std::unique_ptr<Area> Import_PNG::load_image(Metadata *metadata, bool is_thumb) 
 		png_read_end(ptr_png_struct, ptr_png_info);
 		// clean up after the read, and free any memory allocated - REQUIRED
 		png_destroy_read_struct(&ptr_png_struct, &ptr_png_info, (png_infopp)nullptr);
+
+		delete[] (char *)png_row;
 	} catch(const char *msg) {
 		if(area != nullptr)
 			area.reset();
@@ -242,8 +236,6 @@ std::unique_ptr<Area> Import_PNG::load_image(Metadata *metadata, bool is_thumb) 
 			png_destroy_read_struct(&ptr_png_struct, &ptr_png_info, nullptr);
 	}
 	fclose(infile);
-	if(png_row != nullptr)
-		delete[] (char *)png_row;
 
 #if 0
 	if(is_thumb == false) {

@@ -389,14 +389,13 @@ cerr << endl << "batch process: DONE" << endl << endl;
 //------------------------------------------------------------------------------
 void Batch::load_default_ep(export_parameters_t *ep) {
 	Config::instance()->get(CONFIG_SECTION_BATCH, "process_asap", ep->process_asap);
-	Config::instance()->get(CONFIG_SECTION_BATCH, "type_jpeg_iq", ep->t_jpeg_iq);
-	Config::instance()->get(CONFIG_SECTION_BATCH, "type_jpeg_color_subsampling", ep->t_jpeg_color_subsampling_1x1);
-	Config::instance()->get(CONFIG_SECTION_BATCH, "type_jpeg_color_space", ep->t_jpeg_color_space_rgb);
-	Config::instance()->get(CONFIG_SECTION_BATCH, "type_png_compression", ep->t_png_compression);
-	Config::instance()->get(CONFIG_SECTION_BATCH, "type_png_alpha", ep->t_png_alpha);
-	Config::instance()->get(CONFIG_SECTION_BATCH, "type_png_bits", ep->t_png_bits);
-	Config::instance()->get(CONFIG_SECTION_BATCH, "type_tiff_alpha", ep->t_tiff_alpha);
-	Config::instance()->get(CONFIG_SECTION_BATCH, "type_tiff_bits", ep->t_tiff_bits);
+	Config::instance()->get(CONFIG_SECTION_BATCH, "type_jpeg_image_quality", ep->options_jpeg.image_quality);
+	Config::instance()->get(CONFIG_SECTION_BATCH, "type_jpeg_color_subsampling", ep->options_jpeg.color_subsampling_1x1);
+	Config::instance()->get(CONFIG_SECTION_BATCH, "type_jpeg_color_space", ep->options_jpeg.color_space_rgb);
+	Config::instance()->get(CONFIG_SECTION_BATCH, "type_png_alpha", ep->options_png.alpha);
+	Config::instance()->get(CONFIG_SECTION_BATCH, "type_png_bits", ep->options_png.bits);
+	Config::instance()->get(CONFIG_SECTION_BATCH, "type_tiff_alpha", ep->options_tiff.alpha);
+	Config::instance()->get(CONFIG_SECTION_BATCH, "type_tiff_bits", ep->options_tiff.bits);
 	string type_name = ep->image_type_to_name(ep->image_type);
 	Config::instance()->get(CONFIG_SECTION_BATCH, "image_type", type_name);
 	ep->image_type = ep->image_name_to_type(type_name);
@@ -408,14 +407,13 @@ void Batch::load_default_ep(export_parameters_t *ep) {
 
 void Batch::save_default_ep(export_parameters_t *ep) {
 	Config::instance()->set(CONFIG_SECTION_BATCH, "process_asap", ep->process_asap);
-	Config::instance()->set(CONFIG_SECTION_BATCH, "type_jpeg_iq", ep->t_jpeg_iq);
-	Config::instance()->set(CONFIG_SECTION_BATCH, "type_jpeg_color_subsampling", ep->t_jpeg_color_subsampling_1x1);
-	Config::instance()->set(CONFIG_SECTION_BATCH, "type_jpeg_color_space", ep->t_jpeg_color_space_rgb);
-	Config::instance()->set(CONFIG_SECTION_BATCH, "type_png_compression", ep->t_png_compression);
-	Config::instance()->set(CONFIG_SECTION_BATCH, "type_png_alpha", ep->t_png_alpha);
-	Config::instance()->set(CONFIG_SECTION_BATCH, "type_png_bits", ep->t_png_bits);
-	Config::instance()->set(CONFIG_SECTION_BATCH, "type_tiff_alpha", ep->t_tiff_alpha);
-	Config::instance()->set(CONFIG_SECTION_BATCH, "type_tiff_bits", ep->t_tiff_bits);
+	Config::instance()->set(CONFIG_SECTION_BATCH, "type_jpeg_image_quality", ep->options_jpeg.image_quality);
+	Config::instance()->set(CONFIG_SECTION_BATCH, "type_jpeg_color_subsampling", ep->options_jpeg.color_subsampling_1x1);
+	Config::instance()->set(CONFIG_SECTION_BATCH, "type_jpeg_color_space", ep->options_jpeg.color_space_rgb);
+	Config::instance()->set(CONFIG_SECTION_BATCH, "type_png_alpha", ep->options_png.alpha);
+	Config::instance()->set(CONFIG_SECTION_BATCH, "type_png_bits", ep->options_png.bits);
+	Config::instance()->set(CONFIG_SECTION_BATCH, "type_tiff_alpha", ep->options_tiff.alpha);
+	Config::instance()->set(CONFIG_SECTION_BATCH, "type_tiff_bits", ep->options_tiff.bits);
 	Config::instance()->set(CONFIG_SECTION_BATCH, "scaling_force", ep->scaling_force);
 	Config::instance()->set(CONFIG_SECTION_BATCH, "scaling_to_fill", ep->scaling_to_fill);
 	Config::instance()->set(CONFIG_SECTION_BATCH, "scaling_width", ep->scaling_width);

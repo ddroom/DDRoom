@@ -63,7 +63,7 @@ template<class T, class V> bool contains(const T &container, const V &value) {
 inline std::string to_lower(const std::string &in) {
 	const size_t l = in.length();
 	std::string out(l, ' ');
-	for(int i = 0; i < l; ++i)
+	for(size_t i = 0; i < l; ++i)
 		out[i] = std::tolower(in[i]);
 	return out;
 }

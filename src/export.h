@@ -9,11 +9,29 @@
  *
  */
 
-
 #include <string>
 #include "metadata.h"
 
 //------------------------------------------------------------------------------
+class encoding_options_jpeg {
+public:
+	int image_quality = 95; // 0 - 100%
+	bool color_subsampling_1x1 = true; // 'true' == 1x1, 'false' == 2x2
+	bool color_space_rgb = false; // 'true' == RGB, 'false' == YCbCr
+};
+
+class encoding_options_png {
+public:
+	bool alpha = false;
+	int bits = 8; // 8 | 16
+};
+
+class encoding_options_tiff {
+public:
+	bool alpha = false;
+	int bits = 8; // 8 | 16
+};
+
 class export_parameters_t {
 public:
 	enum image_type_t {
@@ -39,16 +57,12 @@ public:
 
 	std::string _file_name_wo_ext;
 	std::string folder;
-	image_type_t image_type;
 	bool process_asap;
-	int t_jpeg_iq;	// 0 - 100 %
-	bool t_jpeg_color_subsampling_1x1; // 'true' == 1x1, 'false' == 2x2
-	bool t_jpeg_color_space_rgb; // 'true' == RGB, 'false' == YCbCr
-	int t_png_compression;	// 0 - 9 - check zlib.h
-	bool t_png_alpha;
-	int t_png_bits;	// 8 | 16
-	bool t_tiff_alpha;
-	int t_tiff_bits;	// 8 | 16
+
+	image_type_t image_type;
+	encoding_options_jpeg options_jpeg;
+	encoding_options_png options_png;
+	encoding_options_tiff options_tiff;
 	// scaling
 	bool scaling_force;
 	bool scaling_to_fill;
@@ -60,12 +74,6 @@ public:
 class Export {
 public:
 	static void export_photo(std::string file_name, class Area *area_image, class Area *area_thumb, export_parameters_t *ep, int rotation, class Metadata *metadata);
-
-protected:
-	static void export_jpeg(std::string fname, class Area *area_image, class Area *area_thumb, export_parameters_t *ep, int rotation, class Metadata *metadata);
-	static void export_png(std::string file_name, class Area *area_image, class Area *area_thumb, export_parameters_t *ep, int rotation, class Metadata *metadata);
-	static void export_tiff(std::string fname, class Area *area_image, class Area *area_thumb, export_parameters_t *ep, int rotation, class Metadata *metadata);
-	static void write_exif(std::string fname, int rotation, class Metadata *metadata, int width, int height, class Area *area_thumb);
 };
 
 //------------------------------------------------------------------------------

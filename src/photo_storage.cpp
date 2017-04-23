@@ -247,7 +247,7 @@ void PS_Loader::version_rearrange(Photo_ID photo_id, bool remove_not_create, PS_
 	string file_name = photo_id.get_file_name();
 	std::unique_lock<std::mutex> locker(ps_lock, std::defer_lock);
 	lock(file_name, locker);
-	int v_index = photo_id.get_version_index();
+	unsigned v_index = photo_id.get_version_index();
 //cerr << "PS_loader::version_rearrange(), v_index == " << v_index << endl;
 	if(v_index < 1) v_index = 1;
 	// load all versions
@@ -257,7 +257,7 @@ void PS_Loader::version_rearrange(Photo_ID photo_id, bool remove_not_create, PS_
 	// copy versions and add 
 	map<int, PS_Loader *> ps_map;
 	PS_Loader *ps_base = _ps_map[v_index];
-	for(int i = 1; i <= _ps_map.size(); ++i) {
+	for(unsigned i = 1; i <= _ps_map.size(); ++i) {
 		if(remove_not_create) {
 			if(i < v_index)
 				ps_map.insert(std::pair<int, PS_Loader *>(i, _ps_map[i]));

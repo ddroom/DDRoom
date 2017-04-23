@@ -184,7 +184,8 @@ LIBS += -ljpeg -lpng -lz -ltiff -lopenjp2
 LIBS += -lOpenCL
 
 # suppress 'unused-result' for dcraw.cpp
-QMAKE_CXXFLAGS_WARN_ON = -Wall -Wno-sign-compare -Wno-unused-result
+#QMAKE_CXXFLAGS_WARN_ON = -Wall -Wno-sign-compare -Wno-unused-result
+QMAKE_CXXFLAGS_WARN_ON = -Wall -Wextra -Wno-unused-parameter
 
 QMAKE_CXXFLAGS_RELEASE -= -O2
 QMAKE_CXXFLAGS_RELEASE += -O3
@@ -224,7 +225,6 @@ win32 {
 	QMAKE_CXXFLAGS_RELEASE += -O2
 }
 
-#QT += widgets svg xml opengl
 QT += widgets svg xml
 
 debug:DESTDIR = debug

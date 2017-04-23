@@ -24,7 +24,7 @@ using namespace std;
 //------------------------------------------------------------------------------
 std::list<std::string> Import_Jpeg::extensions(void) {
 	return std::list<std::string> {
-		"jpeg", "jpg"
+		"jpeg", "jpg", "jpe"
 	};
 }
 

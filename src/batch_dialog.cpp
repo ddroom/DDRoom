@@ -107,7 +107,7 @@ Batch_Dialog::Batch_Dialog(export_parameters_t *_ep, QWidget *parent) : QDialog(
 	QLabel *label_jpeg_iq = new QLabel();
 	label_jpeg_iq->setText(tr("Image quality:"));
 	hb_jpeg_iq->addWidget(label_jpeg_iq);
-	GuiSlider *slider_jpeg_iq = new GuiSlider(0.0, 100.0, ep->t_jpeg_iq, 1, 1, 5);
+	GuiSlider *slider_jpeg_iq = new GuiSlider(0.0, 100.0, ep->options_jpeg.image_quality, 1, 1, 5);
 	hb_jpeg_iq->addWidget(slider_jpeg_iq);
 	QLabel *label_jpeg_iq_percent = new QLabel();
 	label_jpeg_iq_percent->setText(tr("%"));
@@ -134,8 +134,8 @@ Batch_Dialog::Batch_Dialog(export_parameters_t *_ep, QWidget *parent) : QDialog(
 	lb_color_space->addStretch();
 	gl_jpeg_color->addWidget(label_color_space, gl_jpeg_color_row, 0, Qt::AlignRight | Qt::AlignTop);
 	gl_jpeg_color->addLayout(lb_color_space, gl_jpeg_color_row++, 1);
-	if(ep->t_jpeg_color_space_rgb == 0)		radio_color_space_ycbcr->setChecked(true);
-	if(ep->t_jpeg_color_space_rgb == 1)		radio_color_space_rgb->setChecked(true);
+	if(ep->options_jpeg.color_space_rgb == 0)		radio_color_space_ycbcr->setChecked(true);
+	if(ep->options_jpeg.color_space_rgb == 1)		radio_color_space_rgb->setChecked(true);
 
 	// color subsampling: 2x2 or 1x1
 	QHBoxLayout *lb_jpeg_subsampling = new QHBoxLayout();
@@ -150,8 +150,8 @@ Batch_Dialog::Batch_Dialog(export_parameters_t *_ep, QWidget *parent) : QDialog(
 	lb_jpeg_subsampling->addStretch();
 	gl_jpeg_color->addWidget(label_jpeg_subsampling, gl_jpeg_color_row, 0, Qt::AlignRight | Qt::AlignTop);
 	gl_jpeg_color->addLayout(lb_jpeg_subsampling, gl_jpeg_color_row++, 1);
-	if(ep->t_jpeg_color_subsampling_1x1 == 0)		rb_jpeg_subsampling_22->setChecked(true);
-	if(ep->t_jpeg_color_subsampling_1x1 == 1)		rb_jpeg_subsampling_11->setChecked(true);
+	if(ep->options_jpeg.color_subsampling_1x1 == 0)		rb_jpeg_subsampling_22->setChecked(true);
+	if(ep->options_jpeg.color_subsampling_1x1 == 1)		rb_jpeg_subsampling_11->setChecked(true);
 
 	l_jpeg->addStretch();
 	stack_type->addWidget(tab_jpeg);
@@ -162,17 +162,6 @@ Batch_Dialog::Batch_Dialog(export_parameters_t *_ep, QWidget *parent) : QDialog(
 
 	QVBoxLayout *l_png = new QVBoxLayout(tab_png);
 	l_png->setSizeConstraint(QLayout::SetMinimumSize);	
-
-#if 0
-	// compression
-	QHBoxLayout *hb_png_compression = new QHBoxLayout();
-	QLabel *label_png_compression = new QLabel();
-	label_png_compression->setText(tr("Compression level: "));
-	hb_png_compression->addWidget(label_png_compression);
-	GuiSlider *slider_png_compression = new GuiSlider(0.0, Z_BEST_COMPRESSION, ep->t_png_compression, 1, 1, 1);
-	hb_png_compression->addWidget(slider_png_compression);
-	l_png->addLayout(hb_png_compression);
-#endif
 
 	// alpha
 	QCheckBox *check_png_alpha = new QCheckBox(tr("Save alpha channel"));
@@ -303,13 +292,13 @@ Batch_Dialog::Batch_Dialog(export_parameters_t *_ep, QWidget *parent) : QDialog(
 	}
 //	tab_type->setCurrentIndex(ep->image_type);
 
-	if(ep->t_png_bits == 8)		radio_png_bits_8->setChecked(true);
-	if(ep->t_png_bits == 16)	radio_png_bits_16->setChecked(true);
+	if(ep->options_png.bits == 8)	radio_png_bits_8->setChecked(true);
+	if(ep->options_png.bits == 16)	radio_png_bits_16->setChecked(true);
 
-	if(ep->t_tiff_bits == 8)	radio_tiff_bits_8->setChecked(true);
-	if(ep->t_tiff_bits == 16)	radio_tiff_bits_16->setChecked(true);
-	check_png_alpha->setCheckState(ep->t_png_alpha ? Qt::Checked : Qt::Unchecked);
-	check_tiff_alpha->setCheckState(ep->t_tiff_alpha ? Qt::Checked : Qt::Unchecked);
+	if(ep->options_tiff.bits == 8)	radio_tiff_bits_8->setChecked(true);
+	if(ep->options_tiff.bits == 16)	radio_tiff_bits_16->setChecked(true);
+	check_png_alpha->setCheckState(ep->options_png.alpha ? Qt::Checked : Qt::Unchecked);
+	check_tiff_alpha->setCheckState(ep->options_tiff.alpha ? Qt::Checked : Qt::Unchecked);
 
 	set_folder(ep->folder);
 	QString name = QString::fromStdString(ep->get_file_name());
@@ -347,9 +336,6 @@ Batch_Dialog::Batch_Dialog(export_parameters_t *_ep, QWidget *parent) : QDialog(
 	connect(slider_jpeg_iq, SIGNAL(signal_changed(double)), this, SLOT(slot_jpeg_iq(double)));
 	connect(radio_jpeg_color_space, SIGNAL(buttonClicked(int)), this, SLOT(slot_jpeg_color_space(int)));
 	connect(rb_jpeg_subsampling, SIGNAL(buttonClicked(int)), this, SLOT(slot_jpeg_subsampling(int)));
-#if 0
-	connect(slider_png_compression, SIGNAL(signal_changed(double)), this, SLOT(slot_png_compression(double)));
-#endif
 	if(line_file_name != nullptr)
 		connect(line_file_name, SIGNAL(editingFinished(void)), this, SLOT(slot_line_file_name(void)));
 	connect(check_process_asap, SIGNAL(stateChanged(int)), this, SLOT(slot_process_asap(int)));
@@ -396,35 +382,35 @@ void Batch_Dialog::slot_button_folder_pressed(void) {
 }
 
 void Batch_Dialog::slot_png_bits(int id) {
-	ep->t_png_bits = id;
+	ep->options_png.bits = id;
 }
 
 void Batch_Dialog::slot_tiff_bits(int id) {
-	ep->t_tiff_bits = id;
+	ep->options_tiff.bits = id;
 }
 
 void Batch_Dialog::slot_png_alpha(int checked) {
-	ep->t_png_alpha = (checked == Qt::Checked);
+	ep->options_png.alpha = (checked == Qt::Checked);
 }
 
 void Batch_Dialog::slot_tiff_alpha(int checked) {
-	ep->t_tiff_alpha = (checked == Qt::Checked);
+	ep->options_tiff.alpha = (checked == Qt::Checked);
 }
 
 void Batch_Dialog::slot_jpeg_iq(double _value) {
-	ep->t_jpeg_iq = _value + 0.05;
+	ep->options_jpeg.image_quality = _value + 0.05;
 }
 
 void Batch_Dialog::normalize_jpeg_subsampling(void) {
 	disconnect(rb_jpeg_subsampling, SIGNAL(buttonClicked(int)), this, SLOT(slot_jpeg_subsampling(int)));
-	if(ep->t_jpeg_color_space_rgb == 1) {
+	if(ep->options_jpeg.color_space_rgb == true) {
 		rb_jpeg_subsampling_11->setChecked(true);
 		rb_jpeg_subsampling_22->setEnabled(false);
 		rb_jpeg_subsampling_11->setEnabled(false);
 		label_jpeg_subsampling->setEnabled(false);
 	} else {
-		if(ep->t_jpeg_color_subsampling_1x1 == 0)		rb_jpeg_subsampling_22->setChecked(true);
-		if(ep->t_jpeg_color_subsampling_1x1 == 1)		rb_jpeg_subsampling_11->setChecked(true);
+		if(ep->options_jpeg.color_subsampling_1x1 == false)	rb_jpeg_subsampling_22->setChecked(true);
+		if(ep->options_jpeg.color_subsampling_1x1 == true)	rb_jpeg_subsampling_11->setChecked(true);
 		rb_jpeg_subsampling_22->setEnabled(true);
 		rb_jpeg_subsampling_11->setEnabled(true);
 		label_jpeg_subsampling->setEnabled(true);
@@ -433,16 +419,12 @@ void Batch_Dialog::normalize_jpeg_subsampling(void) {
 }
 
 void Batch_Dialog::slot_jpeg_subsampling(int id) {
-	ep->t_jpeg_color_subsampling_1x1 = id;
+	ep->options_jpeg.color_subsampling_1x1 = id;
 }
 
 void Batch_Dialog::slot_jpeg_color_space(int id) {
-	ep->t_jpeg_color_space_rgb = id;
+	ep->options_jpeg.color_space_rgb = id;
 	normalize_jpeg_subsampling();
-}
-
-void Batch_Dialog::slot_png_compression(double _value) {
-	ep->t_png_compression = _value + 0.05;
 }
 
 void Batch_Dialog::slot_line_file_name(void) {

@@ -62,7 +62,7 @@ ocl_t::ocl_t(void) {
 	context = NULL;
 	cl_platform_id ocl_platform_id = NULL;
 	cl_device_id ocl_device_id = NULL;
-	for(int i = 0; i < numPlatforms; ++i) {
+	for(unsigned i = 0; i < numPlatforms; ++i) {
 		ocl_platform_id = platforms[i];
 		cl_context_properties ctx_props[3] = {
 			CL_CONTEXT_PLATFORM,
@@ -77,7 +77,7 @@ ocl_t::ocl_t(void) {
 			continue;
 		cl_device_id *devices = new cl_device_id[numDevices];
 		clGetDeviceIDs(ocl_platform_id, CL_DEVICE_TYPE_ALL, numDevices, devices, NULL);
-		for(int j = 0; j < numDevices; ++j) {
+		for(unsigned j = 0; j < numDevices; ++j) {
 			ocl_device_id = devices[j];
 			// check features - > `OpenCL 1.2` and images support
 			cl_bool image_support = CL_FALSE;

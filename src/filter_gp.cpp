@@ -87,7 +87,7 @@ FilterProcess_GP_Wrapper::FilterProcess_GP_Wrapper(const vector<class FP_GP_Wrap
 
 FilterProcess_GP_Wrapper::~FilterProcess_GP_Wrapper(void) {
 //cerr << "_____________________________________________    FilterProcess_GP_Wrapper::~FilterProcess_GP_Wrapper(void)" << endl;
-	for(int i = 0; i < gp_vector.size(); ++i)
+	for(size_t i = 0; i < gp_vector.size(); ++i)
 		delete gp_vector[i];
 }
 
@@ -97,7 +97,7 @@ bool FilterProcess_GP_Wrapper::is_enabled(const PS_Base *) {
 
 void FilterProcess_GP_Wrapper::init_gp(class Metadata *metadata) {
 	if(gp_vector.size() == 0) {
-		for(int i = 0; i < fp_gp_vector.size(); ++i) {
+		for(size_t i = 0; i < fp_gp_vector.size(); ++i) {
 			FP_GP_data_t data;
 			data.metadata = metadata;
 			data.filter = fp_gp_vector[i].filter;
@@ -119,9 +119,9 @@ void FilterProcess_GP_Wrapper::size_forward_point(float in_x, float in_y, bool *
 		in[3] = in[1];
 		in[4] = in[0];
 		in[5] = in[1];
-		for(int i = 0; i < 6; ++i)
+		for(size_t i = 0; i < 6; ++i)
 			out[i] = in[i];
-		for(int i = 0; i < gp_vector.size(); ++i) {
+		for(size_t i = 0; i < gp_vector.size(); ++i) {
 			gp_vector[i]->process_forward_rgb(in, out);
 			for(int k = 0; k < 6; ++k)
 				in[k] = out[k];
@@ -236,7 +236,7 @@ cerr << "_ d_before->size     == " << d_before->width() << "x" << d_before->heig
 //cerr << "px == " << px << endl;
 //cerr << "py == " << py << endl;
 	// process sizes for each filter and fold accordingly
-	for(int i = 0; i < gp_vector.size(); ++i) {
+	for(size_t i = 0; i < gp_vector.size(); ++i) {
 		bool to_clip = gp_vector[i]->to_clip();
 		float p_min_in[6];
 		float p_min_out[6];
@@ -348,11 +348,11 @@ void FilterProcess_GP_Wrapper::size_backward_point(float out_x, float out_y, boo
 		out[3] = out[1];
 		out[4] = out[0];
 		out[5] = out[1];
-		for(int i = 0; i < 6; ++i)
+		for(size_t i = 0; i < 6; ++i)
 			in[i] = out[i];
-		for(int i = gp_vector.size() - 1; i >= 0; i--) {
+		for(int i = gp_vector.size() - 1; i >= 0; --i) {
 			gp_vector[i]->process_backward_rgb(in, out);
-			for(int k = 0; k < 6; ++k)
+			for(size_t k = 0; k < 6; ++k)
 				out[k] = in[k];
 		}
 		if(flag_min_max[c]) {
@@ -742,7 +742,7 @@ std::unique_ptr<Area> FilterProcess_GP_Wrapper::process_sampling(MT_t *mt_obj, P
 			d_out.position.px_size_y = px_size_out_y;
 			d_out.edges.reset();
 
-			for(int i = 0; i < gp_vector.size(); ++i)
+			for(size_t i = 0; i < gp_vector.size(); ++i)
 				coordinates_rgb |= gp_vector[i]->is_rgb();
 			Area::type_t area_type = coordinates_rgb ? Area::type_t::float_p6 : Area::type_t::float_p2;
 			area_out_coordinates = std::unique_ptr<Area>(new Area(&d_out, area_type));

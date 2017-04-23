@@ -570,7 +570,7 @@ cerr << "cached_area == " << process_cache->cached_area_for_second_pass.get() <<
 	// remove deprecated caches if any
 	bool remove_cache = false;
 	int index_tiling = task_filter_records.size() - 1;
-	for(int i = 0; i < task_filter_records.size(); ++i) {
+	for(unsigned i = 0; i < task_filter_records.size(); ++i) {
 		if(task_filter_records[i].use_tiling) {
 			index_tiling = i;
 			break;
@@ -618,7 +618,7 @@ cerr << "cached_area == " << process_cache->cached_area_for_second_pass.get() <<
 
 	// prepare list of filters to process
 	if(index != 0)
-		for(int i = index; i < task_filter_records.size(); ++i)
+		for(unsigned i = index; i < task_filter_records.size(); ++i)
 			filters_to_process.push_back(task_filter_records[i]);
 	else
 		filters_to_process = task_filter_records;
@@ -823,7 +823,7 @@ cerr << "      size: " << tiles_request->post_width << "-" << tiles_request->pos
 cerr << "   px_size: " << tiles_request->scale_factor_x << "-" << tiles_request->scale_factor_y << endl;
 cerr << "  position: " << target_dimensions.position.x << "-" << target_dimensions.position.y << endl;
 */
-	for(int i = 0; i < tiles_request->tiles.size() + 1; ++i) {
+	for(unsigned i = 0; i < tiles_request->tiles.size() + 1; ++i) {
 		// actually, tiles coordinates and edges flags (outer|inner) was prepared in tiles_request, nothing to do here
 //cerr << endl << "....................................................................." << "process_size_backward(); iteration == " << i << endl;
 		if(i == 0) {

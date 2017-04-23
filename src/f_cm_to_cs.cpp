@@ -223,7 +223,7 @@ std::vector<class FP_CM_to_CS::task_t *> FP_CM_to_CS::task_prepare(int threads_c
 
 void FP_CM_to_CS::filter_post(fp_cp_args_t *args) {
 	std::vector<task_t *> tasks(args->vector_private.size());
-	for(int i = 0; i < args->vector_private.size(); ++i)
+	for(size_t i = 0; i < args->vector_private.size(); ++i)
 		tasks[i] = (task_t *)(args->vector_private[i].get());
 	task_release(tasks, args->threads_count, args->mutators_multipass, false, (FP_CM_to_CS_Cache_t *)args->cache);
 }

@@ -26,7 +26,7 @@ void Jsh_to_sRGB(float *sRGB, const float *Jsh);
 class CM_Convert {
 public:
 	virtual ~CM_Convert(void) {};
-	virtual void convert(float *to, const float *from) {};
+	virtual void convert(float *to, const float *from) = 0;
 	virtual float get_C_from_Jsh(const float *Jsh) {return Jsh[1];}
 	virtual float get_s_from_JCh(const float *JCh) {return JCh[1];}
 };

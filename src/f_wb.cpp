@@ -320,7 +320,7 @@ void F_WB::set_PS_and_FS(PS_Base *new_ps, FS_Base *fs_base, PS_and_FS_args_t arg
 	}
 
 	// load presets
-	int tb_index = 0;
+	size_t tb_index = 0;
 	for(; tb_index < wb_presets.size(); ++tb_index)
 		if(wb_presets[tb_index].id == ps->wb_id)
 			break;
@@ -677,7 +677,7 @@ QWidget *F_WB::controls(QWidget *parent) {
 	wb_tb["fluorescent"] = _wb_tb_t(":/resources/wb_fluorescent.svg", tr("White fluorescent (~4000K)"), true);
 
     radio_wb = new QButtonGroup(wb_rwbh);
-	for(int i = 0; i < wb_presets.size(); ++i) {
+	for(size_t i = 0; i < wb_presets.size(); ++i) {
 		_wb_tb_t &rec = wb_tb[wb_presets[i].id];
 		QToolButton *tb = new QToolButton(parent);
 		tb->setCheckable(true);

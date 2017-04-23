@@ -29,7 +29,6 @@ protected slots:
 	void slot_jpeg_iq(double _value);
 	void slot_jpeg_subsampling(int id);
 	void slot_jpeg_color_space(int id);
-	void slot_png_compression(double _value);
 	void slot_png_bits(int id);
 	void slot_png_alpha(int checked);
 	void slot_tiff_bits(int id);

@@ -333,7 +333,7 @@ class TF_JS_Spline : public TableFunction {
 public:
 	TF_JS_Spline(const QVector<QPointF> *_points) {
 		std::vector<std::pair<float, float>> points(_points->size());
-		for(int i = 0; i < points.size(); ++i)
+		for(size_t i = 0; i < points.size(); ++i)
 			points[i] = std::pair<float, float>{(*_points)[i].x(), (*_points)[i].y()};
 		spline = new Spline_Calc(points);
 		_init(0.0, 1.0, 1024);

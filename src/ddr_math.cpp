@@ -149,11 +149,11 @@ Spline_Calc::Spline_Calc(const std::vector<std::pair<float, float>> &_points, fl
 		throw("wrong points vector in Spline_Calc constructor");
 	}
 	// normalize points - use middle Y for all points with the same X
-	for(int i = 0; i < _points.size(); ++i) {
+	for(size_t i = 0; i < _points.size(); ++i) {
 		int c = 1;
 		float x = _points[i].first;
 		float y = _points[i].second;
-		for(int j = i + 1; j < _points.size(); ++j) {
+		for(size_t j = i + 1; j < _points.size(); ++j) {
 			if(_points[i].first != _points[j].first) {
 				break;
 			} else {

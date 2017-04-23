@@ -7,14 +7,6 @@
  *
  */
 
-/*
- * NOTES:
-	- looks like noone use embedded thumbs nowadays, so just skip creation of them
-	- in PNG - 16 bit byte order on PC is swapped, but looks like noone take care about 
-		order information from header. Bad, so do real bytes swap - can be slow...
-
-*/
-
 #include <QtCore>
 
 #include <iostream>
@@ -59,14 +51,6 @@ export_parameters_t::export_parameters_t(void) {
 	folder = "";
 	image_type = export_parameters_t::image_type_jpeg;
 	process_asap = true;
-	t_jpeg_iq = 95;
-	t_jpeg_color_subsampling_1x1 = true;
-	t_jpeg_color_space_rgb = false;
-	t_png_compression = Z_BEST_SPEED;
-	t_png_alpha = false;
-	t_png_bits = 8;
-	t_tiff_alpha = false;
-	t_tiff_bits = 8;
 	scaling_force = false;
 	scaling_to_fill = false;	// true - allow cut to fill size; false - use smallest size to fit
 	scaling_width = 1280;
@@ -154,31 +138,75 @@ string export_parameters_t::get_file_name(void) {
 }
 
 bool export_parameters_t::alpha(void) {
-	bool r = false;
-	if(image_type == image_type_png && t_png_alpha)
-		r = true;
-	if(image_type == image_type_tiff && t_tiff_alpha)
-		r = true;
-	return r;
+	bool alpha = false;
+	if(image_type == image_type_png && options_png.alpha)
+		alpha = true;
+	if(image_type == image_type_tiff && options_tiff.alpha)
+		alpha = true;
+	return alpha;
 }
 
 int export_parameters_t::bits(void) {
-	int b = 8;
-	if(image_type == image_type_png && t_png_bits == 16)
-		b = 16;
-	if(image_type == image_type_tiff && t_tiff_bits == 16)
-		b = 16;
-	return b;
+	int bits = 8;
+	if(image_type == image_type_png && options_png.bits == 16)
+		bits = 16;
+	if(image_type == image_type_tiff && options_tiff.bits == 16)
+		bits = 16;
+	return bits;
 }
 
 //------------------------------------------------------------------------------
-void Export::export_tiff(string file_name, Area *area_image, Area *area_thumb, export_parameters_t *ep, int rotation, Metadata *metadata) {
+static void write_exif(string fname, int rotation, Metadata *metadata, int width, int height, Area *area_thumb) {
+	int orientation = 1;
+	if(rotation ==  90)	orientation = 6;
+	if(rotation == 180)	orientation = 3;
+	if(rotation == 270)	orientation = 8;
+
+	// NOTE: rewrite fields with real values - width and height, possibly other too...
+	Exiv2::Image::AutoPtr exif_image = Exiv2::ImageFactory::open(fname);
+	exif_image->readMetadata();
+	if(metadata != nullptr)
+		exif_image->setExifData(metadata->_exif_image->exifData());
+	Exiv2::ExifData& exif_data = exif_image->exifData();
+
+	// store thumbnail
+	if(area_thumb != nullptr) {
+		Exiv2::ExifThumb exif_thumb(exif_data);
+		exif_thumb.erase();
+		QImage image = area_thumb->to_qimage();
+		QByteArray ba;
+		QBuffer buffer(&ba);
+		buffer.open(QIODevice::WriteOnly);
+		image.save(&buffer, "JPEG", 85);
+		Exiv2::URational r(72, 1);
+		exif_thumb.setJpegThumbnail((const Exiv2::byte *)buffer.data().data(), buffer.size(), r, r, RESUNIT_INCH);
+	}
+
+	string software = APP_NAME;
+	software += " ";
+	software += APP_VERSION;
+	exif_data["Exif.Image.Software"] = software.c_str();
+	exif_data["Exif.Image.Orientation"] = uint16_t(orientation);
+	// update geometry of photo
+	exif_data["Exif.Iop.RelatedImageWidth"] = (uint16_t)width;
+	exif_data["Exif.Iop.RelatedImageLength"] = (uint16_t)height;
+	exif_data["Exif.Photo.PixelXDimension"] = (uint16_t)width;
+	exif_data["Exif.Photo.PixelYDimension"] = (uint16_t)height;
+	try {
+		exif_image->writeMetadata();
+	} catch (Exiv2::AnyError& e) {
+		cerr << "Exiv2: FATAL ERROR TO WRITE: \"" << e << "\"" << endl;
+	}
+}
+
+//------------------------------------------------------------------------------
+static void export_tiff(string file_name, Area *area_image, Area *area_thumb, encoding_options_tiff options, int rotation, Metadata *metadata) {
 	int width = area_image->mem_width();
 	int height = area_image->mem_height();
 	void *image = (void *)area_image->ptr();
 
-	int bits = ep->t_tiff_bits;
-	bool alpha = ep->t_tiff_alpha;
+	const int bits = options.bits;
+	const bool alpha = options.alpha;
 
 	TIFF *tiff;
 	// Open the TIFF file
@@ -191,7 +219,15 @@ void Export::export_tiff(string file_name, Area *area_image, Area *area_thumb, e
 	TIFFSetField(tiff, TIFFTAG_IMAGELENGTH, height);
 	TIFFSetField(tiff, TIFFTAG_BITSPERSAMPLE, (bits == 16) ? 16 : 8);
 	TIFFSetField(tiff, TIFFTAG_SAMPLESPERPIXEL, alpha ? 4 : 3);	// RGBA
+
+#ifdef LZW_SUPPORT
+	const bool compression_lzw = true;
+	TIFFSetField(tiff, TIFFTAG_COMPRESSION, COMPRESSION_LZW);
+#else
+	const bool compression_lzw = false;
 	TIFFSetField(tiff, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
+#endif
+
 	TIFFSetField(tiff, TIFFTAG_ROWSPERSTRIP, height);
 	int bytes = (alpha ? 4 : 3) * ((bits == 8) ? 1 : 2);
 	TIFFSetField(tiff, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
@@ -237,7 +273,6 @@ Exif.Photo.PixelXDimension                   Short       1  2048
 Exif.Photo.PixelYDimension                   Short       1  1536
 
 */
-
 	// write EXIF
 	Exiv2::Image::AutoPtr exif_image = Exiv2::ImageFactory::open(file_name);
 	exif_image->readMetadata();
@@ -271,9 +306,9 @@ Exif.Photo.PixelYDimension                   Short       1  1536
 	if(alpha)
 		sv->value_.push_back(bits);
 	exif_data["Exif.Image.BitsPerSample"].setValue(sv.get());
-//	if(compression_lzw)
-//		exif_data["Exif.Image.Compression"] = (uint16_t)COMPRESSION_LZW;
-//	else
+	if(compression_lzw)
+		exif_data["Exif.Image.Compression"] = (uint16_t)COMPRESSION_LZW;
+	else
 		exif_data["Exif.Image.Compression"] = (uint16_t)COMPRESSION_NONE;
 	exif_data["Exif.Image.PhotometricInterpretation"] = (uint16_t)PHOTOMETRIC_RGB;
 #if __BYTE_ORDER == __BIG_ENDIAN
@@ -301,7 +336,7 @@ Exif.Photo.PixelYDimension                   Short       1  1536
 }
 
 //------------------------------------------------------------------------------
-void Export::export_jpeg(string fname, Area *area_image, Area *area_thumb, export_parameters_t *ep, int rotation, Metadata *metadata) {
+static void export_jpeg(string fname, Area *area_image, Area *area_thumb, encoding_options_jpeg options, int rotation, Metadata *metadata) {
 //cerr << endl << "export_jpeg: fname == " << fname << endl << endl;
 	int width = area_image->mem_width();
 	int height = area_image->mem_height();
@@ -310,7 +345,7 @@ void Export::export_jpeg(string fname, Area *area_image, Area *area_thumb, expor
 //cerr << "area_image->mem_size() == " << area_image->mem_width() << "x" << area_image->mem_height() << endl;
 //cerr << "area_image->size() == " << area_image->dimensions()->width() << "x" << area_image->dimensions()->height() << endl;
 
-	int quality = ep->t_jpeg_iq;
+	int quality = options.image_quality;
 	if(quality < 0)
 		quality = 0;
 	if(quality > 100)
@@ -342,7 +377,7 @@ void Export::export_jpeg(string fname, Area *area_image, Area *area_thumb, expor
 	cinfo.input_components = 3;
 	cinfo.in_color_space = JCS_RGB;
 	jpeg_set_defaults(&cinfo);
-	if(ep->t_jpeg_color_space_rgb) {
+	if(options.color_space_rgb) {
 		// for best colors, useful for anaglyph images
 		jpeg_set_colorspace(&cinfo, JCS_RGB);
 	} else {
@@ -358,9 +393,9 @@ void Export::export_jpeg(string fname, Area *area_image, Area *area_thumb, expor
 // TODO: check error handling via force incorrect factor value to '0'
 	// with JCS_RGB is 1x1 (about x4 larger file); with JCS_YCbCr can be 2x2 (as default) or 1x1 (about x2 larger file)
 	int colors_subsample = 2;
-	if(ep->t_jpeg_color_subsampling_1x1)
+	if(options.color_subsampling_1x1)
 		colors_subsample = 1;
-	if(ep->t_jpeg_color_space_rgb)
+	if(options.color_space_rgb)
 		colors_subsample = 1;
 	cinfo.comp_info[0].v_samp_factor = colors_subsample;
 	cinfo.comp_info[0].h_samp_factor = colors_subsample;
@@ -388,27 +423,20 @@ void Export::export_jpeg(string fname, Area *area_image, Area *area_thumb, expor
 }
 
 //------------------------------------------------------------------------------
-void Export::export_png(string file_name, Area *area_image, Area *area_thumb, export_parameters_t *ep, int rotation, Metadata *metadata) {
+static void export_png(string file_name, Area *area_image, Area *area_thumb, encoding_options_png options, int rotation, Metadata *metadata) {
 	int width = area_image->mem_width();
 	int height = area_image->mem_height();
 	void *image = (void *)area_image->ptr();
 
-#if 0
-	int compression_ratio = ep->t_png_compression;
-	if(compression_ratio < 0)
-		compression_ratio = 0;
-	if(compression_ratio > Z_BEST_COMPRESSION)
-		compression_ratio = Z_BEST_COMPRESSION;
-#else
 	// zlib compression level
 	// Z_NO_COMPRESSION unreasonably huge
 	// Z_BEST_COMPRESSION unreasonably slow
 	int compression_ratio = Z_BEST_SPEED;
-#endif
-	int bits = ep->t_png_bits;
+
+	int bits = options.bits;
 	if(bits != 8 && bits != 16)
 		bits = 8;
-	bool alpha = ep->t_png_alpha;
+	bool alpha = options.alpha;
 //cerr << "alpha == " << alpha << "; bits == " << bits << endl;
 //cerr << "file_name == " << file_name << endl;
 
@@ -462,7 +490,6 @@ void Export::export_png(string file_name, Area *area_image, Area *area_thumb, ex
 	// !!! png_set_tIME(png_ptr, info_ptr, mod_time);
 	// !!! png_set_text(png_ptr, info_ptr, text_ptr, num_text);
 	// - set 'Title', 'Author', 'Descripthion', 'Copyright', 'Creation Time', 'Software' etc...
-
 	png_write_info(png_ptr, info_ptr);
 
 	int row_stride = 0;	/* JSAMPLEs per row in image_buffer */
@@ -505,60 +532,17 @@ void Export::export_png(string file_name, Area *area_image, Area *area_thumb, ex
 }
 
 //------------------------------------------------------------------------------
-void Export::write_exif(string fname, int rotation, Metadata *metadata, int width, int height, Area *area_thumb) {
-	int orientation = 1;
-	if(rotation ==  90)	orientation = 6;
-	if(rotation == 180)	orientation = 3;
-	if(rotation == 270)	orientation = 8;
-
-	// NOTE: rewrite fields with real values - width and height, possibly other too...
-	Exiv2::Image::AutoPtr exif_image = Exiv2::ImageFactory::open(fname);
-	exif_image->readMetadata();
-	if(metadata != nullptr)
-		exif_image->setExifData(metadata->_exif_image->exifData());
-	Exiv2::ExifData& exif_data = exif_image->exifData();
-
-	// store thumbnail
-	if(area_thumb != nullptr) {
-		Exiv2::ExifThumb exif_thumb(exif_data);
-		exif_thumb.erase();
-		QImage image = area_thumb->to_qimage();
-		QByteArray ba;
-		QBuffer buffer(&ba);
-		buffer.open(QIODevice::WriteOnly);
-		image.save(&buffer, "JPEG", 85);
-		Exiv2::URational r(72, 1);
-		exif_thumb.setJpegThumbnail((const Exiv2::byte *)buffer.data().data(), buffer.size(), r, r, RESUNIT_INCH);
-	}
-
-	string software = APP_NAME;
-	software += " ";
-	software += APP_VERSION;
-	exif_data["Exif.Image.Software"] = software.c_str();
-	exif_data["Exif.Image.Orientation"] = uint16_t(orientation);
-	// update geometry of photo
-	exif_data["Exif.Iop.RelatedImageWidth"] = (uint16_t)width;
-	exif_data["Exif.Iop.RelatedImageLength"] = (uint16_t)height;
-	exif_data["Exif.Photo.PixelXDimension"] = (uint16_t)width;
-	exif_data["Exif.Photo.PixelYDimension"] = (uint16_t)height;
-	try {
-		exif_image->writeMetadata();
-	} catch (Exiv2::AnyError& e) {
-		cerr << "Exiv2: FATAL ERROR TO WRITE: \"" << e << "\"" << endl;
-	}
-}
-
 void Export::export_photo(std::string file_name, Area *area_image, Area *area_thumb, export_parameters_t *ep, int rotation, Metadata *metadata) {
 	if(area_image == nullptr || area_thumb == nullptr)
 		return;
 	if(area_image->ptr() == nullptr || area_thumb->ptr() == nullptr)
 		return;
 	if(ep->image_type == export_parameters_t::image_type_jpeg)
-		export_jpeg(file_name, area_image, area_thumb, ep, rotation, metadata);
+		export_jpeg(file_name, area_image, area_thumb, ep->options_jpeg, rotation, metadata);
 	if(ep->image_type == export_parameters_t::image_type_png)
-		export_png(file_name, area_image, area_thumb, ep, rotation, metadata);
+		export_png(file_name, area_image, area_thumb, ep->options_png, rotation, metadata);
 	if(ep->image_type == export_parameters_t::image_type_tiff)
-		export_tiff(file_name, area_image, area_thumb, ep, rotation, metadata);
+		export_tiff(file_name, area_image, area_thumb, ep->options_tiff, rotation, metadata);
 }
 
 //------------------------------------------------------------------------------
